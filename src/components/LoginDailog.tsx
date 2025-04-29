@@ -1,16 +1,14 @@
 import * as React from 'react';
-import { AppProvider } from '@toolpad/core/AppProvider';
 import {
-  AuthResponse,
-  SignInPage,
-  type AuthProvider,
-  SupportedAuthProvider,
-} from '@toolpad/core/SignInPage';
-import { useTheme } from '@mui/material/styles';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import IconButton from '@mui/material/IconButton';
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  IconButton,
+  TextField,
+  Button,
+  Box,
+  Typography,
+} from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 
 interface CombinedSignInPageProps {
@@ -18,32 +16,16 @@ interface CombinedSignInPageProps {
   onClose: () => void;
 }
 
-const providers: { id: SupportedAuthProvider; name: string }[] = [
-  { id: 'github', name: 'GitHub' },
-  { id: 'google', name: 'Google' },
-  { id: 'facebook', name: 'Facebook' },
-  { id: 'twitter', name: 'Twitter' },
-  { id: 'linkedin', name: 'LinkedIn' },
-  { id: 'nodemailer', name: 'Email' },
-];
-
-const signIn: (provider: AuthProvider) => Promise<AuthResponse> = async (
-  provider,
-) => {
-  return new Promise<AuthResponse>((resolve) => {
-    setTimeout(() => {
-      console.log(`Sign in with ${provider.id}`);
-      if (provider.id === 'nodemailer') {
-        resolve({ success: 'Check your email for a verification link.' });
-      } else {
-        resolve({ error: 'Under Development' });
-      }
-    }, 500);
-  });
-};
-
 const CombinedSignInPage: React.FC<CombinedSignInPageProps> = ({ open, onClose }) => {
-  const theme = useTheme();
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Email:', email);
+    console.log('Password:', password);
+    // Handle login logic here
+  };
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -58,13 +40,30 @@ const CombinedSignInPage: React.FC<CombinedSignInPageProps> = ({ open, onClose }
         </IconButton>
       </DialogTitle>
       <DialogContent>
-        <AppProvider theme={theme}>
-          <SignInPage
-            signIn={signIn}
-            providers={providers}
-            slotProps={{ emailField: { autoFocus: false } }}
+        <Box component="form" onSubmit={handleLogin} sx={{ mt: 2 }}>
+          <Typography variant="body1" mb={1}>Welcome back! Please sign in.</Typography>
+          <TextField
+            fullWidth
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            margin="normal"
+            required
           />
-        </AppProvider>
+          <TextField
+            fullWidth
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            margin="normal"
+            required
+          />
+          <Button type="submit" variant="contained" fullWidth sx={{ mt: 2 }}>
+            Sign In
+          </Button>
+        </Box>
       </DialogContent>
     </Dialog>
   );
