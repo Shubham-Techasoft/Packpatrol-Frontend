@@ -111,7 +111,7 @@ export default function Footer() {
           variant="body2"
           align="center"
           // sx={{ py: 1, backgroundColor: "#f5f5f5" }}
-          sx={{ py: 1, backgroundColor: "#B0E0E6" }}
+          sx={{ py: 1, bgcolor: "rgb(209, 233, 237)" }}
         >
           &copy; {new Date().getFullYear()} Techasoft Pvt Ltd. All rights
           reserved.

@@ -180,7 +180,8 @@ export default function Home() {
         flexGrow: 1,
         height: "80vh",
         padding: 2,
-        background: "linear-gradient(to right, #B0E0E6, #ADD8E6)",
+        // background: "linear-gradient(to right, #B0E0E6, #ADD8E6)",
+        bgcolor: "rgb(209, 233, 237)",
       }}
     >
       <Grid container spacing={2} sx={{ height: "100%" }}>

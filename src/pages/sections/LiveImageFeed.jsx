@@ -6,7 +6,6 @@ function LiveImageFeed({ imageArray }) {
 
   useEffect(() => {
     if (imageArray.length > 0) {
-      // Always show the last (most recent) image
       setCurrentImage(imageArray[imageArray.length - 1]);
     }
   }, [imageArray]);
