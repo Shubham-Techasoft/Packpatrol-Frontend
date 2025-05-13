@@ -2,16 +2,35 @@ import * as React from "react";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
-import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import CloseIcon from "@mui/icons-material/Close";
-import Box from "@mui/material/Box";
+import { useTheme } from "@mui/material/styles";
 
 export default function FavoritesDialog({ open, handleClose }) {
+  const theme = useTheme();
+
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      fullWidth
+      maxWidth="md" // same size as RecentActivitiesDialog
+      PaperProps={{
+        sx: {
+          padding: theme.spacing(2),
+          position: "relative",
+          zIndex: 1301,
+        },
+      }}
+      BackdropProps={{
+        sx: {
+          backdropFilter: "blur(6px)",
+          backgroundColor: "rgba(0, 0, 0, 0.2)", // optional overlay
+        },
+      }}
+    >
       <DialogTitle>
-        Favorite Variants
+        Favorite Settings
         <IconButton
           aria-label="close"
           onClick={handleClose}
@@ -25,7 +44,7 @@ export default function FavoritesDialog({ open, handleClose }) {
           <CloseIcon />
         </IconButton>
       </DialogTitle>
-      <DialogContent dividers></DialogContent>
+      <DialogContent dividers>{/* Add your content here */}</DialogContent>
     </Dialog>
   );
 }

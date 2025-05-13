@@ -224,6 +224,7 @@ const pages = [
   { name: "Home", path: "/" },
   { name: "Dashboard", path: "/dashboard" },
   { name: "About", path: "/about" },
+  { name: "Dev Settings", path: "/dev-settings" },
 ];
 const settings = ["Profile", "Images", "Logout"];
 
@@ -334,7 +335,7 @@ function ResponsiveAppBar() {
                 <Button
                   key={page.name}
                   onClick={() => handleCloseNavMenu(page.path)}
-                  sx={{ my: 2, color: "white", display: "block" }}
+                  sx={{ my: 2, color: "white", display: "block", gap: 2 }}
                 >
                   {page.name}
                 </Button>

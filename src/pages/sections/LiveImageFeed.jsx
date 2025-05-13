@@ -14,12 +14,14 @@ function LiveImageFeed({ imageArray }) {
     <Box
       sx={{
         width: "100%",
-        maxWidth: 800,
+        // maxWidth: 850,
         margin: "auto",
-        borderRadius: 2,
-        boxShadow: 3,
+        borderRadius: 7,
+        // boxShadow: currentImage ? 1 : "none",
         overflow: "hidden",
-        padding: 1,
+        // overflow: "scroll",
+        paddingY: 0.9,
+        paddingX: 0.5,
       }}
     >
       {currentImage ? (
@@ -28,13 +30,24 @@ function LiveImageFeed({ imageArray }) {
           alt="Live Feed"
           style={{
             width: "100%",
-            height: "auto",
+            height: "100%",
             objectFit: "cover",
             display: "block",
           }}
         />
       ) : (
-        <p>There is no live updates yet.......</p>
+        <p
+          style={{
+            textAlign: "center",
+            boxShadow: "none !important",
+            fontSize: "1.2rem",
+            fontFamily: "Arial, sans-serif",
+            letterSpacing: "0.1em",
+            wordSpacing: "0.2em",
+          }}
+        >
+          There is no live updates yet.......
+        </p>
       )}
     </Box>
   );

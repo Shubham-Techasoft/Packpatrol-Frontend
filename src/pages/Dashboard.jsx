@@ -61,7 +61,7 @@ const data = [
 
 export default function Dashboard() {
   return (
-    <Box sx={{ p: 4 }}>
+    <Box sx={{ p: 4, bgcolor: "rgb(209, 233, 237)" }}>
       {/* <Typography variant="h4" gutterBottom>
         Biscuit Manufacturing Dashboard 🍪
       </Typography> */}
@@ -284,4 +284,3 @@ export default function Dashboard() {
 // };
 
 // export default Dashboard;
-

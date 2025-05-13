@@ -1,9 +1,27 @@
 // pages/Home.jsx
 import * as React from "react";
-import { Box, Paper, Typography, styled } from "@mui/material";
+import {
+  Box,
+  Paper,
+  Typography,
+  styled,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
+  Tooltip,
+  TextField,
+  MenuItem,
+} from "@mui/material";
+import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
 import Grid from "@mui/material/Grid";
 import StarIcon from "@mui/icons-material/Star";
 import LiveImageFeed from "./sections/LiveImageFeed";
+
+import StackIcon from "@mui/icons-material/StackedLineChart";
+import HeightIcon from "@mui/icons-material/Straighten";
+import ErrorIcon from "@mui/icons-material/ErrorOutline";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
   backgroundColor: "#fff",
@@ -12,15 +30,6 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   display: "flex",
   flexDirection: "column",
   boxShadow: theme.shadows[3],
-}));
-
-const MessageItem = styled(Box)(({ theme }) => ({
-  display: "flex",
-  alignItems: "center",
-  padding: theme.spacing(0.5), // Adjust padding as needed
-  borderRadius: theme.shape.borderRadius,
-  marginBottom: theme.spacing(1), // Adjust spacing between messages
-  // border: `1px solid ${theme.palette.divider}`, // Optional border
 }));
 
 const logMessages = [
@@ -41,18 +50,72 @@ const logMessages = [
   "machine change to 'Oats Delight' — expected yield: 1,500 biscuits.",
 ];
 
+// const stackData = [
+//   {
+//     title: "Stack Count",
+//     value: "10",
+//     bg: "#FFD700, #FFA500",
+//     tooltip: "Total number of stacks processed",
+//   },
+//   {
+//     title: "Stack Length",
+//     value: "50 mm",
+//     bg: "#8E2DE2, #4A00E0",
+//     tooltip: "Length of each stack in millimeters",
+//   },
+//   {
+//     title: "Rejected Count",
+//     value: "20,045",
+//     bg: "#FF416C, #FF4B2B",
+//     tooltip: "Total rejected items",
+//   },
+//   {
+//     title: "Passed Count",
+//     value: "200,000,237",
+//     bg: "#00b09b, #96c93d",
+//     tooltip: "Total items passed QA",
+//   },
+// ];
+
+const stackData = [
+  {
+    title: "Stack Count",
+    value: "10",
+    bg: "#FFD700, #FFA500",
+    tooltip: "Total number of stacks processed",
+    icon: <StackIcon sx={{ fontSize: 28, mb: 0.5 }} />,
+  },
+  {
+    title: "Stack Length",
+    value: "50 mm",
+    bg: "#8E2DE2, #4A00E0",
+    tooltip: "Length of each stack in millimeters",
+    icon: <HeightIcon sx={{ fontSize: 28, mb: 0.5 }} />,
+  },
+  {
+    title: "Rejected Count",
+    value: "20,045",
+    bg: "#FF416C, #FF4B2B",
+    tooltip: "Total rejected items during inspection",
+    icon: <ErrorIcon sx={{ fontSize: 28, mb: 0.5 }} />,
+  },
+  {
+    title: "Passed Count",
+    value: "200,000,237",
+    bg: "#00b09b, #96c93d",
+    tooltip: "Items that passed quality checks",
+    icon: <CheckCircleIcon sx={{ fontSize: 28, mb: 0.5 }} />,
+  },
+];
+
 export default function Home() {
-  // const [imageUrl, setImageUrl] = React.useState(
-  //   "https://via.placeholder.com/600x300"
-  // );
-
   const [imageUrls, setImageUrls] = React.useState([]);
-
   const [messages, setMessages] = React.useState(logMessages);
   const [selectedMachine, setSelectedMachine] = React.useState("");
   const [stackSize, setStackSize] = React.useState("");
   const [status, setStatus] = React.useState("stopped");
 
+  const [selectedVariant, setSelectedVariant] = React.useState("");
   const [favorites, setFavorites] = React.useState([]);
   const [minStackSize, setMinStackSize] = React.useState("");
   const [maxStackSize, setMaxStackSize] = React.useState("");
@@ -95,7 +158,6 @@ export default function Home() {
         // setFavoritesOpen(true);
       } else {
         alert("This setting is already in your favorites.");
-        // Optionally, you could provide other feedback to the user
       }
     } else {
       alert(
@@ -105,73 +167,85 @@ export default function Home() {
   };
 
   React.useEffect(() => {
-    console.log("after clicking on add favorites: ", favorites);
-    console.log("the live image data: ", imageUrls);
-
-    // const imageSocket = new WebSocket("ws://localhost:8000/home/ws/images");
-    // imageSocket.onmessage = (event) => setImageUrl(event.data);
-    // imageSocket.onerror = (error) =>
-    //   console.error("Image WebSocket Error: ", error);
-    // imageSocket.onclose = () => console.log("Image WebSocket closed.");
-
-    // const messageSocket = new WebSocket("ws://localhost:8000/home/ws/messages");
-    // messageSocket.onmessage = (event) =>
-    //   setMessages((prev) => [...prev, event.data]);
-    // messageSocket.onerror = (error) =>
-    //   console.error("Message WebSocket Error: ", error);
-    // messageSocket.onclose = () => console.log("Message WebSocket closed.");
-
     const eventSource = new EventSource(
       "http://localhost:8000/home/image-stream"
     );
 
-    eventSource.onopen = () => {
-      console.log("EventSource connection established.");
-    };
-
     eventSource.onmessage = (event) => {
-      console.log("Received event:", event); // Log the entire event object
       const imageUrl = event.data;
-      console.log("Received image URL:", imageUrl);
       setImageUrls((prevUrls) => [...prevUrls, imageUrl]);
-      // setImageUrls((prevUrls) => [...prevUrls.slice(-9), imageUrl]);
     };
 
     eventSource.onerror = (error) => {
       console.error("SSE error:", error);
     };
 
-    console.log("this is eventsource var: ", eventSource);
-
     return () => {
-      // imageSocket.close();
-      // messageSocket.close();
       eventSource.close();
-      console.log("EnentSource connection is closed!");
     };
-  }, [favorites, imageUrls]);
+  }, []);
+
+  // const handleSubmit = (actionType) => {
+  //   if (actionType === "start" && (!selectedMachine || !stackSize)) {
+  //     alert("Please select a machine and enter stack size.");
+  //     return;
+  //   }
+
+  //   fetch("/api/control", {
+  //     method: "POST",
+  //     headers: { "Content-Type": "application/json" },
+  //     body: JSON.stringify({
+  //       action: actionType,
+  //       machine: selectedMachine,
+  //       stackSize: stackSize,
+  //     }),
+  //   })
+  //     .then((response) => response.json())
+  //     .then((data) => {
+  //       console.log("Response:", data);
+  //       setStatus(actionType === "start" ? "running" : "stopped");
+  //     })
+  //     .catch((error) => console.error("Error:", error));
+  // };
 
   const handleSubmit = (actionType) => {
-    // if (actionType === "start" && (!selectedMachine || !stackSize)) {
-    //   alert("Please select a machine and enter stack size.");
-    //   return;
-    // }
+    // For 'start', validate that required fields are filled
+    if (actionType === "start") {
+      if (
+        !selectedMachine ||
+        !minStackSize ||
+        !maxStackSize ||
+        !minStackLength ||
+        !maxStackLength
+      ) {
+        alert("Please fill in all fields before starting the machine.");
+        return;
+      }
+    }
 
-    fetch("/api/control", {
+    fetch("http://localhost:8000/machine/control", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        action: actionType,
-        machine: selectedMachine,
-        stackSize: stackSize,
+        action: actionType, // for now we are only sending the action type later on we can send the input val as well
       }),
     })
-      .then((response) => response.json())
+      .then((res) => {
+        if (!res.ok) {
+          return res.json().then((err) => {
+            throw new Error(err.detail || "Something went wrong");
+          });
+        }
+        return res.json();
+      })
       .then((data) => {
-        console.log("Response:", data);
+        console.log("Machine Control Response:", data);
         setStatus(actionType === "start" ? "running" : "stopped");
       })
-      .catch((error) => console.error("Error:", error));
+      .catch((err) => {
+        console.error("Control Error:", err);
+        alert(err.message || "Failed to control machine.");
+      });
   };
 
   return (
@@ -184,7 +258,7 @@ export default function Home() {
         bgcolor: "rgb(209, 233, 237)",
       }}
     >
-      <Grid container spacing={2} sx={{ height: "100%" }}>
+      <Grid container spacing={1.5} sx={{ height: "100%" }}>
         {/* Left side - Image + Header */}
         <Grid item xs={12} md={8} sx={{ height: "100%" }}>
           <StyledPaper
@@ -202,110 +276,94 @@ export default function Home() {
             }}
           >
             {/* Header */}
+
             <Box
               sx={{
                 display: "flex",
                 justifyContent: "space-between",
+                alignItems: "center",
                 width: "100%",
-                mb: 1,
+                paddingTop: 0.5,
               }}
             >
+              {stackData.map((item, index) => (
+                <Tooltip key={index} title={item.tooltip} arrow>
+                  <Box
+                    sx={{
+                      flex: 1,
+                      background: `linear-gradient(135deg, ${item.bg})`,
+                      color: "#fff",
+                      padding: 1.5,
+                      marginX: 0.5,
+                      borderRadius: 2,
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      textAlign: "center",
+                      cursor: "default",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.8,
+                        marginBottom: 0.5,
+                        fontWeight: 600,
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <span>{item.title}</span>
+                      {item.icon}
+                    </Box>
+                    <span style={{ fontSize: "1.1rem" }}>{item.value}</span>
+                  </Box>
+                </Tooltip>
+              ))}
+
+              {/* Machine Dropdown */}
               <Box
                 sx={{
-                  flex: 0.7,
-                  background: "linear-gradient(135deg, #FFD700, #FFA500)",
-                  color: "#fff",
-                  padding: 1,
-                  marginX: 0.5,
-                  borderRadius: 2,
-                  fontSize: "0.9rem",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                }}
-              >
-                Stack Count: 10
-              </Box>
-              <Box
-                sx={{
-                  flex: 1,
-                  background: "linear-gradient(135deg, #8E2DE2, #4A00E0)",
-                  color: "#fff",
-                  padding: 1,
-                  marginX: 0.5,
-                  borderRadius: 2,
-                  fontSize: "0.9rem",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                }}
-              >
-                Stack Length: 50mm
-              </Box>
-              <Box
-                sx={{
-                  flex: 2,
-                  background: "linear-gradient(135deg, #FF416C, #FF4B2B)",
-                  color: "#fff",
-                  padding: 1,
-                  marginX: 0.5,
-                  borderRadius: 2,
-                  fontSize: "0.9rem",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                }}
-              >
-                Rejected: 20045
-              </Box>
-              <Box
-                sx={{
-                  flex: 2,
-                  background: "linear-gradient(135deg, #00b09b, #96c93d)",
-                  color: "#fff",
-                  padding: 1,
-                  marginX: 0.5,
-                  borderRadius: 2,
-                  fontSize: "0.9rem",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                }}
-              >
-                Passed: 200000237
-              </Box>
-              <Box
-                sx={{
-                  flex: 1.5,
+                  flex: 1.2,
                   marginX: 0.5,
                   display: "flex",
                   flexDirection: "column",
+                  alignItems: "center",
                   justifyContent: "center",
+                  gap: 1,
+                  borderRadius: 2,
+                  // bgcolor:'red'
                 }}
               >
-                <label
-                  htmlFor="machine-select"
-                  style={{
-                    fontSize: "0.9rem",
-                    marginBottom: 4,
-                    textAlign: "center",
-                    fontWeight: "600",
-                  }}
+                <TextField
+                  fullWidth
+                  select
+                  label="Choose Machine"
+                  value={selectedMachine}
+                  onChange={(e) => setSelectedMachine(e.target.value)}
+                  size="small"
                 >
-                  Choose Machine
-                </label>
-                <select
-                  id="machine-select"
-                  style={{
-                    width: "100%",
-                    padding: "8px",
-                    borderRadius: "8px",
-                    border: "1px solid #bbb",
-                    background: "#ffffff",
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-                    fontSize: "0.9rem",
-                    fontWeight: 500,
-                    cursor: "pointer",
-                  }}
+                  <MenuItem value="">Select</MenuItem>
+                  <MenuItem value="machine1">Machine 1</MenuItem>
+                  <MenuItem value="machine2">Machine 2</MenuItem>
+                  <MenuItem value="machine3">Machine 3</MenuItem>
+                  <MenuItem value="machine4">Machine 4</MenuItem>
+                </TextField>
+
+                <TextField
+                  fullWidth
+                  select
+                  label="Choose Variant"
+                  value={selectedVariant}
+                  onChange={(e) => setSelectedVariant(e.target.value)}
+                  size="small"
                 >
-                  <option value="">Select</option>
-                  <option value="machine1">Machine 1</option>
-                  <option value="machine2">Machine 2</option>
-                  <option value="machine3">Machine 3</option>
-                  <option value="machine4">Machine 4</option>
-                </select>
+                  <MenuItem value="">Select</MenuItem>
+                  <MenuItem value="variant1">Variant 1</MenuItem>
+                  <MenuItem value="variant2">Variant 2</MenuItem>
+                </TextField>
               </Box>
             </Box>
 
@@ -323,31 +381,44 @@ export default function Home() {
           sx={{ height: "100%", display: "flex", flexDirection: "column" }}
         >
           {/* Live Updates */}
+
           <StyledPaper sx={{ flex: 7, overflowY: "auto", bgcolor: "#f5f5f5" }}>
-            <Box sx={{ marginY: -3 }}>
-              <h4>Live Updates</h4>
+            <Box sx={{ mb: -1 }}>
+              <Typography variant="h6" component="h4" gutterBottom>
+                Live Updates
+              </Typography>
             </Box>
             <Box>
               {messages.length > 0 ? (
-                messages.map((msg, index) => (
-                  <MessageItem key={index}>
-                    <Typography
-                      sx={{
-                        fontSize: "1.2em",
-                        color: "text.primary",
-                        marginRight: 1,
-                        lineHeight: 1,
-                      }}
+                <List disablePadding>
+                  {messages.map((msg, index) => (
+                    <ListItem
+                      key={index}
+                      sx={{ padding: "8px 0", alignItems: "flex-start" }}
                     >
-                      •
-                    </Typography>
-                    <Typography sx={{ flexGrow: 1, wordBreak: "break-word" }}>
-                      {msg}
-                    </Typography>
-                  </MessageItem>
-                ))
+                      <ListItemAvatar sx={{ minWidth: "auto", mr: 1, mt: 0.5 }}>
+                        <FiberManualRecordIcon
+                          sx={{ fontSize: "1.2em", color: "primary.main" }}
+                        />
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={<Typography variant="body2">{msg}</Typography>}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
               ) : (
-                <Typography>No updates yet...</Typography>
+                <Typography
+                  sx={{
+                    padding: (theme) => theme.spacing(2),
+                    textAlign: "center",
+                    color: "text.secondary",
+                    fontStyle: "italic",
+                  }}
+                  variant="subtitle2"
+                >
+                  No updates yet...
+                </Typography>
               )}
             </Box>
           </StyledPaper>
@@ -360,19 +431,20 @@ export default function Home() {
             <Box
               sx={{
                 display: "flex",
-                margin: -2,
                 marginLeft: 0.3,
                 alignItems: "center",
                 justifyContent: "space-between",
               }}
             >
-              <h3>Machine Control</h3>
-              {/* <span
-                title="add to favorites"
-                style={{ marginRight: "2rem", cursor: "pointer" }}
+              <Typography
+                variant="h6"
+                component="h3"
+                gutterBottom
+                sx={{ mb: 3 }}
               >
-                <StarIcon />
-              </span> */}
+                Machine Control
+              </Typography>
+              {/* <h3 style={{ fontWeight: "lighter" }}>Machine Control</h3> */}
 
               <span
                 title="add to favorites"
@@ -402,72 +474,76 @@ export default function Home() {
               </span>
             </Box>
             <form onSubmit={(e) => e.preventDefault()}>
-              <Box sx={{ mb: 2 }}>
-                <label htmlFor="machine">Choose Machine</label>
-                <select
-                  id="machine"
+              <Box sx={{ mb: 2, display: "flex", gap: 2 }}>
+                <TextField
+                  fullWidth
+                  select
+                  label="Choose Machine"
                   value={selectedMachine}
                   onChange={(e) => setSelectedMachine(e.target.value)}
-                  style={{ width: "100%", padding: 8 }}
+                  size="small"
                 >
-                  <option value="">Select Machine</option>
-                  <option value="Machine1">Machine 1</option>
-                  <option value="Machine2">Machine 2</option>
-                  <option value="Machine3">Machine 3</option>
-                  <option value="Machine4">Machine 4</option>
-                </select>
+                  <MenuItem value="">Select Machine</MenuItem>
+                  <MenuItem value="machine1">Machine 1</MenuItem>
+                  <MenuItem value="machine2">Machine 2</MenuItem>
+                  <MenuItem value="machine3">Machine 3</MenuItem>
+                  <MenuItem value="machine4">Machine 4</MenuItem>
+                </TextField>
+
+                <TextField
+                  fullWidth
+                  select
+                  label="Choose Variant"
+                  value={selectedVariant}
+                  onChange={(e) => setSelectedVariant(e.target.value)}
+                  size="small"
+                >
+                  <MenuItem value="">Select Variant</MenuItem>
+                  <MenuItem value="variant1">Variant 1</MenuItem>
+                  <MenuItem value="variant2">Variant 2</MenuItem>
+                </TextField>
               </Box>
 
               <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
-                <Box sx={{ flex: 1 }}>
-                  <label htmlFor="minStackSize">Min Stack Size</label>
-
-                  <input
-                    type="number"
-                    id="minStackSize"
-                    value={minStackSize}
-                    onChange={(e) => setMinStackSize(e.target.value)}
-                    placeholder="e.g. 10"
-                    style={{ width: "100%", padding: 8 }}
-                  />
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <label htmlFor="maxStackSize">Max Stack Size</label>
-
-                  <input
-                    type="number"
-                    id="maxStackSize"
-                    value={maxStackSize}
-                    onChange={(e) => setMaxStackSize(e.target.value)}
-                    placeholder="e.g. 50"
-                    style={{ width: "100%", padding: 8 }}
-                  />
-                </Box>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Min Stack Size"
+                  value={minStackSize}
+                  onChange={(e) => setMinStackSize(e.target.value)}
+                  placeholder="e.g. 10"
+                  size="small"
+                />
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Max Stack Size"
+                  value={maxStackSize}
+                  onChange={(e) => setMaxStackSize(e.target.value)}
+                  placeholder="e.g. 50"
+                  size="small"
+                />
               </Box>
 
               <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
-                <Box sx={{ flex: 1 }}>
-                  <label htmlFor="minStackLength">Min Stack Length</label>
-                  <input
-                    type="number"
-                    id="minStackLength"
-                    value={minStackLength}
-                    onChange={(e) => setMinStackLength(e.target.value)}
-                    placeholder="e.g. 10mm"
-                    style={{ width: "100%", padding: 8 }}
-                  />
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <label htmlFor="maxStackLength">Max Stack Length</label>
-                  <input
-                    type="number"
-                    id="maxStackLength"
-                    value={maxStackLength}
-                    onChange={(e) => setMaxStackLength(e.target.value)}
-                    placeholder="e.g. 100mm"
-                    style={{ width: "100%", padding: 8 }}
-                  />
-                </Box>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Min Stack Length"
+                  value={minStackLength}
+                  onChange={(e) => setMinStackLength(e.target.value)}
+                  placeholder="e.g. 10mm"
+                  size="small"
+                />
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Max Stack Length"
+                  value={maxStackLength}
+                  onChange={(e) => setMaxStackLength(e.target.value)}
+                  placeholder="e.g. 100mm"
+                  size="small"
+                />
               </Box>
 
               <Box>
@@ -478,11 +554,17 @@ export default function Home() {
                     style={{
                       width: "100%",
                       padding: 12,
-                      backgroundColor: "green",
+                      // backgroundColor: "green",
+                      background: "linear-gradient(135deg, #00b09b, #96c93d)",
                       color: "white",
                       border: "none",
                       cursor: "pointer",
                       borderRadius: 8,
+                      textAlign: "center",
+                      boxShadow: "none !important",
+                      fontSize: "1rem",
+                      fontFamily: "Arial, sans-serif",
+                      letterSpacing: "0.1em",
                     }}
                   >
                     Start
@@ -494,11 +576,17 @@ export default function Home() {
                     style={{
                       width: "100%",
                       padding: 12,
-                      backgroundColor: "red",
+                      // backgroundColor: "red",
+                      background: "linear-gradient(135deg, #FF416C, #FF4B2B)",
                       color: "white",
                       border: "none",
                       cursor: "pointer",
                       borderRadius: 8,
+                      textAlign: "center",
+                      boxShadow: "none !important",
+                      fontSize: "1rem",
+                      fontFamily: "Arial, sans-serif",
+                      letterSpacing: "0.1em",
                     }}
                   >
                     Stop

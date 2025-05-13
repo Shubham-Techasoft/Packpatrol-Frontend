@@ -19,9 +19,6 @@
 
 // export default App
 
-
-
-
 // create proper routing using react-router-dom
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
@@ -29,10 +26,13 @@ import ResponsiveAppBar from "./components/Header";
 import Footer from "./components/Footer";
 import BasicSpeedDial from "./components/BasicSpeedDial";
 import AppSuccessAlert from "./components/alerts";
+import GalleryPage from "./pages/GalleryPage";
 
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import About from "./pages/About";
+import MachineGallery from "./pages/MachineGallery";
+import DeveloperSettingsPage from "./pages/DeveloperSettingsPage";
 
 function App() {
   return (
@@ -43,6 +43,9 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/about" element={<About />} />
+        <Route path="/gallery" element={<GalleryPage />} />
+        <Route path="/machine/:machineName" element={<MachineGallery />} />
+        <Route path="/dev-settings" element={<DeveloperSettingsPage />} />
       </Routes>
       <BasicSpeedDial />
       <Footer />
