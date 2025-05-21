@@ -24,7 +24,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import ResponsiveAppBar from "./components/Header";
 import Footer from "./components/Footer";
-import BasicSpeedDial from "./components/BasicSpeedDial";
+// import BasicSpeedDial from "./components/BasicSpeedDial";
 import AppSuccessAlert from "./components/alerts";
 import GalleryPage from "./pages/GalleryPage";
 
@@ -47,7 +47,7 @@ function App() {
         <Route path="/machine/:machineName" element={<MachineGallery />} />
         <Route path="/dev-settings" element={<DeveloperSettingsPage />} />
       </Routes>
-      <BasicSpeedDial />
+      {/* <BasicSpeedDial /> */}
       <Footer />
     </Router>
   );
