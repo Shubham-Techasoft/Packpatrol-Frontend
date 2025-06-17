@@ -53,143 +53,162 @@ const HeroSection = () => {
   }, []);
 
   return (
-    <Box sx={{ position: "relative", overflow: "hidden", minHeight: "70vh" }}>
-      {/* Background Gradient Animation */}
-      <motion.div
-        initial={{ backgroundPosition: "0% 50%" }}
-        animate={{
-          background:
-            "linear-gradient(135deg, #d0e8ff, #fef6f0, #f0f4ff, #f9f9f9)",
-          backgroundSize: "600% 600%",
-          backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
-        }}
-        transition={{ duration: 30, repeat: Infinity }}
-        style={{
-          position: "absolute",
-          width: "100%",
-          height: "100%",
-          zIndex: 0,
-        }}
-      />
+    <>
+      <Box sx={{ position: "relative", overflow: "hidden", minHeight: "70vh" }}>
+        {/* Background Gradient Animation */}
+        <motion.div
+          initial={{ backgroundPosition: "0% 50%" }}
+          animate={{
+            background:
+              "linear-gradient(135deg, #d0e8ff, #fef6f0, #f0f4ff, #f9f9f9)",
+            backgroundSize: "600% 600%",
+            backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
+          }}
+          transition={{ duration: 30, repeat: Infinity }}
+          style={{
+            position: "absolute",
+            width: "100%",
+            height: "100%",
+            zIndex: 0,
+          }}
+        />
 
-      <Container
-        maxWidth="lg"
-        sx={{
-          py: { xs: 8, md: 10 },
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
-        <Grid container spacing={6} alignItems="center">
-          {/* Left: Slide Content */}
-          <Grid item xs={12} md={6}>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={index}
-                variants={textVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-              >
-                <Typography
-                  variant="h4"
-                  fontWeight={700}
-                  gutterBottom
-                  sx={{ fontSize: { xs: "1.8rem", md: "2.4rem" } }}
-                >
-                  {currentSlide.title}
-                </Typography>
-                <Typography
-                  variant="body1"
-                  color="text.secondary"
-                  sx={{ mb: 3 }}
-                >
-                  {currentSlide.subtitle}
-                </Typography>
-                <motion.div whileHover={{ scale: 1.05 }}>
-                  <Button
-                    variant="contained"
-                    size="large"
-                    sx={{
-                      px: 4,
-                      py: 1.5,
-                      borderRadius: 8,
-                      backgroundColor: "#1976d2",
-                    }}
-                  >
-                    {currentSlide.button}
-                  </Button>
-                </motion.div>
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Pagination Dots */}
-            <Box mt={4} display="flex" alignItems="center">
-              {slides.map((_, i) => (
-                <motion.div
-                  key={i}
-                  whileTap={{ scale: 0.9 }}
-                  style={{ marginRight: 8 }}
-                >
-                  <IconButton
-                    onClick={() => setIndex(i)}
-                    sx={{
-                      width: 14,
-                      height: 14,
-                      p: 0,
-                      borderRadius: "50%",
-                      border: "1px solid",
-                      borderColor: i === index ? "primary.main" : "grey.400",
-                      bgcolor: i === index ? "primary.main" : "transparent",
-                      transition: "all 0.3s",
-                    }}
-                  >
-                    <FiberManualRecordIcon
-                      fontSize="small"
-                      sx={{
-                        fontSize: 10,
-                        color: i === index ? "#fff" : "transparent",
-                      }}
-                    />
-                  </IconButton>
-                </motion.div>
-              ))}
-            </Box>
-          </Grid>
-
-          {/* Right: Illustration Image */}
-          <Grid item xs={12} md={6}>
-            <Box
-              position="relative"
-              width="100%"
-              height={300}
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-            >
+        <Container
+          maxWidth="lg"
+          sx={{
+            py: { xs: 8, md: 10 },
+            position: "relative",
+            zIndex: 1,
+          }}
+        >
+          <Grid container spacing={6} alignItems="center">
+            {/* Left: Slide Content */}
+            <Grid item xs={12} md={6}>
               <AnimatePresence mode="wait">
-                <motion.img
+                <motion.div
                   key={index}
-                  src={heroImages[index]}
-                  alt="Techasoft Banner Slide"
-                  initial={{ opacity: 0, x: 50 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -30 }}
-                  transition={{ duration: 0.8 }}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                    borderRadius: "12px",
-                    boxShadow: "0px 10px 30px rgba(0, 0, 0, 0.1)",
-                  }}
-                />
+                  variants={textVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                >
+                  <Typography
+                    variant="h4"
+                    fontWeight={700}
+                    gutterBottom
+                    sx={{ fontSize: { xs: "1.8rem", md: "2.4rem" } }}
+                  >
+                    {currentSlide.title}
+                  </Typography>
+                  <Typography
+                    variant="body1"
+                    color="text.secondary"
+                    sx={{ mb: 3 }}
+                  >
+                    {currentSlide.subtitle}
+                  </Typography>
+                  <motion.div whileHover={{ scale: 1.05 }}>
+                    <Button
+                      variant="contained"
+                      size="large"
+                      sx={{
+                        px: 4,
+                        py: 1.5,
+                        borderRadius: 8,
+                        backgroundColor: "#1976d2",
+                      }}
+                    >
+                      {currentSlide.button}
+                    </Button>
+                  </motion.div>
+                </motion.div>
               </AnimatePresence>
-            </Box>
+
+              {/* Pagination Dots */}
+              <Box mt={4} display="flex" alignItems="center">
+                {slides.map((_, i) => (
+                  <motion.div
+                    key={i}
+                    whileTap={{ scale: 0.9 }}
+                    style={{ marginRight: 8 }}
+                  >
+                    <IconButton
+                      onClick={() => setIndex(i)}
+                      sx={{
+                        width: 14,
+                        height: 14,
+                        p: 0,
+                        borderRadius: "50%",
+                        border: "1px solid",
+                        borderColor:
+                          i === index ? "primary.main" : "grey.400",
+                        bgcolor:
+                          i === index ? "primary.main" : "transparent",
+                        transition: "all 0.3s",
+                      }}
+                    >
+                      <FiberManualRecordIcon
+                        fontSize="small"
+                        sx={{
+                          fontSize: 10,
+                          color: i === index ? "#fff" : "transparent",
+                        }}
+                      />
+                    </IconButton>
+                  </motion.div>
+                ))}
+              </Box>
+            </Grid>
+
+            {/* Right: Consistent Image */}
+            <Grid item xs={12} md={6}>
+              <Box
+                sx={{
+                  position: "relative",
+                  width: "100%",
+                  maxWidth: 500,
+                  height: { xs: 250, md: 350 },
+                  mx: "auto",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <AnimatePresence mode="wait">
+                  <motion.img
+                    key={index}
+                    src={heroImages[index]}
+                    alt="Techasoft Banner Slide"
+                    initial={{ opacity: 0, x: 50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -30 }}
+                    transition={{ duration: 0.8 }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      borderRadius: "12px",
+                      boxShadow: "0px 10px 30px rgba(0, 0, 0, 0.1)",
+                    }}
+                  />
+                </AnimatePresence>
+              </Box>
+            </Grid>
           </Grid>
-        </Grid>
-      </Container>
-    </Box>
+        </Container>
+      </Box>
+
+      {/* Bridging Line */}
+      <Box py={2} textAlign="center" bgcolor="#f5f5f5">
+        <Typography
+          variant="h6"
+          fontWeight="bold"
+          sx={{ fontSize: { xs: "1rem", md: "1.25rem" }, color: "#333" }}
+        >
+          Bridging the Gap Between Business and Technology
+        </Typography>
+      </Box>
+    </>
   );
 };
 
