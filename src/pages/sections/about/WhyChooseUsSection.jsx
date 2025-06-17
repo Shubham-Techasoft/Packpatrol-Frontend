@@ -1,5 +1,4 @@
 import { Box, Container, Typography, Grid, Paper, useTheme } from '@mui/material';
-import SectionTitle from "../../../components/shared/SectionTitle";
 import { motion } from 'framer-motion';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
@@ -33,29 +32,13 @@ const WhyChooseUsSection = () => {
 
   return (
     <Box
-      position="relative"
       py={8}
       px={2}
-      sx={{ overflow: 'hidden' }}
+      sx={{
+        background: `linear-gradient(to right, ${theme.palette.primary.light}33 0%, #ffffff 40%)`,
+      }}
     >
-      {/* Half screen blurred background */}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '50vw',
-          height: '100%',
-          bgcolor: theme.palette.primary.light,
-          filter: 'blur(60px)',
-          opacity: 0.3,
-          zIndex: 0,
-          pointerEvents: 'none',
-        }}
-      />
-
-      <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-        {/* Simple heading, no extra UI */}
+      <Container maxWidth="lg">
         <Box textAlign="center" mb={6}>
           <Typography
             variant="h4"
@@ -95,14 +78,14 @@ const WhyChooseUsSection = () => {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 1.5,
-                    minHeight: 120, // fixed min height for all cards
+                    minHeight: 120,
                     transition: "transform 0.3s ease, box-shadow 0.3s ease",
                     cursor: 'default',
                     "&:hover": {
                       transform: "translateY(-6px)",
                       boxShadow: theme.shadows[6],
                     },
-                    flexDirection: 'row', // horizontal layout
+                    flexDirection: 'row',
                   }}
                 >
                   <CheckCircleIcon
