@@ -24,7 +24,7 @@ import {
 
 const frameworks = ["PyTorch", "TensorFlow", "ONNX", "Other"];
 
-const AddMachineStepper = () => {
+const AddMachineStepper = ({ mode = "add", editData = null, onClose }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [editMachine, setEditMachine] = React.useState(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
@@ -95,72 +95,98 @@ const AddMachineStepper = () => {
     setMachine((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async () => {
-    // Upload ML model first
-    const formData = new FormData();
-    for (const key in mlModel) {
-      if (mlModel[key]) formData.append(key, mlModel[key]);
+// edit machine
+React.useEffect(() => {
+  if (mode === "edit" && editData) {
+    setMachine(editData.machine);
+    setMlModel(editData.mlModel);
+    setActiveStep(0);
+  }
+}, [mode, editData]);
+
+const handleSubmit = async () => {
+  const formData = new FormData();
+  for (const key in mlModel) {
+    if (mlModel[key]) formData.append(key, mlModel[key]);
+  }
+
+  Object.entries(mlModel).forEach(([key, value]) => {
+    if (
+      value !== null &&
+      value !== "" &&
+      !(typeof value === "boolean" && value === false)
+    ) {
+      formData.append(key, value);
     }
+  });
 
-    Object.entries(mlModel).forEach(([key, value]) => {
-      if (
-        value !== null &&
-        value !== "" &&
-        !(typeof value === "boolean" && value === false)
-      ) {
-        formData.append(key, value);
-      }
-    });
+  const machineFormData = new FormData();
+  for (const key in machine) {
+    if (machine[key] !== null && machine[key] !== "") {
+      machineFormData.append(key, machine[key]);
+    }
+  }
 
-    console.log("this is form data fro ml model: ", formData);
-    try {
+  try {
+    if (mode === "edit") {
+      // 🔁 EDIT MODE: PUT requests
+
+      const mlRes = await fetch(
+        `http://localhost:8000/api/ml-models/${mlModel.id}/`,
+        {
+          method: "PUT",
+          body: formData,
+        }
+      );
+      if (!mlRes.ok) throw new Error("Failed to update ML model");
+
+      machineFormData.append("ml_model", mlModel.id);
+
+      const machineRes = await fetch(
+        `http://localhost:8000/api/machines/${machine.id}/`,
+        {
+          method: "PUT",
+          body: machineFormData,
+        }
+      );
+      if (!machineRes.ok) throw new Error("Failed to update machine");
+
+      alert("✅ Machine updated successfully!");
+      if (onClose) onClose();
+
+    } else {
+      // ➕ ADD MODE: POST requests (your original logic)
+
       const mlRes = await fetch("http://localhost:8000/api/ml-models/", {
         method: "POST",
         body: formData,
       });
-      console.log("this is for ml data: ", mlModel);
-      for (let pair of formData.entries()) {
-        console.log(`${pair[0]}:`, pair[1]);
-      }
 
-      // if (!mlRes.ok) {
-      //   const errorText = await mlRes.json();
-      //   console.error("Backend error:", errorText);
-      //   throw new Error("Failed to create ML model");
-      // }
       if (!mlRes.ok) throw new Error("Failed to create ML model");
       const mlData = await mlRes.json();
       const modelId = mlData.id;
-      console.log("this is MOdelID that just created: ", modelId);
-
-      const machineFormData = new FormData();
-
-      for (const key in machine) {
-        if (machine[key] !== null && machine[key] !== "") {
-          machineFormData.append(key, machine[key]);
-        }
-      }
 
       machineFormData.append("ml_model", modelId);
 
       const machineRes = await fetch("http://localhost:8000/api/machines/", {
         method: "POST",
-        body: machineFormData, // Do NOT set Content-Type manually
+        body: machineFormData,
       });
-      console.log("this is for machine data: ", machine);
-      console.log("this is the machine api res: ", machineRes);
 
       const machineErrorText = await machineRes.json();
       console.error("Backend machine error:", machineErrorText);
 
       if (!machineRes.ok) throw new Error("Failed to create machine");
 
-      alert("Machine successfully created with linked ML model!");
-    } catch (error) {
-      console.log("this is the submit error: ", error);
-      alert(error.message);
+      alert("✅ Machine successfully created with linked ML model!");
+      if (onClose) onClose();
     }
-  };
+  } catch (error) {
+    console.error("Submit error:", error);
+    alert(error.message);
+  }
+};
+
 
   const renderMLModelForm = () => (
     <Box p={2}>
