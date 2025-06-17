@@ -123,81 +123,116 @@ export default function Home() {
 
   // initial fetch for machines
   React.useEffect(() => {
-    console.log("inside initial fetch for machines");
-    setIsLoadingMachines(true);
-    fetch("http://127.0.0.1:8000/api/api/machines/?is_active=true")
-      .then((res) => res.json())
-      .then((data) => {
-        setMachines(data.results || []);
-        setNextMachinesPage(data.next || null);
-        console.log("data fetched")
-      })
-      
-      .catch((err) => console.error("Failed to fetch machines", err))
-      .finally(() => setIsLoadingMachines(false));
+    const fetchMachines = async () => {
+      setIsLoadingMachines(true);
+      try {
+        const response = await fetch("http://localhost:8000/api/machines/??is_active=true");
+        const data = await response.json();
+        setMachines(data);
+      } catch (error) {
+        console.error("Error fetching machines:", error);
+      } finally {
+        setIsLoadingMachines(false);
+      }
+    };
+  
+    fetchMachines();
   }, []);
 
   // load more machines function
   const loadMoreMachines = () => {
-    if (!nextMachinesPage || isLoadingMachines) return;
+    // if (!nextMachinesPage || isLoadingMachines) return;
 
-    setIsLoadingMachines(true);
-    fetch(nextMachinesPage)
-      .then((res) => res.json())
-      .then((data) => {
-        setMachines((prev) => [...prev, ...data.results]);
-        setNextMachinesPage(data.next || null);
-        setIsLoadingMachines(false);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch more machines", err);
-        setIsLoadingMachines(false);
-      });
+    // setIsLoadingMachines(true);
+    // fetch(nextMachinesPage)
+    //   .then((res) => res.json())
+    //   .then((data) => {
+    //     setMachines((prev) => [...prev, ...data.results]);
+    //     setNextMachinesPage(data.next || null);
+    //     setIsLoadingMachines(false);
+    //   })
+    //   .catch((err) => {
+    //     console.error("Failed to fetch more machines", err);
+    //     setIsLoadingMachines(false);
+    //   });
+    console.log("No pagination supported in API");
+
   };
 
-  // fetch variants after selecting machines
+  // fetch variants after selecting machines 
   React.useEffect(() => {
-    if (!selectedMachine) {
-      setVariants([]);
-      setSelectedVariant("");
-      return;
-    }
-
+    if (!selectedMachine) return;
+  
     setIsLoadingVariants(true);
-    console.log(selectedMachine);
-    
-    fetch(`http://127.0.0.1:8000/api/api/variants?machine=${selectedMachine}&is_active=true`)
-      
+  
+    fetch(`http://127.0.0.1:8000/api/machines/${selectedMachine}/`)
       .then((res) => res.json())
       .then((data) => {
-        setVariants(data.results || []);
-        setNextVariantsPage(data.next || null);
-        setIsLoadingVariants(false);
-        if (!data.results.find((v) => v.id === selectedVariant)) {
-          setSelectedVariant("");
-        }
+        setVariants(data.variants || []);
+        setSelectedVariant(data.active_variant?.id || "");
       })
-      .catch((err) => console.error("Failed to fetch variants", err))
+      .catch((err) => {
+        console.error("Failed to fetch machine details", err);
+        setVariants([]);
+        setSelectedVariant("");
+      })
       .finally(() => setIsLoadingVariants(false));
   }, [selectedMachine]);
-
-  // load more varients funciton
+  
+  // load more varients funciton 
   const loadMoreVariants = () => {
-    if (!nextVariantsPage || isLoadingVariants) return;
+    // if (!nextVariantsPage || isLoadingVariants) return;
 
-    setIsLoadingVariants(true);
-    fetch(nextVariantsPage)
-      .then((res) => res.json())
-      .then((data) => {
-        setVariants((prev) => [...prev, ...data.results]);
-        setNextVariantsPage(data.next || null);
-        setIsLoadingVariants(false);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch more variants", err);
-        setIsLoadingVariants(false);
-      });
+    // setIsLoadingVariants(true);
+    // fetch(nextVariantsPage)
+    //   .then((res) => res.json())
+    //   .then((data) => {
+    //     setVariants((prev) => [...prev, ...data.results]);
+    //     setNextVariantsPage(data.next || null);
+    //     setIsLoadingVariants(false);
+    //   })
+    //   .catch((err) => {
+    //     console.error("Failed to fetch more variants", err);
+    //     setIsLoadingVariants(false);
+    //   });
+    console.log("No pagination supported in API");
   };
+
+// load min-max stack length and size
+React.useEffect(() => {
+  const fetchRunLogsAndSetStackValues = async () => {
+    if (!selectedMachine || !selectedVariant) return;
+
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/machinerunlogs/");
+      const data = await res.json();
+
+      // Find selected machine and variant names
+      const machine = machines.find((m) => m.id === selectedMachine);
+      const variant = variants.find((v) => v.id === selectedVariant);
+
+      if (!machine || !variant) return;
+
+      // Find matching log
+      const matchingLog = data.find(
+        (log) =>
+          log.machine_name === machine.name &&
+          log.variant_name === variant.name
+      );
+
+      if (matchingLog) {
+        setMinStackSize(matchingLog.min_stack_size);
+        setMaxStackSize(matchingLog.max_stack_size);
+        setMinStackLength(matchingLog.min_stack_length);
+        setMaxStackLength(matchingLog.max_stack_length);
+      }
+    } catch (error) {
+      console.error("Failed to fetch or match machinerunlogs", error);
+    }
+  };
+
+  fetchRunLogsAndSetStackValues();
+}, [selectedMachine, selectedVariant, machines, variants]);
 
   // handle favourites
   const handleFavorite = () => {
@@ -285,11 +320,15 @@ export default function Home() {
   //     .catch((error) => console.error("Error:", error));
   // };
 
-  const handleSubmit = (actionType) => {
+  const handleSubmit = async (actionType) => {
+    if (!selectedMachine) {
+      alert("Please select a machine.");
+      return;
+    }
     // For 'start', validate that required fields are filled
     if (actionType === "start") {
       if (
-        !selectedMachine ||
+        !selectedVariant ||
         !minStackSize ||
         !maxStackSize ||
         !minStackLength ||
@@ -300,29 +339,63 @@ export default function Home() {
       }
     }
 
-    fetch("http://localhost:8000/machine/control", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: actionType, // for now we are only sending the action type later on we can send the input val as well
-      }),
-    })
-      .then((res) => {
-        if (!res.ok) {
-          return res.json().then((err) => {
-            throw new Error(err.detail || "Something went wrong");
-          });
-        }
-        return res.json();
-      })
-      .then((data) => {
-        console.log("Machine Control Response:", data);
-        setStatus(actionType === "start" ? "running" : "stopped");
-      })
-      .catch((err) => {
-        console.error("Control Error:", err);
-        alert(err.message || "Failed to control machine.");
+    const endpoint = `http://127.0.0.1:8000/api/machines/${selectedMachine}/${actionType}_run/`;
+
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body:
+          actionType === "start"
+            ? JSON.stringify({
+                machine: selectedMachine,
+                variant: selectedVariant,
+                min_stack_length: Number(minStackLength),
+                max_stack_length: Number(maxStackLength),
+                min_stack_size: Number(minStackSize),
+                max_stack_size: Number(maxStackSize),
+              })
+            : null, // 'stop' API doesn't need a body
       });
+  
+      const data = await res.json();
+  
+      if (!res.ok) {
+        throw new Error(data.detail || "Something went wrong.");
+      }
+  
+      console.log("Machine Control Response:", data);
+      setStatus(actionType === "start" ? "running" : "stopped");
+    } catch (err) {
+      console.error("Control Error:", err);
+      alert(err.message || "Failed to control machine.");
+    }
+
+    // fetch("http://localhost:8000/machine/control", {
+    //   method: "POST",
+    //   headers: { "Content-Type": "application/json" },
+    //   body: JSON.stringify({
+    //     action: actionType, // for now we are only sending the action type later on we can send the input val as well
+    //   }),
+    // })
+    //   .then((res) => {
+    //     if (!res.ok) {
+    //       return res.json().then((err) => {
+    //         throw new Error(err.detail || "Something went wrong");
+    //       });
+    //     }
+    //     return res.json();
+    //   })
+    //   .then((data) => {
+    //     console.log("Machine Control Response:", data);
+    //     setStatus(actionType === "start" ? "running" : "stopped");
+    //   })
+    //   .catch((err) => {
+    //     console.error("Control Error:", err);
+    //     alert(err.message || "Failed to control machine.");
+    //   });
   };
 
   return (
@@ -421,24 +494,24 @@ export default function Home() {
                   value={selectedMachine}
                   onChange={(e) => setSelectedMachine(e.target.value)}
                   size="small"
-                  SelectProps={{
-                    MenuProps: {
-                      PaperProps: {
-                        style: { maxHeight: 300 },
-                        onScroll: (event: React.UIEvent<HTMLDivElement>) => {
-                          const scrollContainer = event.currentTarget;
-                          const scrollPosition =
-                            scrollContainer.scrollTop +
-                            scrollContainer.clientHeight;
-                          const threshold = scrollContainer.scrollHeight * 0.75;
+                  // SelectProps={{
+                  //   MenuProps: {
+                  //     PaperProps: {
+                  //       style: { maxHeight: 300 },
+                  //       onScroll: (event: React.UIEvent<HTMLDivElement>) => {
+                  //         const scrollContainer = event.currentTarget;
+                  //         const scrollPosition =
+                  //           scrollContainer.scrollTop +
+                  //           scrollContainer.clientHeight;
+                  //         const threshold = scrollContainer.scrollHeight * 0.75;
 
-                          if (scrollPosition >= threshold) {
-                            loadMoreMachines();
-                          }
-                        },
-                      },
-                    },
-                  }}
+                  //         if (scrollPosition >= threshold) {
+                  //           loadMoreMachines();
+                  //         }
+                  //       },
+                  //     },
+                  //   },
+                  // }}
                 >
                   <MenuItem value="">Select</MenuItem>
                   {/* <MenuItem value="machine1">Machine 1</MenuItem>
@@ -465,23 +538,23 @@ export default function Home() {
                   onChange={(e) => setSelectedVariant(e.target.value)}
                   size="small"
                   disabled={!selectedMachine}
-                  SelectProps={{
-                    MenuProps: {
-                      PaperProps: {
-                        style: { maxHeight: 300 },
-                        onScroll: (event: React.UIEvent<HTMLDivElement>) => {
-                          const bottom =
-                            event.currentTarget.scrollHeight -
-                              event.currentTarget.scrollTop <=
-                            event.currentTarget.clientHeight * 1.25;
+                  // SelectProps={{
+                  //   MenuProps: {
+                  //     PaperProps: {
+                  //       style: { maxHeight: 300 },
+                  //       onScroll: (event: React.UIEvent<HTMLDivElement>) => {
+                  //         const bottom =
+                  //           event.currentTarget.scrollHeight -
+                  //             event.currentTarget.scrollTop <=
+                  //           event.currentTarget.clientHeight * 1.25;
 
-                          if (bottom) {
-                            loadMoreVariants();
-                          }
-                        },
-                      },
-                    },
-                  }}
+                  //         if (bottom) {
+                  //           loadMoreVariants();
+                  //         }
+                  //       },
+                  //     },
+                  //   },
+                  // }}
                 >
                   <MenuItem value="">Select</MenuItem>
                   {/* <MenuItem value="variant1">Variant 1</MenuItem>
@@ -615,23 +688,23 @@ export default function Home() {
                   value={selectedMachine}
                   onChange={(e) => setSelectedMachine(e.target.value)}
                   size="small"
-                  SelectProps={{
-                    MenuProps: {
-                      PaperProps: {
-                        style: { maxHeight: 300 },
-                        onScroll: (event: React.UIEvent<HTMLDivElement>) => {
-                          const bottom =
-                            event.currentTarget.scrollHeight -
-                              event.currentTarget.scrollTop <=
-                            event.currentTarget.clientHeight * 1.25;
+                  // SelectProps={{
+                  //   MenuProps: {
+                  //     PaperProps: {
+                  //       style: { maxHeight: 300 },
+                  //       onScroll: (event: React.UIEvent<HTMLDivElement>) => {
+                  //         const bottom =
+                  //           event.currentTarget.scrollHeight -
+                  //             event.currentTarget.scrollTop <=
+                  //           event.currentTarget.clientHeight * 1.25;
 
-                          if (bottom) {
-                            loadMoreMachines();
-                          }
-                        },
-                      },
-                    },
-                  }}
+                  //         if (bottom) {
+                  //           loadMoreMachines();
+                  //         }
+                  //       },
+                  //     },
+                  //   },
+                  // }}
                 >
                   <MenuItem value="">Select Machine</MenuItem>
                   {/* <MenuItem value="machine1">Machine 1</MenuItem>
@@ -658,23 +731,23 @@ export default function Home() {
                   onChange={(e) => setSelectedVariant(e.target.value)}
                   size="small"
                   disabled={!selectedMachine}
-                  SelectProps={{
-                    MenuProps: {
-                      PaperProps: {
-                        style: { maxHeight: 300 },
-                        onScroll: (event: React.UIEvent<HTMLDivElement>) => {
-                          const bottom =
-                            event.currentTarget.scrollHeight -
-                              event.currentTarget.scrollTop <=
-                            event.currentTarget.clientHeight * 1.25;
+                  // SelectProps={{
+                  //   MenuProps: {
+                  //     PaperProps: {
+                  //       style: { maxHeight: 300 },
+                  //       onScroll: (event: React.UIEvent<HTMLDivElement>) => {
+                  //         const bottom =
+                  //           event.currentTarget.scrollHeight -
+                  //             event.currentTarget.scrollTop <=
+                  //           event.currentTarget.clientHeight * 1.25;
 
-                          if (bottom) {
-                            loadMoreVariants();
-                          }
-                        },
-                      },
-                    },
-                  }}
+                  //         if (bottom) {
+                  //           loadMoreVariants();
+                  //         }
+                  //       },
+                  //     },
+                  //   },
+                  // }}
                 >
                   <MenuItem value="">Select Variant</MenuItem>
                   {/* <MenuItem value="variant1">Variant 1</MenuItem>
