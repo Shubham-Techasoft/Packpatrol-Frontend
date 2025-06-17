@@ -11,22 +11,19 @@ import { ArrowBackIos, ArrowForwardIos } from '@mui/icons-material';
 
 const TestimonialsSection = () => {
   return (
-    <Box sx={{ position: 'relative', py: 8, backgroundColor: '#f9f9f9' }}>
-      {/* Half-screen background overlay */}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '50%',
-          height: '100%',
-          backgroundColor: '#e3f2fd', // light blue
-          zIndex: 0,
-        }}
-      />
-      
-      <Container sx={{ position: 'relative', zIndex: 1 }}>
-        <SectionTitle title="What Our Clients Say" subtitle="Testimonials from Our Partners" />
+    <Box
+      sx={{
+        py: 8,
+        background: `linear-gradient(to right, #e3f2fd 0%, #ffffff 40%)`,
+        position: 'relative',
+        zIndex: 0,
+      }}
+    >
+      <Container>
+        <SectionTitle
+          title="What Our Clients Say"
+          subtitle="Testimonials from Our Partners"
+        />
 
         {/* Navigation Arrows */}
         <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mb: 3 }}>
