@@ -398,10 +398,7 @@ const GalleryPage = () => {
               >
                 <CardContent>
                   <Typography variant="h5" fontWeight="bold">
-                    {name.split(" ")[0]}
-                  </Typography>
-                  <Typography variant="body2">
-                    Explore {name.toLowerCase()}
+                    {name}
                   </Typography>
                 </CardContent>
 
@@ -429,7 +426,7 @@ const GalleryPage = () => {
                     zIndex: 5,
                   }}
                 >
-                  {name}
+                  Click to View Details
                 </Box>
 
                 {/*  Hover glass panel */}
