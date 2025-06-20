@@ -87,7 +87,7 @@ const GalleryPage = () => {
               key={idx}
               sx={{
                 position: "relative",
-                height: 300,
+                height: 299,
                 borderRadius: 4,
                 background: gradients[idx % gradients.length],
                 color: "#fff",
