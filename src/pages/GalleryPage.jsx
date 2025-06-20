@@ -1,3 +1,175 @@
+import React, { useEffect, useState } from "react";
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Box,
+  Card,
+  CardContent,
+  IconButton,
+  CardActionArea,
+} from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { useNavigate } from "react-router-dom";
+
+const GalleryPage = () => {
+  const navigate = useNavigate();
+  const machineNames = ["Machine 1", "Machine 2", "Machine 3", "Machine 4"];
+  const gradients = [
+    "linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%)",
+    "linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%)",
+    "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
+    "linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%)",
+  ];
+
+  const [animate, setAnimate] = useState(false);
+
+  useEffect(() => {
+    setAnimate(true); // Trigger entrance animation
+  }, []);
+
+  return (
+    <>
+      {/*NavBar to go back */}
+      <AppBar
+        sx={{ background: "linear-gradient(to right, #4b6cb7, #182848)" }}
+      >
+        <Toolbar>
+          <IconButton color="inherit" onClick={() => navigate(-1)}>
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography sx={{ ml: 2, flex: 1 }} variant="h6">
+            Select a Machine
+          </Typography>
+        </Toolbar>
+      </AppBar>
+
+      <Box
+        sx={{
+          background: "#f5f7fa",
+          minHeight: "100vh",
+          pt: 4,
+          px: 4,
+          opacity: animate ? 1 : 0,
+          transform: animate ? "translateY(0px)" : "translateY(20px)",
+          transition: "all 0.8s ease-in-out",
+        }}
+      >
+        {/* Heading */}
+        <Box
+          sx={{
+            mb: 6,
+            p: 3,
+            background: "rgba(255, 255, 255, 0.75)",
+            borderRadius: 4,
+            textAlign: "center",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+          }}
+        >
+          <Typography variant="h4" fontWeight="bold" color="primary">
+            Choose Your Smart Machine
+          </Typography>
+          <Typography variant="body1" sx={{ mt: 1 }}>
+            Select a machine below to view its capabilities and customize your experience.
+          </Typography>
+        </Box>
+
+        {/* Cards */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+            gap: 4,
+          }}
+        >
+          {machineNames.map((name, idx) => (
+            <Card
+              key={idx}
+              sx={{
+                position: "relative",
+                height: 300,
+                borderRadius: 4,
+                background: gradients[idx % gradients.length],
+                color: "#fff",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+                overflow: "hidden",
+                transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                "&:hover": {
+                  transform: "translateY(-8px)",
+                  boxShadow: "0 12px 30px rgba(0,0,0,0.2)",
+                },
+              }}
+            >
+              <CardActionArea
+                onClick={() => navigate(`/machine/${encodeURIComponent(name)}`)}
+                sx={{
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textAlign: "center",
+                  position: "relative",
+                }}
+              >
+                <CardContent>
+                  <Typography variant="h5" fontWeight="bold">
+                    {name}
+                  </Typography>
+                </CardContent>
+
+                {/*  Glass panel  */}
+                <Box
+                  className="glass-reveal"
+                  sx={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    width: "100%",
+                    height: 40,
+                    background: "rgba(255, 255, 255, 0.4)",
+                    color: "#000",
+                    textAlign: "center",
+                    fontWeight: "bold",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backdropFilter: "blur(10px)",
+                    borderTopLeftRadius: 12,
+                    borderTopRightRadius: 12,
+                    transition: "height 0.4s ease",
+                    overflow: "hidden",
+                    zIndex: 5,
+                  }}
+                >
+                  Click to View Details
+                </Box>
+
+                {/*  Hover glass panel */}
+                <style>
+                  {`
+                    .MuiCard-root:hover .glass-reveal {
+                      height: 200px;
+                    }
+                  `}
+                </style>
+              </CardActionArea>
+            </Card>
+          ))}
+        </Box>
+      </Box>
+    </>
+  );
+};
+
+export default GalleryPage;
+
+
+
+
+
+
+
+
 // import React from "react";
 // import {
 //   AppBar,
@@ -282,168 +454,3 @@
 
 // export default GalleryPage;
 
-
-import React, { useEffect, useState } from "react";
-import {
-  AppBar,
-  Toolbar,
-  Typography,
-  Box,
-  Card,
-  CardContent,
-  IconButton,
-  CardActionArea,
-} from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { useNavigate } from "react-router-dom";
-
-const GalleryPage = () => {
-  const navigate = useNavigate();
-  const machineNames = ["Machine 1", "Machine 2", "Machine 3", "Machine 4"];
-  const gradients = [
-    "linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%)",
-    "linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%)",
-    "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
-    "linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%)",
-  ];
-
-  const [animate, setAnimate] = useState(false);
-
-  useEffect(() => {
-    setAnimate(true); // Trigger entrance animation
-  }, []);
-
-  return (
-    <>
-      {/*NavBar to go back */}
-      <AppBar
-        sx={{ background: "linear-gradient(to right, #4b6cb7, #182848)" }}
-      >
-        <Toolbar>
-          <IconButton color="inherit" onClick={() => navigate(-1)}>
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography sx={{ ml: 2, flex: 1 }} variant="h6">
-            Select a Machine
-          </Typography>
-        </Toolbar>
-      </AppBar>
-
-      <Box
-        sx={{
-          background: "#f5f7fa",
-          minHeight: "100vh",
-          pt: 4,
-          px: 4,
-          opacity: animate ? 1 : 0,
-          transform: animate ? "translateY(0px)" : "translateY(20px)",
-          transition: "all 0.8s ease-in-out",
-        }}
-      >
-        {/* Heading */}
-        <Box
-          sx={{
-            mb: 6,
-            p: 3,
-            background: "rgba(255, 255, 255, 0.75)",
-            borderRadius: 4,
-            textAlign: "center",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-          }}
-        >
-          <Typography variant="h4" fontWeight="bold" color="primary">
-            Choose Your Smart Machine
-          </Typography>
-          <Typography variant="body1" sx={{ mt: 1 }}>
-            Select a machine below to view its capabilities and customize your experience.
-          </Typography>
-        </Box>
-
-        {/* Cards */}
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-            gap: 4,
-          }}
-        >
-          {machineNames.map((name, idx) => (
-            <Card
-              key={idx}
-              sx={{
-                position: "relative",
-                height: 300,
-                borderRadius: 4,
-                background: gradients[idx % gradients.length],
-                color: "#fff",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
-                overflow: "hidden",
-                transition: "transform 0.3s ease, box-shadow 0.3s ease",
-                "&:hover": {
-                  transform: "translateY(-8px)",
-                  boxShadow: "0 12px 30px rgba(0,0,0,0.2)",
-                },
-              }}
-            >
-              <CardActionArea
-                onClick={() => navigate(`/machine/${encodeURIComponent(name)}`)}
-                sx={{
-                  height: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  textAlign: "center",
-                  position: "relative",
-                }}
-              >
-                <CardContent>
-                  <Typography variant="h5" fontWeight="bold">
-                    {name}
-                  </Typography>
-                </CardContent>
-
-                {/*  Glass panel  */}
-                <Box
-                  className="glass-reveal"
-                  sx={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    width: "100%",
-                    height: 40,
-                    background: "rgba(255, 255, 255, 0.4)",
-                    color: "#000",
-                    textAlign: "center",
-                    fontWeight: "bold",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backdropFilter: "blur(10px)",
-                    borderTopLeftRadius: 12,
-                    borderTopRightRadius: 12,
-                    transition: "height 0.4s ease",
-                    overflow: "hidden",
-                    zIndex: 5,
-                  }}
-                >
-                  Click to View Details
-                </Box>
-
-                {/*  Hover glass panel */}
-                <style>
-                  {`
-                    .MuiCard-root:hover .glass-reveal {
-                      height: 200px;
-                    }
-                  `}
-                </style>
-              </CardActionArea>
-            </Card>
-          ))}
-        </Box>
-      </Box>
-    </>
-  );
-};
-
-export default GalleryPage;

@@ -20,14 +20,14 @@ export default function Footer() {
   // const [galleryImages, setGalleryImages] = React.useState([]);
 
   const [recentOpen, setRecentOpen] = React.useState(false);
-  const [favoritesOpen, setFavoritesOpen] = React.useState(false);
+  // const [favoritesOpen, setFavoritesOpen] = React.useState(false);
   // const [galleryOpen, setGalleryOpen] = React.useState(false);
 
   const handleRecentOpen = () => setRecentOpen(true);
   const handleRecentClose = () => setRecentOpen(false);
 
-  const handleFavoritesOpen = () => setFavoritesOpen(true);
-  const handleFavoritesClose = () => setFavoritesOpen(false);
+  // const handleFavoritesOpen = () => setFavoritesOpen(true);
+  // const handleFavoritesClose = () => setFavoritesOpen(false);
 
   // const handleGalleryOpen = async () => {
   //   // i will replace this fake api call when api will ready for now this is it.
@@ -56,14 +56,12 @@ export default function Footer() {
             if (newValue === 0) {
               handleRecentOpen();
             } else if (newValue === 1) {
-              handleFavoritesOpen();
-            } else if (newValue === 2) {
               navigate("/gallery");
             }
           }}
         >
           <BottomNavigationAction label="Recents" icon={<RestoreIcon />} />
-          <BottomNavigationAction label="Favorites" icon={<FavoriteIcon />} />
+          {/* <BottomNavigationAction label="Favorites" icon={<FavoriteIcon />} /> */}
           <BottomNavigationAction label="Archive" icon={<ArchiveIcon />} />
         </BottomNavigation>
 
@@ -81,10 +79,10 @@ export default function Footer() {
         open={recentOpen}
         handleClose={handleRecentClose}
       />
-      <FavoritesDialog
+      {/* <FavoritesDialog
         open={favoritesOpen}
         handleClose={handleFavoritesClose}
-      />
+      /> */}
       {/* <GalleryDialog
         open={galleryOpen}
         handleClose={handleGalleryClose}

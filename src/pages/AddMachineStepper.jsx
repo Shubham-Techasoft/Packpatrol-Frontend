@@ -21,13 +21,18 @@ import {
   DialogContent,
   DialogActions,
 } from "@mui/material";
-
 const frameworks = ["PyTorch", "TensorFlow", "ONNX", "Other"];
+import Radio from '@mui/material/Radio';
+
 
 const AddMachineStepper = ({ mode = "add", editData = null, onClose }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [editMachine, setEditMachine] = React.useState(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
+  const [variants, setVariants] = React.useState([
+    { name: "", description: "" },
+  ]);
+  const [activeVariantIndex, setActiveVariantIndex] = React.useState(0);
 
   // Step 1: ML Model States
   const [mlModel, setMlModel] = useState({
@@ -95,98 +100,104 @@ const AddMachineStepper = ({ mode = "add", editData = null, onClose }) => {
     setMachine((prev) => ({ ...prev, [name]: value }));
   };
 
-// edit machine
-React.useEffect(() => {
-  if (mode === "edit" && editData) {
-    setMachine(editData.machine);
-    setMlModel(editData.mlModel);
-    setActiveStep(0);
-  }
-}, [mode, editData]);
-
-const handleSubmit = async () => {
-  const formData = new FormData();
-  for (const key in mlModel) {
-    if (mlModel[key]) formData.append(key, mlModel[key]);
-  }
-
-  Object.entries(mlModel).forEach(([key, value]) => {
-    if (
-      value !== null &&
-      value !== "" &&
-      !(typeof value === "boolean" && value === false)
-    ) {
-      formData.append(key, value);
+  // edit machine
+  React.useEffect(() => {
+    if (mode === "edit" && editData) {
+      setMachine(editData.machine);
+      setMlModel(editData.mlModel);
+      setActiveStep(0);
     }
-  });
+  }, [mode, editData]);
 
-  const machineFormData = new FormData();
-  for (const key in machine) {
-    if (machine[key] !== null && machine[key] !== "") {
-      machineFormData.append(key, machine[key]);
+  const handleSubmit = async () => {
+    const formData = new FormData();
+    for (const key in mlModel) {
+      if (mlModel[key]) formData.append(key, mlModel[key]);
     }
-  }
 
-  try {
-    if (mode === "edit") {
-      // 🔁 EDIT MODE: PUT requests
+    Object.entries(mlModel).forEach(([key, value]) => {
+      if (
+        value !== null &&
+        value !== "" &&
+        !(typeof value === "boolean" && value === false)
+      ) {
+        formData.append(key, value);
+      }
+    });
 
-      const mlRes = await fetch(
-        `http://localhost:8000/api/ml-models/${mlModel.id}/`,
-        {
-          method: "PUT",
+    const machineFormData = new FormData();
+    for (const key in machine) {
+      if (machine[key] !== null && machine[key] !== "") {
+        machineFormData.append(key, machine[key]);
+      }
+    }
+
+    const variantsPayload = variants.map((v, index) => ({
+      name: v.name,
+      description: v.description,
+      is_active: index === activeVariantIndex, 
+    }));
+
+    try {
+      if (mode === "edit") {
+        // 🔁 EDIT MODE: PUT requests
+
+        const mlRes = await fetch(
+          `http://localhost:8000/api/ml-models/${mlModel.id}/`,
+          {
+            method: "PUT",
+            body: formData,
+          }
+        );
+        if (!mlRes.ok) throw new Error("Failed to update ML model");
+
+        machineFormData.append("ml_model", mlModel.id);
+
+        const machineRes = await fetch(
+          `http://localhost:8000/api/machines/${machine.id}/`,
+          {
+            method: "PUT",
+            body: machineFormData,
+          }
+        );
+        if (!machineRes.ok) throw new Error("Failed to update machine");
+
+        alert("✅ Machine updated successfully!");
+        if (onClose) onClose();
+      } else {
+        // ➕ ADD MODE: POST requests (your original logic)
+
+        const mlRes = await fetch("http://localhost:8000/api/ml-models/", {
+          method: "POST",
           body: formData,
-        }
-      );
-      if (!mlRes.ok) throw new Error("Failed to update ML model");
+        });
 
-      machineFormData.append("ml_model", mlModel.id);
+        if (!mlRes.ok) throw new Error("Failed to create ML model");
+        const mlData = await mlRes.json();
+        const modelId = mlData.id;
 
-      const machineRes = await fetch(
-        `http://localhost:8000/api/machines/${machine.id}/`,
-        {
-          method: "PUT",
+        machineFormData.append("ml_model", modelId);
+
+        machineFormData.append("variants", JSON.stringify(variantsPayload));
+        
+        const machineRes = await fetch("http://localhost:8000/api/machines/", {
+          method: "POST",
           body: machineFormData,
-        }
-      );
-      if (!machineRes.ok) throw new Error("Failed to update machine");
+        });
 
-      alert("✅ Machine updated successfully!");
-      if (onClose) onClose();
+        const machineErrorText = await machineRes.json();
+        console.error("Backend machine error:", machineErrorText);
 
-    } else {
-      // ➕ ADD MODE: POST requests (your original logic)
+        if (!machineRes.ok) throw new Error("Failed to create machine");
 
-      const mlRes = await fetch("http://localhost:8000/api/ml-models/", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!mlRes.ok) throw new Error("Failed to create ML model");
-      const mlData = await mlRes.json();
-      const modelId = mlData.id;
-
-      machineFormData.append("ml_model", modelId);
-
-      const machineRes = await fetch("http://localhost:8000/api/machines/", {
-        method: "POST",
-        body: machineFormData,
-      });
-
-      const machineErrorText = await machineRes.json();
-      console.error("Backend machine error:", machineErrorText);
-
-      if (!machineRes.ok) throw new Error("Failed to create machine");
-
-      alert("✅ Machine successfully created with linked ML model!");
-      if (onClose) onClose();
+        alert("✅ Machine successfully created with linked ML model!");
+        if (onClose) onClose();
+      }
+    } catch (error) {
+      console.error("Submit error:", error);
+      alert(error.message);
     }
-  } catch (error) {
-    console.error("Submit error:", error);
-    alert(error.message);
-  }
-};
-
+  };
 
   const renderMLModelForm = () => (
     <Box p={2}>
@@ -391,7 +402,7 @@ const handleSubmit = async () => {
                   onChange={handleChange}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              {/* <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
                   label="SDK Path"
@@ -400,7 +411,7 @@ const handleSubmit = async () => {
                   value={machine.sdk_path}
                   onChange={handleChange}
                 />
-              </Grid>
+              </Grid> */}
 
               <Grid item xs={12}>
                 <input
@@ -431,7 +442,7 @@ const handleSubmit = async () => {
                   onChange={handleChange}
                 />
               </Grid>
-              <Grid item xs={6}>
+              {/* <Grid item xs={6}>
                 <TextField
                   fullWidth
                   label="Model Threshold"
@@ -440,7 +451,7 @@ const handleSubmit = async () => {
                   value={machine.model_threshold}
                   onChange={handleChange}
                 />
-              </Grid>
+              </Grid> */}
 
               <Grid item xs={6}>
                 <TextField
@@ -511,7 +522,7 @@ const handleSubmit = async () => {
                   onChange={handleChange}
                 />
               </Grid>
-              <Grid item xs={12}>
+              {/* <Grid item xs={12}>
                 <TextField
                   fullWidth
                   label="Input Log Dir Path"
@@ -519,8 +530,8 @@ const handleSubmit = async () => {
                   value={machine.input_log_dir_path}
                   onChange={handleChange}
                 />
-              </Grid>
-              <Grid item xs={12}>
+              </Grid> */}
+              {/* <Grid item xs={12}>
                 <TextField
                   fullWidth
                   label="Output Log Dir Path"
@@ -528,7 +539,7 @@ const handleSubmit = async () => {
                   value={machine.output_log_dir_path}
                   onChange={handleChange}
                 />
-              </Grid>
+              </Grid> */}
               <Grid item xs={12}>
                 <TextField
                   fullWidth
@@ -538,7 +549,7 @@ const handleSubmit = async () => {
                   onChange={handleChange}
                 />
               </Grid>
-              <Grid item xs={6}>
+              {/* <Grid item xs={6}>
                 <TextField
                   fullWidth
                   label="Watchdog File Extensions"
@@ -546,7 +557,7 @@ const handleSubmit = async () => {
                   value={machine.watchdog_obs_file_exts}
                   onChange={handleChange}
                 />
-              </Grid>
+              </Grid> */}
               <Grid item xs={6}>
                 <TextField
                   fullWidth
@@ -565,6 +576,57 @@ const handleSubmit = async () => {
                   value={machine.video_folder_path}
                   onChange={handleChange}
                 />
+              </Grid>
+              {/* variants */}
+              <Grid item xs={12}>
+                <Typography variant="h6">Variants</Typography>
+                {variants.map((variant, index) => (
+                  <Grid container spacing={2} key={index} alignItems="center">
+                    <Grid item xs={5}>
+                      <TextField
+                        label="Variant Name"
+                        value={variant.name}
+                        onChange={(e) => {
+                          const updated = [...variants];
+                          updated[index].name = e.target.value;
+                          setVariants(updated);
+                        }}
+                        required
+                      />
+                    </Grid>
+                    <Grid item xs={5}>
+                      <TextField
+                        label="Description"
+                        value={variant.description}
+                        onChange={(e) => {
+                          const updated = [...variants];
+                          updated[index].description = e.target.value;
+                          setVariants(updated);
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={2}>
+                      <FormControlLabel
+                        control={
+                          <Radio
+                            checked={activeVariantIndex === index}
+                            onChange={() => setActiveVariantIndex(index)}
+                          />
+                        }
+                        label="Active"
+                      />
+                    </Grid>
+                  </Grid>
+                ))}
+                <Button
+                  variant="outlined"
+                  sx={{ mt: 2 }}
+                  onClick={() =>
+                    setVariants([...variants, { name: "", description: "" }])
+                  }
+                >
+                  + Add Variant
+                </Button>
               </Grid>
             </Grid>
 
@@ -642,8 +704,8 @@ const handleSubmit = async () => {
         <DialogActions>
           <Button
             onClick={() => {
-              setMachine(editMachine); 
-              setActiveStep(1); 
+              setMachine(editMachine);
+              setActiveStep(1);
               setIsEditDialogOpen(false);
             }}
           >

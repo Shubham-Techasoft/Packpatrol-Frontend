@@ -129,27 +129,110 @@ const CombinedSignInPage: React.FC<CombinedSignInPageProps> = ({
   const [password, setPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  // const handleLogin = (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setError("");
+
+  //   if (!email.includes("@")) {
+  //     setError("Please enter a valid email address.");
+  //     return;
+  //   }
+
+  //   if (password.length < 6) {
+  //     setError("Password must be at least 6 characters.");
+  //     return;
+  //   }
+
+  //   // Placeholder for login logic
+  //   console.log("Email:", email);
+  //   console.log("Password:", password);
+  //   onClose(); // Close after success (replace with actual login result)
+  // };
+
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
     if (!email.includes("@")) {
       setError("Please enter a valid email address.");
+      setLoading(false);
       return;
     }
-
+  
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
+      setLoading(false);
+      return;
+    }
+  
+    try {
+      console.log("Attempting login with email:", email);
+
+      const loginResponse = await fetch("http://127.0.0.1:8000/api/token/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }), 
+      });
+  
+      if (!loginResponse.ok) {
+        const data = await loginResponse.json();
+        console.error("Login failed:", data.detail || "Unknown Error");
+        setError(data?.detail || data?.email?.[0] || "Login failed.");
+        return;
+      }
+  
+      const data = await loginResponse.json();
+      const accessToken = data.access;
+      const refreshToken = data.refresh;
+
+    // Now fetch user details to get designation
+    const userInfoRes = await fetch("http://127.0.0.1:8000/api/users/me/", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!userInfoRes.ok) {
+      console.error("Failed to fetch user info.");
+      setError("Login succeeded, but failed to fetch user info.");
       return;
     }
 
-    // Placeholder for login logic
-    console.log("Email:", email);
-    console.log("Password:", password);
-    onClose(); // Close after success (replace with actual login result)
-  };
+    const userInfo = await userInfoRes.json();
+    const { designation, username } = userInfo;
+  
+      //  Save tokens and user info
+      localStorage.setItem("access_token", data.access);
+      localStorage.setItem("refresh_token", data.refresh);
+      localStorage.setItem("designation",designation); 
+      localStorage.setItem("username",username);
+      localStorage.setItem("email", email);
+  
+      window.dispatchEvent(new Event("storage"));
 
+      console.log(`✅ ${designation.toUpperCase()} '${username}' logged in successfully.`);
+      console.log("Access Token stored in localStorage.");
+      console.log("Redirecting to Home Page...");
+
+      // Close modal
+      onClose();
+  
+      // Redirect or update state (you can route to dashboard)
+      // window.location.href = "/"; 
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("An unexpected error occurred.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   return (
     <Dialog
       open={open}
@@ -232,7 +315,7 @@ const CombinedSignInPage: React.FC<CombinedSignInPageProps> = ({
             fullWidth
             sx={{ mt: 3, py: 1.5, fontWeight: "bold", borderRadius: 2 }}
           >
-            Sign In
+             {loading ? "Signing In..." : "Sign In"}
           </Button>
         </Box>
       </DialogContent>

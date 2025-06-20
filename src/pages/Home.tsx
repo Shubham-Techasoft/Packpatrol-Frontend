@@ -179,6 +179,31 @@ export default function Home() {
       .finally(() => setIsLoadingVariants(false));
   }, [selectedMachine]);
   
+
+  // handle active variant 
+  const handleVariantChange = (event) => {
+    const newVariantId = event.target.value;
+    setSelectedVariant(newVariantId); // Update selected variant in UI
+  
+    // 🔁 Send PATCH to update the active_variant on backend
+    fetch(`http://127.0.0.1:8000/api/machines/${selectedMachine}/`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ active_variant: newVariantId }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Failed to update active variant");
+        }
+        console.log("✅ Active variant updated");
+      })
+      .catch((err) => {
+        console.error("Error updating active variant:", err);
+      });
+  };
+  
   // load more varients funciton 
   const loadMoreVariants = () => {
     // if (!nextVariantsPage || isLoadingVariants) return;
@@ -650,7 +675,7 @@ React.useEffect(() => {
               </Typography>
 
               {/* add to favourite */}
-              <span
+              {/* <span
                 title="add to favorites"
                 style={{
                   marginRight: "2rem",
@@ -675,7 +700,7 @@ React.useEffect(() => {
                 onClick={handleFavorite}
               >
                 <StarIcon />
-              </span>
+              </span> */}
             </Box>
 
             {/* form submit handler */}
