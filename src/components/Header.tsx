@@ -20,8 +20,9 @@ import logo from "../assets/logo-1.png";
 import CombinedSignInPage from "./LoginDailog";
 import CombinedSignUpPage from "./SignupDailog";
 import { isAuthenticated, logout, isSuperAdmin } from "../utils/auth";
+import { isPrivilegedUser } from "../utils/auth";
 
-const settings = ["Profile", "Images", "Logout"];
+const settings = ["Profile", "Logout"];
 
 function ResponsiveAppBar() {
   const [anchorElNav, setAnchorElNav] = useState<null | HTMLElement>(null);
@@ -61,7 +62,11 @@ function ResponsiveAppBar() {
     { name: "Home", path: "/" },
     { name: "Dashboard", path: "/dashboard" },
     { name: "About", path: "/about" },
-    ...(auth  ? [{ name: "Dev Settings", path: "/dev-settings" }] : []),
+    ...(auth && isPrivilegedUser() 
+    ? [{ name: "Dev Settings", path: "/dev-settings" }] : []),  
+    ...(auth &&  isSuperAdmin()
+    ? [{ name: "Users", path: "/users" }]
+    : []),
   ];
 
   const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) =>
@@ -232,7 +237,7 @@ function ResponsiveAppBar() {
                   }}
                   onClick={() => setOpenSignUp(true)}
                 >
-                  Signup
+                  Create Account
                 </Button>
               )}
             </Box>
@@ -269,9 +274,7 @@ function ResponsiveAppBar() {
                           logout(); // Call logout here
                         } else if (setting === "Profile") {
                           navigate("/profile");
-                        } else if (setting === "Images") {
-                          navigate("/images");
-                        }
+                        } 
                       }}
                     >
                       <Typography textAlign="center">{setting}</Typography>

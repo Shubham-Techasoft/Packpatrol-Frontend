@@ -22,6 +22,7 @@ import StackIcon from "@mui/icons-material/StackedLineChart";
 import HeightIcon from "@mui/icons-material/Straighten";
 import ErrorIcon from "@mui/icons-material/ErrorOutline";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import RecentActivitiesDialog from "../components/RecentActivitiesDialog";
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
   backgroundColor: "#fff",
@@ -51,38 +52,6 @@ const logMessages = [
   "machine change to 'Oats Delight' — expected yield: 1,500 biscuits.",
 ];
 
-// summary cards at top
-const stackData = [
-  {
-    title: "Stack Count",
-    value: "10",
-    bg: "#FFD700, #FFA500",
-    tooltip: "Total number of stacks processed",
-    icon: <StackIcon sx={{ fontSize: 28, mb: 0.5 }} />,
-  },
-  {
-    title: "Stack Length",
-    value: "50 mm",
-    bg: "#8E2DE2, #4A00E0",
-    tooltip: "Length of each stack in millimeters",
-    icon: <HeightIcon sx={{ fontSize: 28, mb: 0.5 }} />,
-  },
-  {
-    title: "Rejected Count",
-    value: "20,045",
-    bg: "#FF416C, #FF4B2B",
-    tooltip: "Total rejected items during inspection",
-    icon: <ErrorIcon sx={{ fontSize: 28, mb: 0.5 }} />,
-  },
-  {
-    title: "Passed Count",
-    value: "200,000,237",
-    bg: "#00b09b, #96c93d",
-    tooltip: "Items that passed quality checks",
-    icon: <CheckCircleIcon sx={{ fontSize: 28, mb: 0.5 }} />,
-  },
-];
-
 type Machine = {
   id: string;
   name: string;
@@ -93,7 +62,7 @@ type Variant = {
   name: string;
 };
 
-export default function Home() {
+export default function Home({ recentDialogOpen, closeRecentDialog }) {
   const [imageUrls, setImageUrls] = React.useState([]);
   const [messages, setMessages] = React.useState(logMessages);
   const [selectedMachine, setSelectedMachine] = React.useState("");
@@ -101,12 +70,53 @@ export default function Home() {
   const [status, setStatus] = React.useState("stopped");
 
   const [selectedVariant, setSelectedVariant] = React.useState("");
-  const [favorites, setFavorites] = React.useState([]);
+  // const [favorites, setFavorites] = React.useState([]);
   const [minStackSize, setMinStackSize] = React.useState("");
   const [maxStackSize, setMaxStackSize] = React.useState("");
   const [minStackLength, setMinStackLength] = React.useState("");
   const [maxStackLength, setMaxStackLength] = React.useState("");
-  const [favoritesOpen, setFavoritesOpen] = React.useState(false);
+  const [skipAutoFetch, setSkipAutoFetch] = React.useState(false);
+
+  const [realtimeData, setRealtimeData] = React.useState({
+    estimated_stack_length: 0,
+    estimated_stack_count: 0,
+    total_frame_processed: 0,
+    total_frame_rejected: 0,
+  });
+
+  // summary cards at top
+  const stackData = [
+    {
+      title: "Stack Count",
+      value: realtimeData.estimated_stack_count || 0,
+      bg: "#FFD700, #FFA500",
+      tooltip: "Total number of stacks processed",
+      icon: <StackIcon sx={{ fontSize: 28, mb: 0.5 }} />,
+    },
+    {
+      title: "Stack Length",
+      value: `${realtimeData.estimated_stack_length || 0} mm`,
+      bg: "#8E2DE2, #4A00E0",
+      tooltip: "Length of each stack in millimeters",
+      icon: <HeightIcon sx={{ fontSize: 28, mb: 0.5 }} />,
+    },
+    {
+      title: "Rejected Count",
+      value: realtimeData.total_frame_rejected?.toLocaleString() || "0",
+      bg: "#FF416C, #FF4B2B",
+      tooltip: "Total rejected items during inspection",
+      icon: <ErrorIcon sx={{ fontSize: 28, mb: 0.5 }} />,
+    },
+    {
+      title: "Passed Count",
+      value: realtimeData.total_frame_processed?.toLocaleString() || "0",
+      bg: "#00b09b, #96c93d",
+      tooltip: "Items that passed quality checks",
+      icon: <CheckCircleIcon sx={{ fontSize: 28, mb: 0.5 }} />,
+    },
+  ];
+
+  // const [favoritesOpen, setFavoritesOpen] = React.useState(false);
 
   const [machines, setMachines] = React.useState<Machine[]>([]);
   const [variants, setVariants] = React.useState<Variant[]>([]);
@@ -126,7 +136,9 @@ export default function Home() {
     const fetchMachines = async () => {
       setIsLoadingMachines(true);
       try {
-        const response = await fetch("http://localhost:8000/api/machines/??is_active=true");
+        const response = await fetch(
+          "http://localhost:8000/api/machines/??is_active=true"
+        );
         const data = await response.json();
         setMachines(data);
       } catch (error) {
@@ -135,7 +147,7 @@ export default function Home() {
         setIsLoadingMachines(false);
       }
     };
-  
+
     fetchMachines();
   }, []);
 
@@ -156,20 +168,33 @@ export default function Home() {
     //     setIsLoadingMachines(false);
     //   });
     console.log("No pagination supported in API");
-
   };
 
-  // fetch variants after selecting machines 
+  // fetch variants after selecting machines
   React.useEffect(() => {
-    if (!selectedMachine) return;
-  
+    if (!selectedMachine) {
+      // Clear everything when no machine selected
+      setVariants([]);
+      setSelectedVariant("");
+      setMinStackSize("");
+      setMaxStackSize("");
+      setMinStackLength("");
+      setMaxStackLength("");
+      return;
+    }
+
     setIsLoadingVariants(true);
-  
+
     fetch(`http://127.0.0.1:8000/api/machines/${selectedMachine}/`)
       .then((res) => res.json())
       .then((data) => {
         setVariants(data.variants || []);
         setSelectedVariant(data.active_variant?.id || "");
+        // Clear stack values when switching machines
+        setMinStackSize("");
+        setMaxStackSize("");
+        setMinStackLength("");
+        setMaxStackLength("");
       })
       .catch((err) => {
         console.error("Failed to fetch machine details", err);
@@ -178,33 +203,66 @@ export default function Home() {
       })
       .finally(() => setIsLoadingVariants(false));
   }, [selectedMachine]);
-  
 
-  // handle active variant 
-  const handleVariantChange = (event) => {
+  // handle active variant
+  const handleVariantChange = async (event) => {
     const newVariantId = event.target.value;
-    setSelectedVariant(newVariantId); // Update selected variant in UI
-  
-    // 🔁 Send PATCH to update the active_variant on backend
-    fetch(`http://127.0.0.1:8000/api/machines/${selectedMachine}/`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ active_variant: newVariantId }),
-    })
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error("Failed to update active variant");
+    setSelectedVariant(newVariantId);
+
+    try {
+      const machineRes = await fetch(
+        `http://127.0.0.1:8000/api/machines/${selectedMachine}/`
+      );
+      const machineData = await machineRes.json();
+
+      const payload = {
+        variant_id: newVariantId,
+        camera_id: machineData.camera?.id,
+        variant_ids: machineData.variants.map((v) => v.id),
+        active_variant_id: newVariantId,
+        is_active: machineData.is_active,
+        name: machineData.name,
+        description: machineData.description || "",
+        min_stack_length: machineData.min_stack_length || 0,
+        max_stack_length: machineData.max_stack_length || 0,
+        min_stack_size: machineData.min_stack_size || 0,
+        max_stack_size: machineData.max_stack_size || 0,
+        base_dir_path: machineData.base_dir_path || "",
+        watchdog_file_expi_time:
+          machineData.watchdog_file_expi_time || "00:00:30",
+        video_stream: machineData.video_stream,
+        video_folder_path: machineData.video_folder_path || "",
+        is_running: machineData.is_running,
+        is_operational: machineData.is_operational,
+        last_maintenance: machineData.last_maintenance,
+      };
+
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/machines/${selectedMachine}/switch_variant/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
         }
-        console.log("✅ Active variant updated");
-      })
-      .catch((err) => {
-        console.error("Error updating active variant:", err);
-      });
+      );
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("❌ Backend Response:", errorText);
+        throw new Error("Failed to switch variant on backend");
+      }
+
+      const data = await res.json();
+      console.log("✅ Active variant switched:", data);
+    } catch (err) {
+      console.error("❌ Variant switch failed:", err);
+      alert("Failed to switch variant. Please try again.");
+    }
   };
-  
-  // load more varients funciton 
+
+  // load more varients funciton
   const loadMoreVariants = () => {
     // if (!nextVariantsPage || isLoadingVariants) return;
 
@@ -223,127 +281,208 @@ export default function Home() {
     console.log("No pagination supported in API");
   };
 
-// load min-max stack length and size
-React.useEffect(() => {
-  const fetchRunLogsAndSetStackValues = async () => {
-    if (!selectedMachine || !selectedVariant) return;
+  // load min-max stack length and size
+  React.useEffect(() => {
+    const fetchRunLogsAndSetStackValues = async () => {
+      if (!selectedMachine || !selectedVariant) return;
+
+      if (skipAutoFetch) {
+        console.log("⏭ Skipping auto-fetch due to applyRecentLog");
+        setSkipAutoFetch(false); // Reset after one skip
+        return;
+      }
+
+      try {
+        const res = await fetch("http://127.0.0.1:8000/api/machinerunlogs/");
+        const data = await res.json();
+
+        // Find selected machine and variant names
+        const machine = machines.find((m) => m.id === selectedMachine);
+        const variant = variants.find((v) => v.id === selectedVariant);
+
+        if (!machine || !variant) return;
+
+        // Find matching log
+        const matchingLog = data.find(
+          (log) =>
+            log.machine_name === machine.name &&
+            log.variant_name === variant.name
+        );
+
+        if (matchingLog) {
+          setMinStackSize(matchingLog.min_stack_size);
+          setMaxStackSize(matchingLog.max_stack_size);
+          setMinStackLength(matchingLog.min_stack_length);
+          setMaxStackLength(matchingLog.max_stack_length);
+        }
+      } catch (error) {
+        console.error("Failed to fetch or match machinerunlogs", error);
+      }
+    };
+
+    fetchRunLogsAndSetStackValues();
+  }, [selectedMachine, selectedVariant, machines, variants]);
+
+  // apply recent logs
+  const applyRecentLog = async (log) => {
+    console.log("🟡 APPLY RECENT LOG START:", log);
+    setSkipAutoFetch(true);
+
+    const matchedMachine = machines.find((m) => m.name === log.machine_name);
+    if (!matchedMachine) {
+      console.warn("❌ Machine not found:", log.machine_name);
+      alert("Machine not found. Cannot apply log.");
+      return;
+    }
+
+    console.log("✅ Matched Machine ID:", matchedMachine.id);
+    setSelectedMachine(matchedMachine.id);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/machinerunlogs/");
-      const data = await res.json();
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/machines/${matchedMachine.id}/`
+      );
+      const machineData = await res.json();
+      const allVariants = machineData.variants || [];
 
-      // Find selected machine and variant names
-      const machine = machines.find((m) => m.id === selectedMachine);
-      const variant = variants.find((v) => v.id === selectedVariant);
-
-      if (!machine || !variant) return;
-
-      // Find matching log
-      const matchingLog = data.find(
-        (log) =>
-          log.machine_name === machine.name &&
-          log.variant_name === variant.name
+      setVariants(allVariants);
+      console.log(
+        "📦 Variants received:",
+        allVariants.map((v) => v.name)
       );
 
-      if (matchingLog) {
-        setMinStackSize(matchingLog.min_stack_size);
-        setMaxStackSize(matchingLog.max_stack_size);
-        setMinStackLength(matchingLog.min_stack_length);
-        setMaxStackLength(matchingLog.max_stack_length);
+      const matchedVariant = allVariants.find(
+        (v) => v.name === log.variant_name
+      );
+      if (matchedVariant) {
+        setSelectedVariant(matchedVariant.id);
+        console.log("✅ Matched Variant ID:", matchedVariant.id);
+      } else {
+        console.warn("❌ Variant not found:", log.variant_name);
       }
-    } catch (error) {
-      console.error("Failed to fetch or match machinerunlogs", error);
+
+      setMinStackSize(String(log.min_stack_size || ""));
+      setMaxStackSize(String(log.max_stack_size || ""));
+      setMinStackLength(String(log.min_stack_length || ""));
+      setMaxStackLength(String(log.max_stack_length || ""));
+
+      console.log("✅ Stack values set:", {
+        minStackSize: log.min_stack_size,
+        maxStackSize: log.max_stack_size,
+        minStackLength: log.min_stack_length,
+        maxStackLength: log.max_stack_length,
+      });
+
+      alert("✅ Applied successfully!");
+    } catch (err) {
+      console.error("❌ Error in applyRecentLog:", err);
+      alert("❌ Failed to apply log.");
     }
   };
 
-  fetchRunLogsAndSetStackValues();
-}, [selectedMachine, selectedVariant, machines, variants]);
+  // SSE stream
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch("http://localhost:8000/api/streamframelogs/sse_realtime_data/");
+        console.log("📡 Response status:", response.status);
+  
+        if (!response.ok) {
+          throw new Error("❌ Failed to fetch real-time data");
+        }
+  
+        // Read raw response body
+        const text = await response.text();
+        console.log("📦 Raw response body:", text);
+  
+        // Try parsing JSON manually
+        try {
+          const data = JSON.parse(text);
+          console.log("✅ Parsed data:", data);
+  
+          setRealtimeData({
+            estimated_stack_length: data.estimated_stack_length,
+            estimated_stack_count: data.estimated_stack_count,
+            total_frame_processed: data.total_frame_processed,
+            total_frame_rejected: data.total_frame_rejected,
+          });
+        } catch (err) {
+          console.error("🚫 Failed to parse JSON:", err);
+        }
+      } catch (error) {
+        console.error("🚨 Polling error:", error);
+      }
+    };
+  
+    fetchData();
+    const intervalId = setInterval(fetchData, 3000);
+  
+    return () => clearInterval(intervalId);
+  }, []);
+  
 
   // handle favourites
-  const handleFavorite = () => {
-    if (
-      selectedMachine &&
-      minStackSize !== undefined &&
-      minStackSize !== null &&
-      maxStackSize !== undefined &&
-      maxStackSize !== null &&
-      minStackLength !== undefined &&
-      minStackLength !== null &&
-      maxStackLength !== undefined &&
-      maxStackLength !== null
-    ) {
-      const favoriteSetting = {
-        machine: selectedMachine,
-        minStackSize: String(minStackSize), // Ensure consistent string type for comparison
-        maxStackSize: String(maxStackSize),
-        minStackLength: String(minStackLength),
-        maxStackLength: String(maxStackLength),
-      };
-
-      // Check if this favorite setting already exists in the favorites array
-      const isDuplicate = favorites.some(
-        (fav) =>
-          fav.machine === favoriteSetting.machine &&
-          fav.minStackSize === favoriteSetting.minStackSize &&
-          fav.maxStackSize === favoriteSetting.maxStackSize &&
-          fav.minStackLength === favoriteSetting.minStackLength &&
-          fav.maxStackLength === favoriteSetting.maxStackLength
-      );
-
-      if (!isDuplicate) {
-        setFavorites((prev) => [...prev, favoriteSetting]);
-        // setFavoritesOpen(true);
-      } else {
-        alert("This setting is already in your favorites.");
-      }
-    } else {
-      alert(
-        "Please ensure all input fields are filled before adding to favorites."
-      );
-    }
-  };
-
-  React.useEffect(() => {
-    const eventSource = new EventSource(
-      "http://localhost:8000/home/image-stream"
-    );
-
-    eventSource.onmessage = (event) => {
-      const imageUrl = event.data;
-      setImageUrls((prevUrls) => [...prevUrls, imageUrl]);
-    };
-
-    eventSource.onerror = (error) => {
-      console.error("SSE error:", error);
-    };
-
-    return () => {
-      eventSource.close();
-    };
-  }, []);
-
-  // const handleSubmit = (actionType) => {
-  //   if (actionType === "start" && (!selectedMachine || !stackSize)) {
-  //     alert("Please select a machine and enter stack size.");
-  //     return;
-  //   }
-
-  //   fetch("/api/control", {
-  //     method: "POST",
-  //     headers: { "Content-Type": "application/json" },
-  //     body: JSON.stringify({
-  //       action: actionType,
+  // const handleFavorite = () => {
+  //   if (
+  //     selectedMachine &&
+  //     minStackSize !== undefined &&
+  //     minStackSize !== null &&
+  //     maxStackSize !== undefined &&
+  //     maxStackSize !== null &&
+  //     minStackLength !== undefined &&
+  //     minStackLength !== null &&
+  //     maxStackLength !== undefined &&
+  //     maxStackLength !== null
+  //   ) {
+  //     const favoriteSetting = {
   //       machine: selectedMachine,
-  //       stackSize: stackSize,
-  //     }),
-  //   })
-  //     .then((response) => response.json())
-  //     .then((data) => {
-  //       console.log("Response:", data);
-  //       setStatus(actionType === "start" ? "running" : "stopped");
-  //     })
-  //     .catch((error) => console.error("Error:", error));
+  //       minStackSize: String(minStackSize), // Ensure consistent string type for comparison
+  //       maxStackSize: String(maxStackSize),
+  //       minStackLength: String(minStackLength),
+  //       maxStackLength: String(maxStackLength),
+  //     };
+
+  //     // Check if this favorite setting already exists in the favorites array
+  //     const isDuplicate = favorites.some(
+  //       (fav) =>
+  //         fav.machine === favoriteSetting.machine &&
+  //         fav.minStackSize === favoriteSetting.minStackSize &&
+  //         fav.maxStackSize === favoriteSetting.maxStackSize &&
+  //         fav.minStackLength === favoriteSetting.minStackLength &&
+  //         fav.maxStackLength === favoriteSetting.maxStackLength
+  //     );
+
+  //     if (!isDuplicate) {
+  //       setFavorites((prev) => [...prev, favoriteSetting]);
+  //       // setFavoritesOpen(true);
+  //     } else {
+  //       alert("This setting is already in your favorites.");
+  //     }
+  //   } else {
+  //     alert(
+  //       "Please ensure all input fields are filled before adding to favorites."
+  //     );
+  //   }
   // };
+
+  // React.useEffect(() => {
+  //   const eventSource = new EventSource(
+  //     "http://localhost:8000/home/image-stream"
+  //   );
+
+  //   // eventSource.onmessage = (event) => {
+  //   //   const imageUrl = event.data;
+  //   //   setImageUrls((prevUrls) => [...prevUrls, imageUrl]);
+  //   // };
+
+  //   eventSource.onerror = (error) => {
+  //     console.error("SSE error:", error);
+  //   };
+
+  //   return () => {
+  //     eventSource.close();
+  //   };
+  // }, []);
 
   const handleSubmit = async (actionType) => {
     if (!selectedMachine) {
@@ -384,13 +523,13 @@ React.useEffect(() => {
               })
             : null, // 'stop' API doesn't need a body
       });
-  
+
       const data = await res.json();
-  
+
       if (!res.ok) {
         throw new Error(data.detail || "Something went wrong.");
       }
-  
+
       console.log("Machine Control Response:", data);
       setStatus(actionType === "start" ? "running" : "stopped");
     } catch (err) {
@@ -429,7 +568,6 @@ React.useEffect(() => {
         flexGrow: 1,
         height: "80vh",
         padding: 2,
-        // background: "linear-gradient(to right, #B0E0E6, #ADD8E6)",
         bgcolor: "rgb(209, 233, 237)",
       }}
     >
@@ -444,7 +582,6 @@ React.useEffect(() => {
               alignItems: "center",
               padding: 0.5,
               height: "100%",
-              // backgroundColor: "#f9f9f9",
               backgroundColor: "#f5f5f5",
               boxShadow: "0 4px 20px rgba(196, 201, 255, 0.08)",
               borderRadius: 3,
@@ -560,7 +697,7 @@ React.useEffect(() => {
                   select
                   label="Choose Variant"
                   value={selectedVariant}
-                  onChange={(e) => setSelectedVariant(e.target.value)}
+                  onChange={handleVariantChange}
                   size="small"
                   disabled={!selectedMachine}
                   // SelectProps={{
@@ -753,7 +890,7 @@ React.useEffect(() => {
                   select
                   label="Choose Variant"
                   value={selectedVariant}
-                  onChange={(e) => setSelectedVariant(e.target.value)}
+                  onChange={handleVariantChange}
                   size="small"
                   disabled={!selectedMachine}
                   // SelectProps={{
@@ -883,6 +1020,13 @@ React.useEffect(() => {
           </StyledPaper>
         </Grid>
       </Grid>
+
+      {/* recent activities*/}
+      <RecentActivitiesDialog
+        open={recentDialogOpen}
+        handleClose={closeRecentDialog}
+        onApplyLog={applyRecentLog}
+      />
     </Box>
   );
 }

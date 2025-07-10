@@ -19,7 +19,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 // import from utils
-import { isAuthenticated, isSuperAdmin } from "../utils/auth"
+import { isAuthenticated, isSuperAdmin } from "../utils/auth";
 
 const Transition = React.forwardRef(function Transition(props: any, ref: any) {
   return <Slide direction="down" ref={ref} {...props} />;
@@ -47,101 +47,91 @@ const CombinedSignUpPage: React.FC<CombinedSignUpPageProps> = ({
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
 
-  // const handleSignUp = async (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   setError("");
-  //   setLoading(true);
+  // Auto-clear error message after 3 seconds
+  React.useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError("");
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
-  //   if (!username.trim()) return setError("Username is required.");
-  //   if (fullName.trim().length < 3) return setError("First name must be at least 3 characters.");
-  //   if (!lastName.trim()) return setError("Last name is required.");
-  //   if (!email.includes("@")) return setError("Invalid email format.");
-  //   if (!company.trim()) return setError("Company is required.");
-  //   if (password.length < 6) return setError("Password must be at least 6 characters.");
-  //   if (password !== confirmPassword) return setError("Passwords do not match.");
+  // Reset form when dialog is reopened (after being closed manually)
+  React.useEffect(() => {
+    if (!open) return; // Don't reset unless it's being opened
 
-  //   try {
-  //     const response = await fetch("http://127.0.0.1:8000/api/users/", {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({
-  //         username,
-  //         email,
-  //         password,
-  //         first_name: fullName,
-  //         last_name: lastName,
-  //         designation,
-  //         company,
-  //       }),
-  //     });
+    setFullName("");
+    setLastName("");
+    setUsername("");
+    setEmail("");
+    setCompany("");
+    setPassword("");
+    setConfirmPassword("");
+    setDesignation("employee");
+    setError("");
+    setLoading(false);
+  }, [open]);
 
-  //     if (!response.ok) {
-  //       try {
-  //         const data = await response.json();
-  //         console.error("Signup failed with data:", data);
-  //         setError(data.detail ||  Object.values(data).flat().join(" ") || "Signup failed.");
-  //       } catch (jsonErr) {
-  //         const text = await response.text();
-  //         console.error("Non-JSON response:", text);
-  //         setError("Signup failed. Server returned unexpected response.");
-  //       }
-  //       return;
-  //     }
-
-  //     alert("Signup successful!");
-
-  //     // Clear form after successful signup
-  //     setFullName("");
-  //     setLastName("");
-  //     setUsername("");
-  //     setEmail("");
-  //     setPassword("");
-  //     setConfirmPassword("");
-  //     setCompany("");
-  //     setDesignation("user");
-  //     setError("");
-
-  //     onClose(); // Close the dialog
-  //   } catch (err) {
-  //     console.error("Signup error:", err);
-  //     setError("Signup failed due to a server error.");
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
+  // handle sign up function
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    if (!username.trim()) return setError("Username is required.");
-    if (fullName.trim().length < 3)
-      return setError("First name must be at least 3 characters.");
-    if (!lastName.trim()) return setError("Last name is required.");
-    if (!email.includes("@")) return setError("Invalid email format.");
-    if (!company.trim()) return setError("Company is required.");
-    if (password.length < 6)
-      return setError("Password must be at least 6 characters.");
-    if (password !== confirmPassword)
-      return setError("Passwords do not match.");
+    if (!username.trim()) {
+      setError("Username is required.");
+      setLoading(false);
+      return;
+    }
+    if (fullName.trim().length < 3) {
+      setError("First name must be at least 3 characters.");
+      setLoading(false);
+      return;
+    }
+    if (!lastName.trim()) {
+      setError("Last name is required.");
+      setLoading(false);
+      return;
+    }
+    if (!email.includes("@")) {
+      setError("Invalid email format.");
+      setLoading(false);
+      return;
+    }
+    if (!company.trim()) {
+      setError("Company is required.");
+      setLoading(false);
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      setLoading(false);
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      setLoading(false);
+      return;
+    }
 
     try {
       const accessToken = localStorage.getItem("access_token");
 
-      // Step 1: Signup 
+      // Step 1: Signup
       const signupResponse = await fetch("http://127.0.0.1:8000/api/users/", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${accessToken}` },
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({
           username,
           email,
           password,
           first_name: fullName,
           last_name: lastName,
-          designation, 
+          designation,
           company,
         }),
       });
@@ -149,9 +139,24 @@ const CombinedSignUpPage: React.FC<CombinedSignUpPageProps> = ({
       if (!signupResponse.ok) {
         const data = await signupResponse.json();
         console.error("Signup failed with data:", data);
-        setError(
-          data?.detail || data?.non_field_errors?.[0] || "Signup failed."
-        );
+
+        // message from any field error
+        const detailedMessage =
+          data.detail && typeof data.detail === "string"
+            ? data.detail
+            : Object.entries(data)
+                .map(([key, val]) => {
+                  if (Array.isArray(val)) {
+                    return `${key}: ${val.join(", ")}`;
+                  }
+                  return `${key}: ${val}`;
+                })
+                .join("\n") || "Signup failed.";
+
+        alert(`Signup failed: ${detailedMessage}`);
+        setError(detailedMessage);
+
+        setLoading(false);
         return;
       }
 
@@ -173,14 +178,20 @@ const CombinedSignUpPage: React.FC<CombinedSignUpPageProps> = ({
 
       localStorage.setItem("access_token", loginData.access);
       localStorage.setItem("refresh_token", loginData.refresh);
-      localStorage.setItem("designation", designation.toLowerCase() );
+      localStorage.setItem("designation", designation.toLowerCase());
       localStorage.setItem("username", username);
+
+      localStorage.setItem("email", email);
+
+      // localStorage.setItem("password", password);
 
       // const { access, refresh } = await loginResponse.json();
       // localStorage.setItem("access_token", access);
       // localStorage.setItem("refresh_token", refresh);
 
-      alert("Signed up and logged in successfully as Admin!");
+      alert(
+        `Signed up and logged in successfully as ${designation.charAt(0).toUpperCase() + designation.slice(1)}!`
+      );
 
       // Clear form
       setFullName("");
@@ -190,15 +201,16 @@ const CombinedSignUpPage: React.FC<CombinedSignUpPageProps> = ({
       setPassword("");
       setConfirmPassword("");
       setCompany("");
-      setDesignation("employee"); 
+      setDesignation("employee");
 
       onClose();
 
       // Redirect or set admin dashboard
-      window.location.href = "/"; 
+      window.location.href = "/";
     } catch (err) {
       console.error("Signup error:", err);
-      setError("Signup failed due to a server error.");
+      setError(`Signup failed due to a server error: ${err.message || err}`);
+      // setError("Signup failed due to a server error.");
     } finally {
       setLoading(false);
     }
@@ -206,7 +218,7 @@ const CombinedSignUpPage: React.FC<CombinedSignUpPageProps> = ({
 
   //  Restrict access to only SuperAdmin
   if (!isAuthenticated() || !isSuperAdmin()) {
-    return null; 
+    return null;
   }
 
   return (
@@ -243,7 +255,7 @@ const CombinedSignUpPage: React.FC<CombinedSignUpPageProps> = ({
       <DialogContent>
         <Box component="form" onSubmit={handleSignUp} sx={{ mt: 2 }}>
           <Typography variant="body1" mb={2}>
-            Create your account
+            Create Account
           </Typography>
 
           <TextField

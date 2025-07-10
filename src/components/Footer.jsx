@@ -13,7 +13,7 @@ import FavoritesDialog from "./FavoritesDialog";
 import GalleryDialog from "../pages/GalleryPage";
 import { useNavigate } from "react-router-dom";
 
-export default function Footer() {
+export default function Footer({ onRecentOpen }) {
   const navigate = useNavigate();
 
   const [value, setValue] = React.useState(0);
@@ -54,7 +54,9 @@ export default function Footer() {
             console.log("this is newValue in footer: ", newValue);
             setValue(newValue);
             if (newValue === 0) {
-              handleRecentOpen();
+              // handleRecentOpen();
+              onRecentOpen?.();
+              // trigger dialog in App.jsx → Home.jsx
             } else if (newValue === 1) {
               navigate("/gallery");
             }

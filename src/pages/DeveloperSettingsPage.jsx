@@ -25,6 +25,9 @@ import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 // import AddMachineForm from "./AddMachineForm";
 
 import AddMachineStepper from "./AddMachineStepper";
+import { isManager } from "../utils/auth";
+import { isAuthenticated, isPrivilegedUser } from "../utils/auth";
+import { Navigate } from "react-router-dom";
 
 const DeveloperSettings = () => {
   const [machines, setMachines] = useState([]);
@@ -36,21 +39,28 @@ const DeveloperSettings = () => {
   const [editData, setEditData] = useState(null);
   const [mode, setMode] = useState("add");
 
-  // fetch machines
-  useEffect(() => {
-    const fetchMachines = async () => {
-      try {
-        const res = await axios.get("http://localhost:8000/api/machines/");
-        // Sort by created_at (oldest first)
-        const sorted = res.data.sort(
-          (a, b) => new Date(a.created_at) - new Date(b.created_at)
-        );
-        setMachines(sorted);
-      } catch (err) {
-        console.error("Error fetching machines:", err);
-      }
-    };
+  const managerView = isManager();
 
+  if (!isAuthenticated() || !isPrivilegedUser()) {
+    return <Navigate to="/" replace />;
+  }
+
+  // fetch machines
+  const fetchMachines = async () => {
+    try {
+      const res = await axios.get("http://localhost:8000/api/machines/");
+      // Sort by created_at (oldest first)
+      const sorted = res.data.sort(
+        (a, b) => new Date(a.created_at) - new Date(b.created_at)
+      );
+      setMachines(sorted);
+    } catch (err) {
+      console.error("Error fetching machines:", err);
+    }
+  };
+
+  // call fetch machine once on load
+  useEffect(() => {
     fetchMachines();
   }, []);
 
@@ -72,31 +82,112 @@ const DeveloperSettings = () => {
     setSelectedMachine(null);
   };
 
-  //edit machine  
+  //edit machine
   const handleEdit = async () => {
+    const token = localStorage.getItem("access_token");
+    if (!selectedMachine) return;
+
     try {
-      const mlRes = await fetch(
-        `http://localhost:8000/api/mlmodels/${selectedMachine.ml_model}/`
+      // 1. Fetch full machine with variants
+      const machineRes = await fetch(
+        `http://localhost:8000/api/machines/${selectedMachine.id}/`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
-      const mlModelData = await mlRes.json();
-  
+      const machineData = await machineRes.json();
+
+      // 2.  Fix camera null (fetch if it's ID string or missing)
+      // if (!machineData.camera || typeof machineData.camera === "string") {
+      //   const cameraId =
+      //     machineData.camera ||
+      //     (await fetchCameraIdByMachineName(machineData.name));
+
+      //   const camRes = await fetch(
+      //     `http://localhost:8000/api/cameras/${cameraId}/`,
+      //     {
+      //       headers: { Authorization: `Bearer ${token}` },
+      //     }
+      //   );
+      //   const camData = await camRes.json();
+      //   machineData.camera = camData; // ✅ Fix camera details
+      // }
+
+      if (!machineData.camera || typeof machineData.camera === "string") {
+        const fallbackCameraId =
+          machineData.camera ||
+          (await fetchCameraIdByMachineName(machineData.name));
+
+        if (!fallbackCameraId) {
+          console.warn(
+            "⚠️ Could not resolve camera ID for machine:",
+            machineData.name
+          );
+        } else {
+          const camRes = await fetch(
+            `http://localhost:8000/api/cameras/${fallbackCameraId}/`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          const camData = await camRes.json();
+          machineData.camera = camData;
+        }
+      }
+
+      // 3. Fetch ML model separately
+      const mlModelId = machineData?.variants?.[0]?.active_ml_model?.id;
+
+      if (!mlModelId) {
+        console.warn("⚠️ No ML model linked to this machine.");
+      }
+
+      let mlModelData = null;
+      if (mlModelId) {
+        const mlModelRes = await fetch(
+          `http://localhost:8000/api/mlmodels/${mlModelId}/`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        mlModelData = await mlModelRes.json();
+      }
+
+      // 4. Pass all combined data to AddMachineStepper
       setEditData({
-        machine: selectedMachine,
+        machine: machineData,
         mlModel: mlModelData,
       });
+
       setMode("edit");
       setOpen(true);
       handleMenuClose();
     } catch (err) {
-      console.error("Failed to fetch ML model for edit", err);
+      console.error(
+        "❌ Failed to fetch machine/Camera/ML model data for edit:",
+        err
+      );
     }
+  };
+
+  // Optional helper if camera ID is not embedded
+  const fetchCameraIdByMachineName = async (machineName) => {
+    const token = localStorage.getItem("access_token");
+    const res = await fetch("http://localhost:8000/api/cameras/", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const allCams = await res.json();
+    const matched = allCams.find((cam) => cam.name === `${machineName}-cam`);
+    return matched?.id;
   };
 
   //delete machine
   const handleDelete = async () => {
-    // swagger token for development phase only
-    const token =
-      "";
+    const token = localStorage.getItem("access_token");
 
     if (!selectedMachine) return;
 
@@ -116,6 +207,7 @@ const DeveloperSettings = () => {
 
       if (response.ok) {
         setMachines((prev) => prev.filter((m) => m.id !== selectedMachine.id));
+        setOpenConfirmDialog(false);
       } else {
         console.error("Failed to delete machine");
       }
@@ -127,7 +219,7 @@ const DeveloperSettings = () => {
   };
 
   return (
-    <Box sx={{ display: "flex", height: "100vh", bgcolor: "#f0f4f8" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "#f0f4f8" }}>
       {/* Sidebar */}
       <Box
         sx={{
@@ -148,26 +240,29 @@ const DeveloperSettings = () => {
           <MemoryIcon sx={{ mr: 1 }} /> Developer Panel
         </Typography>
 
-        <Button
-          startIcon={<AddIcon />}
-          variant="contained"
-          fullWidth
-          onClick={handleOpen}
-          sx={{
-            mb: 3,
-            background: "linear-gradient(to bottom, #00b09b, #96c93d)",
-            color: "#fff",
-            fontWeight: 600,
-            borderRadius: "8px",
-            boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
-            "&:hover": {
-              background: "linear-gradient(to right, #ff4b2b, #ff416c)",
-              transform: "translateY(-2px)",
-            },
-          }}
-        >
-          Add Machine
-        </Button>
+        {/* Add Machine Button */}
+        {!managerView && (
+          <Button
+            startIcon={<AddIcon />}
+            variant="contained"
+            fullWidth
+            onClick={handleOpen}
+            sx={{
+              mb: 3,
+              background: "linear-gradient(to bottom, #00b09b, #96c93d)",
+              color: "#fff",
+              fontWeight: 600,
+              borderRadius: "8px",
+              boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
+              "&:hover": {
+                background: "linear-gradient(to right, #ff4b2b, #ff416c)",
+                transform: "translateY(-2px)",
+              },
+            }}
+          >
+            Add Machine
+          </Button>
+        )}
 
         <Divider sx={{ mb: 2, borderColor: "rgba(255,255,255,0.2)" }} />
         <Typography
@@ -192,7 +287,12 @@ const DeveloperSettings = () => {
       </Box>
 
       {/* Main Section */}
-      <Box sx={{ flexGrow: 1, p: 4 }}>
+      <Box
+        sx={{
+          flexGrow: 1,
+          p: 4,
+        }}
+      >
         <Typography variant="h4" fontWeight={600} mb={4}>
           Available Machines
         </Typography>
@@ -253,15 +353,18 @@ const DeveloperSettings = () => {
         >
           {/* Edit machine */}
           <MenuItem onClick={handleEdit}>Edit</MenuItem>
+
           {/* Delete Machine */}
-          <MenuItem
-            onClick={() => {
-              setOpenConfirmDialog(true);
-              setAnchorEl(null); 
-            }}
-          >
-            Delete
-          </MenuItem>
+          {!managerView && (
+            <MenuItem
+              onClick={() => {
+                setOpenConfirmDialog(true);
+                setAnchorEl(null);
+              }}
+            >
+              Delete
+            </MenuItem>
+          )}
         </Menu>
 
         {/* Dialog box */}
@@ -295,7 +398,7 @@ const DeveloperSettings = () => {
       </Box>
 
       {/* Machine Creation Dialog */}
-      
+
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         {/* <DialogTitle>Create New Machine</DialogTitle> */}
         <DialogContent>
@@ -303,13 +406,16 @@ const DeveloperSettings = () => {
             // onSubmit={handleCreateMachine}
             onClose={handleClose}
           /> */}
+
           <Typography variant="h4" gutterBottom>
             Developer Settings
           </Typography>
+
           <AddMachineStepper
             mode={mode}
             editData={editData}
-            onClose={handleClose}         
+            onClose={handleClose}
+            onMachineCreated={fetchMachines}
           />
         </DialogContent>
       </Dialog>

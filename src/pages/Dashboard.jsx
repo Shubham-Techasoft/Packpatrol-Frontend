@@ -1,4 +1,4 @@
-import * as React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -33,7 +33,12 @@ import {
 import { styled } from "@mui/material/styles";
 import { isAuthenticated } from "../utils/auth";
 import dayjs from "dayjs";
-
+import advancedFormat from "dayjs/plugin/advancedFormat";
+dayjs.extend(advancedFormat);
+import axios from "axios";
+import Stack from "@mui/material/Stack";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import MemoryIcon from "@mui/icons-material/Memory";
 // const [designation] = useState(localStorage.getItem("designation") || "");
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
@@ -59,23 +64,16 @@ const InfoCard = ({ icon, title, value, color }) => (
   </StyledPaper>
 );
 
-// const data = [
-//   { name: "08 AM", production: 200 },
-//   { name: "10 AM", production: 400 },
-//   { name: "12 PM", production: 600 },
-//   { name: "2 PM", production: 700 },
-//   { name: "4 PM", production: 1000 },
-// ];
-
 export default function Dashboard() {
   const [restricted, setRestricted] = React.useState(false);
   const [designation, setDesignation] = React.useState("");
   const [chartData, setChartData] = React.useState([]);
   const [timeFilter, setTimeFilter] = React.useState("all");
+  const [logs, setLogs] = useState([]);
   const [loading, setLoading] = React.useState(true);
   const [performanceStats, setPerformanceStats] = React.useState(null);
   const [isStarting, setIsStarting] = React.useState(false);
-const [isStopping, setIsStopping] = React.useState(false);
+  const [isStopping, setIsStopping] = React.useState(false);
 
   const [machineStatus, setMachineStatus] = React.useState({
     active: 0,
@@ -90,108 +88,6 @@ const [isStopping, setIsStopping] = React.useState(false);
     message: "",
     severity: "info",
   });
-
-  // React.useEffect(() => {
-  //   const auth = isAuthenticated();
-  //   setRestricted(!auth);
-
-  //   setLoading(true);
-  //   // fetch machine run logs (chart data)
-  //   fetch("http://127.0.0.1:8000/api/machinerunlogs/")
-  //     .then((res) => res.json())
-  //     .then((data) => {
-  //       console.log("Raw API Data:", data);
-
-  //       const now = dayjs();
-
-  //       const filtered = data.filter((item) => {
-  //         const itemTime = dayjs(item.start_time);
-  //         if (restricted) {
-  //           return now.diff(itemTime, "hour") <= 24;
-  //         }
-  //         if (timeFilter === "24h") return now.diff(itemTime, "hour") <= 24;
-  //         if (timeFilter === "7d") return now.diff(itemTime, "day") <= 7;
-  //         if (timeFilter === "30d") return now.diff(itemTime, "day") <= 30;
-  //         return true;
-  //       });
-
-  //       console.log(
-  //         "Active Time Filter:",
-  //         restricted ? "24h (restricted)" : timeFilter
-  //       );
-  //       console.log("Filtered Logs:", filtered);
-
-  //       const grouped = {};
-  //       filtered.forEach((item) => {
-  //         const hourLabel = dayjs(item.start_time).format("hh A");
-  //         const production = item.total_frames_processed || 0;
-
-  //         if (!grouped[hourLabel]) grouped[hourLabel] = 0;
-  //         grouped[hourLabel] += production;
-  //       });
-
-  //       const transformed = Object.entries(grouped).map(
-  //         ([hour, production]) => ({
-  //           name: hour,
-  //           production,
-  //         })
-  //       );
-
-  //       const sorted = transformed.sort((a, b) =>
-  //         dayjs(a.name, "hh A").isBefore(dayjs(b.name, "hh A")) ? -1 : 1
-  //       );
-  //       console.log("Transformed Chart Data:", sorted);
-  //       setChartData(sorted);
-  //       setLoading(false);
-
-  //       const allMachines = new Set();
-  //       const activeMachines = new Set();
-
-  //       data.forEach((log) => {
-  //         allMachines.add(log.machine_name);
-  //         if (log.is_running) activeMachines.add(log.machine_name);
-  //       });
-
-  //       setMachineStatus({
-  //         active: activeMachines.size,
-  //         total: allMachines.size,
-  //         liveFeed: activeMachines.size > 0 ? "Running" : "Stopped"
-  //       });
-  //     });
-  //     fetch("http://127.0.0.1:8000/api/machines/")
-  //     .then((res) => res.json())
-  //     .then((machineList) => {
-  //       setMachineStatus((prev) => ({
-  //         ...prev,
-  //         total: machineList.length,
-  //       }));
-  //     })
-
-  //     //     .map(item => ({
-  //     //       name: dayjs(item.start_time).format("hh A"), // X axis label
-  //     //       production: item.total_frames_processed || 0, // Y axis value
-  //     //     }));
-  //     //     console.log("Raw API Data:", data);
-
-  //     //   setChartData(transformed);
-  //     //   console.log("Transformed Chart Data:", transformed);
-  //     // })
-  //     .catch((err) => {
-  //       console.error("Failed to load chart data:", err);
-  //       setLoading(false);
-  //     });
-
-  //   // Fetch performance Stats
-  //   fetch("http://127.0.0.1:8000/api/streamframelogs/performance_analysis/")
-  //     .then((res) => res.json())
-  //     .then((data) => {
-  //       console.log("Performance Stats:", data);
-  //       setPerformanceStats(data);
-  //     })
-  //     .catch((err) => {
-  //       console.error("Failed to fetch performance stats:", err);
-  //     });
-  // }, [timeFilter, restricted]);
 
   React.useEffect(() => {
     const auth = isAuthenticated();
@@ -284,6 +180,30 @@ const [isStopping, setIsStopping] = React.useState(false);
       .catch((err) => console.error("Failed to fetch machines:", err));
   }, []);
 
+  React.useEffect(() => {
+    axios
+      .get("http://127.0.0.1:8000/api/machinerunlogs/dashboard_summary/")
+      .then((res) => {
+        setLogs(res.data.recent_runs || []);
+      })
+      .catch((err) => {
+        console.error("Error fetching logs:", err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  //  groupedLogs
+  const groupedLogs = logs.reduce((acc, log) => {
+    const dateKey = dayjs(log.stop_time || log.start_time).format(
+      "MMM D, YYYY"
+    );
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(log);
+    return acc;
+  }, {});
+
   // start all machine
   const handleStartAllMachines = async () => {
     const token = localStorage.getItem("token");
@@ -291,60 +211,78 @@ const [isStopping, setIsStopping] = React.useState(false);
     setIsStarting(true);
     setControlLoading(true);
     console.log("🟢 Sending start command to all machines...");
-  
+
     try {
       for (const machine of allMachines) {
-        if (!machine.camera || !machine.variants || machine.variants.length === 0) {
-          console.warn(`⚠️ Skipping ${machine.name} due to missing camera or variants`);
+        if (
+          !machine.camera ||
+          !machine.variants ||
+          machine.variants.length === 0
+        ) {
+          console.warn(
+            `⚠️ Skipping ${machine.name} due to missing camera or variants`
+          );
           continue;
         }
-  
+
         console.log(`▶️ Starting ${machine.name} (${machine.id})`);
-  
-        const response = await fetch(`http://127.0.0.1:8000/api/machines/${machine.id}/start_run/`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            camera_id: machine.camera?.id,
-            variant_ids: machine.variants.map((v) => v.id),
-            active_variant_id: machine.variants[0]?.id,
-            is_active: true,
-            name: machine.name,
-            description: machine.description || "",
-            min_stack_length: machine.min_stack_length || 0,
-            max_stack_length: machine.max_stack_length || 0,
-            min_stack_size: machine.min_stack_size || 0,
-            max_stack_size: machine.max_stack_size || 0,
-            base_dir_path: machine.base_dir_path || "",
-            watchdog_file_expi_time: machine.watchdog_file_expi_time || "",
-            video_stream: machine.video_stream || false,
-            video_folder_path: machine.video_folder_path || "",
-            is_running: true,
-            is_operational: true,
-            last_maintenance: machine.last_maintenance || new Date().toISOString(),
-          }),
-        });
-  
+
+        const response = await fetch(
+          `http://127.0.0.1:8000/api/machines/${machine.id}/start_run/`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              camera_id: machine.camera?.id,
+              variant_ids: machine.variants.map((v) => v.id),
+              active_variant_id: machine.variants[0]?.id,
+              is_active: true,
+              name: machine.name,
+              description: machine.description || "",
+              min_stack_length: machine.min_stack_length || 0,
+              max_stack_length: machine.max_stack_length || 0,
+              min_stack_size: machine.min_stack_size || 0,
+              max_stack_size: machine.max_stack_size || 0,
+              base_dir_path: machine.base_dir_path || "",
+              watchdog_file_expi_time: machine.watchdog_file_expi_time || "",
+              video_stream: machine.video_stream || false,
+              video_folder_path: machine.video_folder_path || "",
+              is_running: true,
+              is_operational: true,
+              last_maintenance:
+                machine.last_maintenance || new Date().toISOString(),
+            }),
+          }
+        );
+
         if (!response.ok) {
           throw new Error(`Failed to start ${machine.name}`);
         }
       }
-  
+
       console.log("✅ All start commands sent.");
-      setSnackbar({ open: true, message: "✅ Machines started successfully!", severity: "success" });
+      setSnackbar({
+        open: true,
+        message: "✅ Machines started successfully!",
+        severity: "success",
+      });
     } catch (err) {
       console.error("❌ Error starting machines:", err);
-      setSnackbar({ open: true, message: "❌ Failed to start machines", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "❌ Failed to start machines",
+        severity: "error",
+      });
     } finally {
       setControlText("");
       setIsStarting(false);
       setControlLoading(false);
     }
   };
-  
+
   // stop all machine
   const handleStopAllMachines = async () => {
     const token = localStorage.getItem("token");
@@ -352,60 +290,78 @@ const [isStopping, setIsStopping] = React.useState(false);
     setIsStopping(true);
     setControlLoading(true);
     console.log("🔴 Sending stop command to all machines...");
-  
+
     try {
       for (const machine of allMachines) {
-        if (!machine.camera || !machine.variants || machine.variants.length === 0) {
-          console.warn(`⚠️ Skipping ${machine.name} due to missing camera or variants`);
+        if (
+          !machine.camera ||
+          !machine.variants ||
+          machine.variants.length === 0
+        ) {
+          console.warn(
+            `⚠️ Skipping ${machine.name} due to missing camera or variants`
+          );
           continue;
         }
-  
+
         console.log(`⛔ Stopping ${machine.name} (${machine.id})`);
-  
-        const response = await fetch(`http://127.0.0.1:8000/api/machines/${machine.id}/stop_run/`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            camera_id: machine.camera?.id,
-            variant_ids: machine.variants.map((v) => v.id),
-            active_variant_id: machine.variants[0]?.id,
-            is_active: false,
-            name: machine.name,
-            description: machine.description || "",
-            min_stack_length: machine.min_stack_length || 0,
-            max_stack_length: machine.max_stack_length || 0,
-            min_stack_size: machine.min_stack_size || 0,
-            max_stack_size: machine.max_stack_size || 0,
-            base_dir_path: machine.base_dir_path || "",
-            watchdog_file_expi_time: machine.watchdog_file_expi_time || "",
-            video_stream: machine.video_stream || false,
-            video_folder_path: machine.video_folder_path || "",
-            is_running: false,
-            is_operational: true,
-            last_maintenance: machine.last_maintenance || new Date().toISOString(),
-          }),
-        });
-  
+
+        const response = await fetch(
+          `http://127.0.0.1:8000/api/machines/${machine.id}/stop_run/`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              camera_id: machine.camera?.id,
+              variant_ids: machine.variants.map((v) => v.id),
+              active_variant_id: machine.variants[0]?.id,
+              is_active: false,
+              name: machine.name,
+              description: machine.description || "",
+              min_stack_length: machine.min_stack_length || 0,
+              max_stack_length: machine.max_stack_length || 0,
+              min_stack_size: machine.min_stack_size || 0,
+              max_stack_size: machine.max_stack_size || 0,
+              base_dir_path: machine.base_dir_path || "",
+              watchdog_file_expi_time: machine.watchdog_file_expi_time || "",
+              video_stream: machine.video_stream || false,
+              video_folder_path: machine.video_folder_path || "",
+              is_running: false,
+              is_operational: true,
+              last_maintenance:
+                machine.last_maintenance || new Date().toISOString(),
+            }),
+          }
+        );
+
         if (!response.ok) {
           throw new Error(`Failed to stop ${machine.name}`);
         }
       }
-  
+
       console.log("✅ All stop commands sent.");
-      setSnackbar({ open: true, message: "✅ Machines stopped successfully!", severity: "success" });
+      setSnackbar({
+        open: true,
+        message: "✅ Machines stopped successfully!",
+        severity: "success",
+      });
     } catch (err) {
       console.error("❌ Error stopping machines:", err);
-      setSnackbar({ open: true, message: "❌ Failed to stop machines", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "❌ Failed to stop machines",
+        severity: "error",
+      });
     } finally {
       setControlText("");
-      setIsStopping(false); 
+      setIsStopping(false);
       setControlLoading(false);
     }
   };
-  
+
   console.log("🔄 Loading State:", controlLoading, controlText);
 
   return (
@@ -416,6 +372,7 @@ const [isStopping, setIsStopping] = React.useState(false);
 
       {/* Top Summary */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* total produced */}
         <Grid item xs={12} md={3}>
           <InfoCard
             icon={<Assessment sx={{ fontSize: 40, color: "#fff" }} />}
@@ -428,6 +385,7 @@ const [isStopping, setIsStopping] = React.useState(false);
             color="#4caf50"
           />
         </Grid>
+        {/* rejected biscuits */}
         <Grid item xs={12} md={3}>
           <InfoCard
             icon={<WarningAmber sx={{ fontSize: 40, color: "#fff" }} />}
@@ -440,6 +398,7 @@ const [isStopping, setIsStopping] = React.useState(false);
             color="#f44336"
           />
         </Grid>
+        {/* active machines */}
         <Grid item xs={12} md={3}>
           <InfoCard
             icon={<Engineering sx={{ fontSize: 40, color: "#fff" }} />}
@@ -448,6 +407,7 @@ const [isStopping, setIsStopping] = React.useState(false);
             color="#2196f3"
           />
         </Grid>
+        {/* live feed */}
         <Grid item xs={12} md={3}>
           <InfoCard
             icon={<LiveTv sx={{ fontSize: 40, color: "#fff" }} />}
@@ -593,56 +553,45 @@ const [isStopping, setIsStopping] = React.useState(false);
       </Grid>
 
       {/* Machine Controls */}
-      <Box mt={4}>
-        <StyledPaper>
-          <Typography variant="h6" gutterBottom>
-            Machine Control Panel
-          </Typography>
-          <Divider sx={{ my: 2 }} />
+      <Paper
+        elevation={3}
+        sx={{ p: 3, mt: 4, backgroundColor: "#fff", borderRadius: 2 }}
+      >
+        <Typography variant="h6" gutterBottom>
+          Machine Control Panel
+        </Typography>
+        <Divider sx={{ my: 2 }} />
 
-          <Grid container spacing={2}>
-            {/* Start all machines */}
-            <Grid item xs={12} md={4}>
-              <Button
-                variant="contained"
-                color="success"
-                fullWidth
-                startIcon={<PlayArrow />}
-                onClick={handleStartAllMachines}
-                disabled={controlLoading}
-              >
-                {isStarting ? "Starting..." : "Start Machines"}          
-              </Button>
-            </Grid>
-
-            {/* stop all machines */}
-            <Grid item xs={12} md={4}>
-              <Button
-                variant="contained"
-                color="error"
-                fullWidth
-                startIcon={<Stop />}
-                onClick={handleStopAllMachines}
-                disabled={controlLoading}
-              >
-               {isStopping ? "Stopping..." : "Stop All"}
-              </Button>
-            </Grid>
-
-            {/* Reset System */}
-            <Grid item xs={12} md={4}>
-              <Button
-                variant="contained"
-                color="warning"
-                fullWidth
-                startIcon={<RestartAlt />}
-              >
-                Reset System
-              </Button>
-            </Grid>
+        <Grid container spacing={2} justifyContent="center">
+          {/* Start all machines */}
+          <Grid item xs={12} sm={6} md={4}>
+            <Button
+              variant="contained"
+              color="success"
+              fullWidth
+              startIcon={<PlayArrow />}
+              onClick={handleStartAllMachines}
+              disabled={controlLoading}
+            >
+              {isStarting ? "Starting..." : "Start All Machines"}
+            </Button>
           </Grid>
-        </StyledPaper>
-      </Box>
+
+          {/* Stop all machines */}
+          <Grid item xs={12} sm={6} md={4}>
+            <Button
+              variant="contained"
+              color="error"
+              fullWidth
+              startIcon={<Stop />}
+              onClick={handleStopAllMachines}
+              disabled={controlLoading}
+            >
+              {isStopping ? "Stopping..." : "Stop All Machines"}
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
 
       {/* snackbar */}
       <Snackbar
@@ -661,167 +610,66 @@ const [isStopping, setIsStopping] = React.useState(false);
 
       {/* Log Section */}
       <Box mt={4}>
-        <StyledPaper>
+        <Paper
+          elevation={3}
+          sx={{ p: 3, backgroundColor: "#fff", borderRadius: 2 }}
+        >
           <Typography variant="h6" gutterBottom>
             Recent Activity Logs
           </Typography>
           <Divider sx={{ my: 2 }} />
-          <Box sx={{ maxHeight: 200, overflowY: "auto" }}>
-            <Typography variant="body2">
-              [04:01 PM] – Line 3 paused due to temperature fluctuation.
-            </Typography>
-            <Typography variant="body2">
-              [03:55 PM] – New batch started on Line 2.
-            </Typography>
-            <Typography variant="body2">
-              [03:45 PM] – Rejected biscuits bin full alert triggered.
-            </Typography>
-            <Typography variant="body2">
-              [03:30 PM] – Line 1 operational and stable.
-            </Typography>
-            <Typography variant="body2">
-              [03:00 PM] – Daily cleaning complete.
-            </Typography>
-          </Box>
-        </StyledPaper>
+
+          {loading ? (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Box>
+              {logs.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No recent activity found.
+                </Typography>
+              ) : (
+                Object.entries(groupedLogs).map(([date, items]) => (
+                  <Box key={date} mb={2}>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ color: "gray", mb: 1 }}
+                    >
+                      {date}
+                    </Typography>
+
+                    {items.map((log) => (
+                      <Box key={log.id} mb={1}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <AccessTimeIcon sx={{ fontSize: 16 }} />
+                          <Typography variant="body2">
+                            {dayjs(log.stop_time || log.start_time).format(
+                              "hh:mm A"
+                            )}{" "}
+                            – <strong>{log.machine_name}</strong> – Variant{" "}
+                            <strong>{log.variant_name}</strong> ran biscuit{" "}
+                            <strong>{log.biscuit_type}</strong>
+                          </Typography>
+                        </Stack>
+
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          pl={4}
+                        >
+                          Runtime: {log.total_runtime_seconds?.toFixed(1)} sec
+                        </Typography>
+                        <Divider sx={{ my: 1 }} />
+                      </Box>
+                    ))}
+                  </Box>
+                ))
+              )}
+            </Box>
+          )}
+        </Paper>
       </Box>
     </Box>
   );
 }
-
-// import * as React from "react";
-// import { useState } from "react";
-// import { Tabs, Tab, Box, Typography, Paper, Divider } from "@mui/material";
-// import { styled } from "@mui/material/styles";
-// import Overview from "./sections/Overview";
-// import ProductionLine from "./sections/ProductionLine";
-// import MachineStatus from "./sections/MachineStatus";
-// import LogHistory from "./sections/LogHistory";
-// // import LiveFeed from "./sections/LiveFeed";
-// import SocketMonitor from "./sections/SocketMonitor";
-
-// const StyledPaper = styled(Paper)(({ theme }) => ({
-//   padding: theme.spacing(3),
-//   borderRadius: 16,
-//   boxShadow: theme.shadows[4],
-// }));
-
-// const Dashboard = () => {
-//   const [tab, setTab] = useState(0);
-
-//   const renderTab = () => {
-//     switch (tab) {
-//       case 0:
-//         return <Overview />;
-//       case 1:
-//         return <ProductionLine />;
-//       case 2:
-//         return <MachineStatus />;
-//       case 3:
-//         return <LogHistory />;
-//       case 4:
-//         return <LiveFeed />;
-//       case 5:
-//         return <SocketMonitor />;
-//       default:
-//         return null;
-//     }
-//   };
-
-//   return (
-//     <Box sx={{ p: 4 }}>
-//       <Typography variant="h4" gutterBottom>
-//         Biscuit Manufacturing Dashboard 🍪
-//       </Typography>
-//       <StyledPaper sx={{ mb: 3 }}>
-//         <Tabs
-//           value={tab}
-//           onChange={(e, newTab) => setTab(newTab)}
-//           textColor="primary"
-//           indicatorColor="primary"
-//           variant="scrollable"
-//           scrollButtons="auto"
-//         >
-//           <Tab label="Overview" />
-//           <Tab label="Production Line" />
-//           <Tab label="Machine Status" />
-//           <Tab label="Log History" />
-//           <Tab label="Live Feed" />
-//           <Tab label="Socket Monitor" />
-//         </Tabs>
-//       </StyledPaper>
-//       <StyledPaper>
-//         <Box sx={{ p: 2 }}>{renderTab()}</Box>
-//       </StyledPaper>
-//     </Box>
-//   );
-// };
-
-// export default Dashboard;
-
-// import React, { useEffect, useState } from "react";
-// import {
-//   Box,
-//   Typography,
-//   Grid,
-//   Paper,
-//   Button,
-//   Divider,
-//   Card,
-//   CardContent,
-// } from "@mui/material";
-// import { isAuthenticated, isSuperAdmin } from "../utils/auth";
-
-// const Dashboard = () => {
-//   const [designation, setDesignation] = useState("");
-
-//   useEffect(() => {
-//     const role = localStorage.getItem("designation");
-//     setDesignation(role || "");
-//   }, []);
-
-//   if (!isAuthenticated()) {
-//     return <Typography>You are not logged in.</Typography>;
-//   }
-
-//   if (isSuperAdmin()) {
-//     return (
-//       <div>
-//         <Typography variant="h4" gutterBottom>Welcome, SuperAdmin 👑</Typography>
-//         {/* SuperAdmin-specific dashboard: */}
-//         <ul>
-//           <li>🔐 Create Admins, Managers, Users</li>
-//           <li>📊 See platform-wide metrics</li>
-//           <li>⚙️ Access system config/dev settings</li>
-//         </ul>
-//       </div>
-//     );
-//   }
-
-//   if (designation === "admin") {
-//     return (
-//       <div>
-//         <Typography variant="h4">Welcome, Admin</Typography>
-//         {/* Admin dashboard content */}
-//       </div>
-//     );
-//   }
-
-//   if (designation === "manager") {
-//     return (
-//       <div>
-//         <Typography variant="h4">Welcome, Manager</Typography>
-//         {/* Manager dashboard content */}
-//       </div>
-//     );
-//   }
-
-//   return (
-//     <div>
-//     <Typography variant="h4">Welcome, User</Typography>
-//     {/* User dashboard content */}
-//   </div>
-//   );
-// };
-
-// export default Dashboard;
