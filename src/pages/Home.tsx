@@ -63,6 +63,7 @@ type Variant = {
 };
 
 export default function Home({ recentDialogOpen, closeRecentDialog }) {
+
   const [imageUrls, setImageUrls] = React.useState([]);
   const [messages, setMessages] = React.useState(logMessages);
   const [selectedMachine, setSelectedMachine] = React.useState("");
@@ -382,44 +383,48 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
 
   // SSE stream
   React.useEffect(() => {
-    const fetchData = async () => {
+    if (!selectedMachine) return;
+
+    const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
+    console.log("📡 Connecting to SSE:", sseUrl);
+
+    // Reset values when switching machines
+    setRealtimeData({
+      estimated_stack_length: 0,
+      estimated_stack_count: 0,
+      total_frame_processed: 0,
+      total_frame_rejected: 0,
+    });
+
+    const eventSource = new EventSource(sseUrl);
+
+    eventSource.onmessage = (event) => {
+      console.log("📨 SSE Message Received:", event.data);
+
       try {
-        const response = await fetch("http://localhost:8000/api/streamframelogs/sse_realtime_data/");
-        console.log("📡 Response status:", response.status);
-  
-        if (!response.ok) {
-          throw new Error("❌ Failed to fetch real-time data");
-        }
-  
-        // Read raw response body
-        const text = await response.text();
-        console.log("📦 Raw response body:", text);
-  
-        // Try parsing JSON manually
-        try {
-          const data = JSON.parse(text);
-          console.log("✅ Parsed data:", data);
-  
-          setRealtimeData({
-            estimated_stack_length: data.estimated_stack_length,
-            estimated_stack_count: data.estimated_stack_count,
-            total_frame_processed: data.total_frame_processed,
-            total_frame_rejected: data.total_frame_rejected,
-          });
-        } catch (err) {
-          console.error("🚫 Failed to parse JSON:", err);
-        }
-      } catch (error) {
-        console.error("🚨 Polling error:", error);
+        const data = JSON.parse(event.data);
+
+        setRealtimeData((prev) => ({
+          estimated_stack_length: data.estimated_stack_length,
+          estimated_stack_count: data.estimated_stack_count,
+          total_frame_processed: prev.total_frame_processed + 1,
+          total_frame_rejected: prev.total_frame_rejected + (data.is_rejected ? 1 : 0),
+        }));
+      } catch (err) {
+        console.error("🚫 SSE JSON parse error:", err);
       }
     };
-  
-    fetchData();
-    const intervalId = setInterval(fetchData, 3000);
-  
-    return () => clearInterval(intervalId);
-  }, []);
-  
+
+    eventSource.onerror = (err) => {
+      console.error("❌ SSE error:", err);
+      eventSource.close();
+    };
+
+    return () => {
+      console.log("🔌 Closing SSE connection");
+      eventSource.close();
+    };
+  }, [selectedMachine]);
 
   // handle favourites
   // const handleFavorite = () => {
@@ -600,6 +605,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
             >
               {stackData.map((item, index) => (
                 <Tooltip key={index} title={item.tooltip} arrow>
+
                   <Box
                     sx={{
                       flex: 1,
@@ -635,51 +641,48 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
                 </Tooltip>
               ))}
 
-              {/* Machine Dropdown */}
+              {/* Machine Variant Dropdown */}
               <Box
                 sx={{
                   flex: 1.2,
                   marginX: 0.5,
+                  paddingY: 1.5, 
+                  borderRadius: 2,
+                  background: "linear-gradient(40deg, #e0f7fa, #b2ebf2)",
+                  color: "#00695c",               
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 1,
-                  borderRadius: 2,
-                  // bgcolor:'red'
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)", 
+                  textAlign: "center",
+                  // gap: 1,
+                  // borderRadius: 2,
                 }}
               >
+                {/* Machine dropdown */}
                 <TextField
                   fullWidth
                   select
                   label="Choose Machine"
                   value={selectedMachine}
-                  onChange={(e) => setSelectedMachine(e.target.value)}
-                  size="small"
-                  // SelectProps={{
-                  //   MenuProps: {
-                  //     PaperProps: {
-                  //       style: { maxHeight: 300 },
-                  //       onScroll: (event: React.UIEvent<HTMLDivElement>) => {
-                  //         const scrollContainer = event.currentTarget;
-                  //         const scrollPosition =
-                  //           scrollContainer.scrollTop +
-                  //           scrollContainer.clientHeight;
-                  //         const threshold = scrollContainer.scrollHeight * 0.75;
-
-                  //         if (scrollPosition >= threshold) {
-                  //           loadMoreMachines();
-                  //         }
-                  //       },
-                  //     },
-                  //   },
-                  // }}
+                  onChange={(e) => {      setSelectedMachine(e.target.value);
+                  
+                  }}
+                  size="small" 
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#ccc",
+                        boxShadow: "none",
+                      },
+                    },
+                    "& label.Mui-focused": {
+                      color: "#00695c",
+                    },
+                  }}        
                 >
                   <MenuItem value="">Select</MenuItem>
-                  {/* <MenuItem value="machine1">Machine 1</MenuItem>
-                  <MenuItem value="machine2">Machine 2</MenuItem>
-                  <MenuItem value="machine3">Machine 3</MenuItem>
-                  <MenuItem value="machine4">Machine 4</MenuItem> */}
                   {machines.map((machine) => (
                     <MenuItem key={machine.id} value={machine.id}>
                       {machine.name}
@@ -692,7 +695,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
                   )}
                 </TextField>
 
-                <TextField
+                {/* Variant dropdown */}
+                {/* <TextField
                   fullWidth
                   select
                   label="Choose Variant"
@@ -700,27 +704,9 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
                   onChange={handleVariantChange}
                   size="small"
                   disabled={!selectedMachine}
-                  // SelectProps={{
-                  //   MenuProps: {
-                  //     PaperProps: {
-                  //       style: { maxHeight: 300 },
-                  //       onScroll: (event: React.UIEvent<HTMLDivElement>) => {
-                  //         const bottom =
-                  //           event.currentTarget.scrollHeight -
-                  //             event.currentTarget.scrollTop <=
-                  //           event.currentTarget.clientHeight * 1.25;
-
-                  //         if (bottom) {
-                  //           loadMoreVariants();
-                  //         }
-                  //       },
-                  //     },
-                  //   },
-                  // }}
+                
                 >
                   <MenuItem value="">Select</MenuItem>
-                  {/* <MenuItem value="variant1">Variant 1</MenuItem>
-                  <MenuItem value="variant2">Variant 2</MenuItem> */}
                   {variants.map((variant) => (
                     <MenuItem key={variant.id} value={variant.id}>
                       {variant.name}
@@ -731,8 +717,10 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
                       <em>Loading more variants...</em>
                     </MenuItem>
                   )}
-                </TextField>
+                </TextField> */}
+                
               </Box>
+
             </Box>
 
             {/* Image section */}
