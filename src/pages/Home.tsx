@@ -285,7 +285,13 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
   // load min-max stack length and size
   React.useEffect(() => {
     const fetchRunLogsAndSetStackValues = async () => {
-      if (!selectedMachine || !selectedVariant) return;
+      if (!selectedMachine || !selectedVariant) {
+        setMinStackSize("");
+        setMaxStackSize("");
+        setMinStackLength("");
+        setMaxStackLength("");
+        return;
+      };
 
       if (skipAutoFetch) {
         console.log("⏭ Skipping auto-fetch due to applyRecentLog");
@@ -301,7 +307,13 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
         const machine = machines.find((m) => m.id === selectedMachine);
         const variant = variants.find((v) => v.id === selectedVariant);
 
-        if (!machine || !variant) return;
+        if (!machine || !variant) {
+          setMinStackSize("");
+          setMaxStackSize("");
+          setMinStackLength("");
+          setMaxStackLength("");
+          return;
+        };
 
         // Find matching log
         const matchingLog = data.find(
@@ -315,14 +327,23 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
           setMaxStackSize(matchingLog.max_stack_size);
           setMinStackLength(matchingLog.min_stack_length);
           setMaxStackLength(matchingLog.max_stack_length);
+        } else {
+          setMinStackSize("");
+          setMaxStackSize("");
+          setMinStackLength("");
+          setMaxStackLength("");
         }
       } catch (error) {
         console.error("Failed to fetch or match machinerunlogs", error);
+        setMinStackSize("");
+        setMaxStackSize("");
+        setMinStackLength("");
+        setMaxStackLength("");
       }
     };
 
     fetchRunLogsAndSetStackValues();
-  }, [selectedMachine, selectedVariant, machines, variants]);
+  }, [selectedMachine, selectedVariant, machines, variants, skipAutoFetch ]);
 
   // apply recent logs
   const applyRecentLog = async (log) => {
@@ -856,11 +877,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
                   //   },
                   // }}
                 >
-                  <MenuItem value="">Select Machine</MenuItem>
-                  {/* <MenuItem value="machine1">Machine 1</MenuItem>
-                  <MenuItem value="machine2">Machine 2</MenuItem>
-                  <MenuItem value="machine3">Machine 3</MenuItem>
-                  <MenuItem value="machine4">Machine 4</MenuItem> */}
+                  <MenuItem value="">Select Machine</MenuItem>                 
                   {machines.map((machine) => (
                     <MenuItem key={machine.id} value={machine.id}>
                       {machine.name}
@@ -880,28 +897,9 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
                   value={selectedVariant}
                   onChange={handleVariantChange}
                   size="small"
-                  disabled={!selectedMachine}
-                  // SelectProps={{
-                  //   MenuProps: {
-                  //     PaperProps: {
-                  //       style: { maxHeight: 300 },
-                  //       onScroll: (event: React.UIEvent<HTMLDivElement>) => {
-                  //         const bottom =
-                  //           event.currentTarget.scrollHeight -
-                  //             event.currentTarget.scrollTop <=
-                  //           event.currentTarget.clientHeight * 1.25;
-
-                  //         if (bottom) {
-                  //           loadMoreVariants();
-                  //         }
-                  //       },
-                  //     },
-                  //   },
-                  // }}
+                  disabled={!selectedMachine}         
                 >
-                  <MenuItem value="">Select Variant</MenuItem>
-                  {/* <MenuItem value="variant1">Variant 1</MenuItem>
-                  <MenuItem value="variant2">Variant 2</MenuItem> */}
+                  <MenuItem value="">Select Variant</MenuItem>                
                   {variants.map((variant) => (
                     <MenuItem key={variant.id} value={variant.id}>
                       {variant.name}
