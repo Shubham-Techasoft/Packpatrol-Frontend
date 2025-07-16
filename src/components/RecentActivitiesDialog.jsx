@@ -20,7 +20,7 @@ const LOCAL_STORAGE_KEY = "hiddenActivityLogs";
 
 export default function RecentActivitiesDialog({ open, handleClose, onApplyLog  }) {
 
-  console.log("💬 Received onApplyLog prop:", typeof onApplyLog);
+  // console.log("💬 Received onApplyLog prop:", typeof onApplyLog);
 
   const theme = useTheme();
   const [logs, setLogs] = useState([]);

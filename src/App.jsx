@@ -31,6 +31,8 @@ function TokenWatcherWrapper() {
   return <TokenWatcher navigate={navigate} />;
 }
 
+
+
 // Main App component
 function App() {
 
@@ -38,6 +40,12 @@ function App() {
   const openRecentDialog = () => setRecentDialogOpen(true);
   const closeRecentDialog = () => setRecentDialogOpen(false);
 
+  const onApplyLog = (log) => {
+    console.log("🟢 App received applied log:", log);
+    // Forward this to Home or handle it here
+  };
+
+  
   return (
     <Router>
       <TokenWatcherWrapper />
@@ -51,6 +59,7 @@ function App() {
           <Home 
             recentDialogOpen={recentDialogOpen}
             closeRecentDialog={closeRecentDialog}
+            onApplyLog={onApplyLog}
           />
         } 
         />
@@ -93,6 +102,7 @@ function App() {
 
       <Footer 
         onRecentOpen={openRecentDialog} 
+        onApplyLog={onApplyLog}
       />
     </Router>
   );

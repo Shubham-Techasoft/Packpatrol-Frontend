@@ -21,6 +21,10 @@ import {
   Stop,
   RestartAlt,
 } from "@mui/icons-material";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import TextField from "@mui/material/TextField";
 import {
   LineChart,
   Line,
@@ -48,27 +52,67 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   backgroundColor: "#ffffff",
 }));
 
-const InfoCard = ({ icon, title, value, color }) => (
-  <StyledPaper style={{ backgroundColor: color }}>
-    <Box display="flex" alignItems="center" gap={2}>
-      {icon}
-      <Box>
-        <Typography variant="subtitle2" color="#fff">
-          {title}
-        </Typography>
-        <Typography variant="h6" color="#fff" fontWeight="bold">
-          {value}
-        </Typography>
+// info cards
+const InfoCard = ({ icon, title, value, color }) => {
+  const gradients = {
+    green: "linear-gradient(135deg, #43e97b, #38f9d7)",
+    red: "linear-gradient(135deg, #ff0844, #ffb199)",
+    blue: "linear-gradient(135deg, #1e3c72, #2a5298)",
+    orange: "linear-gradient(135deg, #f7971e, #ffd200)",
+  };
+
+  let bgGradient = gradients.green; // default
+
+  if (color === "#f44336") bgGradient = gradients.red;
+  else if (color === "#2196f3") bgGradient = gradients.blue;
+  else if (color === "#ff9800") bgGradient = gradients.orange;
+
+  return (
+    <StyledPaper
+      style={{
+        background: bgGradient,
+        color: "#fff",
+      }}
+    >
+      <Box display="flex" alignItems="center" gap={2}>
+        {/* Glowing icon bubble */}
+        <Box
+          sx={{
+            p: 1.5,
+            bgcolor: "rgba(255,255,255,0.2)",
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+          }}
+        >
+          {React.cloneElement(icon, { sx: { fontSize: 36 } })}
+        </Box>
+        <Box>
+          <Typography
+            variant="subtitle2"
+            sx={{ color: "#f0f0f0", fontWeight: 500 }}
+          >
+            {title}
+          </Typography>
+          <Typography
+            variant="h6"
+            sx={{ color: "#fff", fontWeight: "bold", mt: 0.5 }}
+          >
+            {value}
+          </Typography>
+        </Box>
       </Box>
-    </Box>
-  </StyledPaper>
-);
+    </StyledPaper>
+  );
+};
 
 export default function Dashboard() {
   const [restricted, setRestricted] = React.useState(false);
-  const [designation, setDesignation] = React.useState("");
+  // const [designation, setDesignation] = React.useState("");
   const [chartData, setChartData] = React.useState([]);
-  const [timeFilter, setTimeFilter] = React.useState("all");
+  const [timeFilter, setTimeFilter] = React.useState("24h");
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = React.useState(true);
   const [performanceStats, setPerformanceStats] = React.useState(null);
@@ -89,6 +133,9 @@ export default function Dashboard() {
     severity: "info",
   });
 
+  const [dateRange, setDateRange] = React.useState([null, null]);
+
+  // production-time graph
   React.useEffect(() => {
     const auth = isAuthenticated();
     setRestricted(!auth);
@@ -171,28 +218,106 @@ export default function Dashboard() {
       });
   }, [timeFilter, restricted]);
 
+  // dashboard summary
   React.useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/machines/")
-      .then((res) => res.json())
-      .then((data) => {
-        setAllMachines(data);
-      })
-      .catch((err) => console.error("Failed to fetch machines:", err));
-  }, []);
+    const startTime = dayjs().subtract(24, "hour").toISOString();
+    const endTime = dayjs().toISOString();
 
-  React.useEffect(() => {
+    const url = `http://127.0.0.1:8000/api/machinerunlogs/dashboard_summary/`;
+
     axios
-      .get("http://127.0.0.1:8000/api/machinerunlogs/dashboard_summary/")
+      .get(url, {
+        params: {
+          start_time: startTime,
+          end_time: endTime,
+        },
+      })
       .then((res) => {
         setLogs(res.data.recent_runs || []);
       })
-      .catch((err) => {
-        console.error("Error fetching logs:", err);
+      .catch((error) => {
+        console.error("❌ Error fetching dashboard summary logs:", error);
+        console.error("Response data:", error?.response?.data);
+        console.error("Status:", error?.response?.status);
+        console.error("Request URL:", error?.config?.url);
+        console.error("Start Time:", startTime);
+        console.error("End Time:", endTime);
       })
       .finally(() => {
         setLoading(false);
       });
   }, []);
+
+  // fetch full machine details
+  React.useEffect(() => {
+    const fetchMachinesWithRunLogInfo = async () => {
+      try {
+        // Step 1: Get all machines
+        const machinesRes = await fetch("http://127.0.0.1:8000/api/machines/");
+        const machines = await machinesRes.json();
+  
+        // Step 2: Get all machine run logs
+        const logsRes = await fetch("http://127.0.0.1:8000/api/machinerunlogs/");
+        const runLogs = await logsRes.json();
+  
+        // Step 3: Fetch camera + variants per machine
+        const enrichedMachines = await Promise.all(
+          machines.map(async (machine) => {
+            const detailRes = await fetch(`http://127.0.0.1:8000/api/machines/${machine.id}/`);
+            const detailData = await detailRes.json();
+  
+            const latestLog = runLogs
+              .filter((log) => log.machine_name === machine.name)
+              .sort((a, b) => new Date(b.start_time) - new Date(a.start_time))[0];
+  
+            return {
+              ...machine,
+              ...detailData, // includes camera, variants, etc.
+              min_stack_length: latestLog?.min_stack_length ?? null,
+              max_stack_length: latestLog?.max_stack_length ?? null,
+              min_stack_size: latestLog?.min_stack_size ?? null,
+              max_stack_size: latestLog?.max_stack_size ?? null,
+              is_running: latestLog?.is_running ?? false,
+            };
+          })
+        );
+  
+        console.log("✅ Enriched machines:", enrichedMachines);
+        setAllMachines(enrichedMachines);
+      } catch (err) {
+        console.error("❌ Failed to fetch machine data with stack info:", err);
+      }
+    };
+  
+    fetchMachinesWithRunLogInfo();
+  }, []);
+  
+  // handle date filter for summary
+  const handleDateFilter = () => {
+    if (!dateRange[0] || !dateRange[1]) return;
+
+    const startTime = dayjs(dateRange[0]).startOf("day").toISOString();
+    const endTime = dayjs(dateRange[1]).endOf("day").toISOString();
+
+    setLoading(true);
+
+    axios
+      .get("http://127.0.0.1:8000/api/machinerunlogs/dashboard_summary/", {
+        params: {
+          start_time: startTime,
+          end_time: endTime,
+        },
+      })
+      .then((res) => {
+        setLogs(res.data.recent_runs || []);
+      })
+      .catch((error) => {
+        console.error("❌ Error fetching filtered logs:", error);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
 
   //  groupedLogs
   const groupedLogs = logs.reduce((acc, log) => {
@@ -206,26 +331,38 @@ export default function Dashboard() {
 
   // start all machine
   const handleStartAllMachines = async () => {
-    const token = localStorage.getItem("token");
     setControlText("starting");
     setIsStarting(true);
     setControlLoading(true);
-    console.log("🟢 Sending start command to all machines...");
+    console.log("🟢 Sending start command to all machines (no auth)...");
 
     try {
       for (const machine of allMachines) {
-        if (
-          !machine.camera ||
-          !machine.variants ||
-          machine.variants.length === 0
-        ) {
+        const hasCamera = !!machine.camera?.id;
+        const hasVariants =
+          Array.isArray(machine.variants) && machine.variants.length > 0;
+        const hasStackParams =
+          machine.min_stack_length != null &&
+          machine.max_stack_length != null &&
+          machine.min_stack_size != null &&
+          machine.max_stack_size != null;
+
+        if (!hasCamera || !hasVariants || !hasStackParams) {
           console.warn(
-            `⚠️ Skipping ${machine.name} due to missing camera or variants`
+            `⚠️ Skipping ${machine.name} — missing required fields.`,
+            {
+              camera: hasCamera,
+              variants: machine.variants?.length,
+              min_stack_length: machine.min_stack_length,
+              max_stack_length: machine.max_stack_length,
+              min_stack_size: machine.min_stack_size,
+              max_stack_size: machine.max_stack_size,
+            }
           );
           continue;
         }
 
-        console.log(`▶️ Starting ${machine.name} (${machine.id})`);
+        console.log(`▶️ Starting "${machine.name}"`);
 
         const response = await fetch(
           `http://127.0.0.1:8000/api/machines/${machine.id}/start_run/`,
@@ -233,24 +370,23 @@ export default function Dashboard() {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
-              camera_id: machine.camera?.id,
+              camera_id: machine.camera.id,
               variant_ids: machine.variants.map((v) => v.id),
-              active_variant_id: machine.variants[0]?.id,
+              active_variant_id: machine.variants[0].id,
               is_active: true,
+              is_running: true,
               name: machine.name,
               description: machine.description || "",
-              min_stack_length: machine.min_stack_length || 0,
-              max_stack_length: machine.max_stack_length || 0,
-              min_stack_size: machine.min_stack_size || 0,
-              max_stack_size: machine.max_stack_size || 0,
+              min_stack_length: machine.min_stack_length,
+              max_stack_length: machine.max_stack_length,
+              min_stack_size: machine.min_stack_size,
+              max_stack_size: machine.max_stack_size,
               base_dir_path: machine.base_dir_path || "",
               watchdog_file_expi_time: machine.watchdog_file_expi_time || "",
               video_stream: machine.video_stream || false,
               video_folder_path: machine.video_folder_path || "",
-              is_running: true,
               is_operational: true,
               last_maintenance:
                 machine.last_maintenance || new Date().toISOString(),
@@ -259,21 +395,21 @@ export default function Dashboard() {
         );
 
         if (!response.ok) {
-          throw new Error(`Failed to start ${machine.name}`);
+          throw new Error(`❌ Failed to start "${machine.name}"`);
         }
       }
 
-      console.log("✅ All start commands sent.");
+      console.log("✅ All machines started.");
       setSnackbar({
         open: true,
-        message: "✅ Machines started successfully!",
+        message: "✅ All machines started successfully!",
         severity: "success",
       });
     } catch (err) {
       console.error("❌ Error starting machines:", err);
       setSnackbar({
         open: true,
-        message: "❌ Failed to start machines",
+        message: "❌ Failed to start some machines",
         severity: "error",
       });
     } finally {
@@ -285,40 +421,33 @@ export default function Dashboard() {
 
   // stop all machine
   const handleStopAllMachines = async () => {
-    const token = localStorage.getItem("token");
     setControlText("stopping");
     setIsStopping(true);
     setControlLoading(true);
-    console.log("🔴 Sending stop command to all machines...");
-
+    console.log("🔴 Sending stop command to all machines (no auth)...");
+  
     try {
       for (const machine of allMachines) {
-        if (
-          !machine.camera ||
-          !machine.variants ||
-          machine.variants.length === 0
-        ) {
-          console.warn(
-            `⚠️ Skipping ${machine.name} due to missing camera or variants`
-          );
+        if (!machine.is_running) {
+          console.warn(`⚠️ Skipping stop for "${machine.name}" — not running.`);
           continue;
         }
-
-        console.log(`⛔ Stopping ${machine.name} (${machine.id})`);
-
+  
+        console.log(`⛔ Stopping "${machine.name}"`);
+  
         const response = await fetch(
           `http://127.0.0.1:8000/api/machines/${machine.id}/stop_run/`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
               camera_id: machine.camera?.id,
-              variant_ids: machine.variants.map((v) => v.id),
-              active_variant_id: machine.variants[0]?.id,
+              variant_ids: machine.variants?.map((v) => v.id),
+              active_variant_id: machine.variants?.[0]?.id,
               is_active: false,
+              is_running: false,
               name: machine.name,
               description: machine.description || "",
               min_stack_length: machine.min_stack_length || 0,
@@ -329,30 +458,28 @@ export default function Dashboard() {
               watchdog_file_expi_time: machine.watchdog_file_expi_time || "",
               video_stream: machine.video_stream || false,
               video_folder_path: machine.video_folder_path || "",
-              is_running: false,
               is_operational: true,
-              last_maintenance:
-                machine.last_maintenance || new Date().toISOString(),
+              last_maintenance: machine.last_maintenance || new Date().toISOString(),
             }),
           }
         );
-
+  
         if (!response.ok) {
-          throw new Error(`Failed to stop ${machine.name}`);
+          throw new Error(`❌ Failed to stop "${machine.name}"`);
         }
       }
-
-      console.log("✅ All stop commands sent.");
+  
+      console.log("✅ All machines stopped.");
       setSnackbar({
         open: true,
-        message: "✅ Machines stopped successfully!",
+        message: "✅ All machines stopped successfully!",
         severity: "success",
       });
     } catch (err) {
       console.error("❌ Error stopping machines:", err);
       setSnackbar({
         open: true,
-        message: "❌ Failed to stop machines",
+        message: "❌ Failed to stop some machines",
         severity: "error",
       });
     } finally {
@@ -361,15 +488,12 @@ export default function Dashboard() {
       setControlLoading(false);
     }
   };
+  
 
   console.log("🔄 Loading State:", controlLoading, controlText);
 
   return (
     <Box sx={{ p: 4, bgcolor: "rgb(209, 233, 237)" }}>
-      {/* <Typography variant="h4" gutterBottom>
-        Biscuit Manufacturing Dashboard 🍪
-      </Typography> */}
-
       {/* Top Summary */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {/* total produced */}
@@ -385,6 +509,7 @@ export default function Dashboard() {
             color="#4caf50"
           />
         </Grid>
+
         {/* rejected biscuits */}
         <Grid item xs={12} md={3}>
           <InfoCard
@@ -398,6 +523,7 @@ export default function Dashboard() {
             color="#f44336"
           />
         </Grid>
+
         {/* active machines */}
         <Grid item xs={12} md={3}>
           <InfoCard
@@ -407,6 +533,7 @@ export default function Dashboard() {
             color="#2196f3"
           />
         </Grid>
+
         {/* live feed */}
         <Grid item xs={12} md={3}>
           <InfoCard
@@ -608,12 +735,49 @@ export default function Dashboard() {
         </Alert>
       </Snackbar>
 
-      {/* Log Section */}
+      {/* Recent Activity Log Section */}
       <Box mt={4}>
         <Paper
           elevation={3}
           sx={{ p: 3, backgroundColor: "#fff", borderRadius: 2 }}
         >
+          {/* data filter for recent activity log */}
+          {!restricted && (
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <Box display="flex" alignItems="center" gap={2} mb={2}>
+                {/* Start Date Picker */}
+                <DatePicker
+                  label="Start Date"
+                  value={dateRange[0]} // Use the first element of dateRange
+                  onChange={(newValue) =>
+                    setDateRange([newValue, dateRange[1]])
+                  } // Update only the start date
+                  renderInput={(params) => (
+                    <TextField size="small" {...params} />
+                  )}
+                />
+                {/* End Date Picker */}
+                <DatePicker
+                  label="End Date"
+                  value={dateRange[1]} // Use the second element of dateRange
+                  onChange={(newValue) =>
+                    setDateRange([dateRange[0], newValue])
+                  } // Update only the end date
+                  renderInput={(params) => (
+                    <TextField size="small" {...params} />
+                  )}
+                />
+                <Button
+                  variant="contained"
+                  onClick={handleDateFilter}
+                  disabled={!dateRange[0] || !dateRange[1]}
+                >
+                  Apply
+                </Button>
+              </Box>
+            </LocalizationProvider>
+          )}
+
           <Typography variant="h6" gutterBottom>
             Recent Activity Logs
           </Typography>
@@ -658,7 +822,10 @@ export default function Dashboard() {
                           color="text.secondary"
                           pl={4}
                         >
-                          Runtime: {log.total_runtime_seconds?.toFixed(1)} sec
+                          Runtime:{" "}
+                          {log.total_runtime_seconds
+                            ? `${log.total_runtime_seconds.toFixed(1)} sec`
+                            : "N/A"}
                         </Typography>
                         <Divider sx={{ my: 1 }} />
                       </Box>
