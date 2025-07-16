@@ -217,36 +217,41 @@ export default function Dashboard() {
       });
   }, [timeFilter, restricted]);
 
-  // dashboard summary
-  React.useEffect(() => {
+  // dashbaord summary real time update
+  const fetchRecentActivityLogs = async () => {
     const startTime = dayjs().subtract(24, "hour").toISOString();
     const endTime = dayjs().toISOString();
-
-    const url = `http://127.0.0.1:8000/api/machinerunlogs/dashboard_summary/`;
-
-    axios
-      .get(url, {
-        params: {
-          start_time: startTime,
-          end_time: endTime,
-        },
-      })
-      .then((res) => {
-        setLogs(res.data.recent_runs || []);
-      })
-      .catch((error) => {
-        console.error("❌ Error fetching dashboard summary logs:", error);
-        console.error("Response data:", error?.response?.data);
-        console.error("Status:", error?.response?.status);
-        console.error("Request URL:", error?.config?.url);
-        console.error("Start Time:", startTime);
-        console.error("End Time:", endTime);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+  
+    try {
+      const res = await axios.get(
+        "http://127.0.0.1:8000/api/machinerunlogs/dashboard_summary/",
+        {
+          params: {
+            start_time: startTime,
+            end_time: endTime,
+          },
+        }
+      );
+  
+      setLogs(res.data.recent_runs || []);
+    } catch (error) {
+      console.error("❌ Error fetching dashboard summary logs:", error);
+      console.error("Response data:", error?.response?.data);
+      console.error("Status:", error?.response?.status);
+      console.error("Request URL:", error?.config?.url);
+      console.error("Start Time:", startTime);
+      console.error("End Time:", endTime);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // dashboard summary
+  React.useEffect(() => {
+    fetchRecentActivityLogs();  
   }, []);
 
+  // machine details
   const fetchMachinesWithRunLogInfo = async () => {
     try {
       // Step 1: Get all machines
@@ -416,6 +421,7 @@ export default function Dashboard() {
       console.log("✅ All machines started.");
 
       await fetchMachinesWithRunLogInfo();
+      await fetchRecentActivityLogs();
 
       setSnackbar({
         open: true,
@@ -490,7 +496,8 @@ export default function Dashboard() {
       console.log("✅ All machines stopped.");
       
       await fetchMachinesWithRunLogInfo();
-      
+      await fetchRecentActivityLogs();
+
       setSnackbar({
         open: true,
         message: "✅ All machines stopped successfully!",
@@ -512,7 +519,16 @@ export default function Dashboard() {
   console.log("🔄 Loading State:", controlLoading, controlText);
 
   return (
-    <Box sx={{ p: 4, bgcolor: "rgb(209, 233, 237)" }}>
+
+    <Box sx={{ 
+      p: 4, 
+      bgcolor: "rgb(209, 233, 237)",
+      minHeight: "100vh",  
+      pb:10,             
+      overflowY: "auto",         
+      }}
+    >
+
       {/* Top Summary */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {/* total produced */}
@@ -857,5 +873,6 @@ export default function Dashboard() {
         </Paper>
       </Box>
     </Box>
+
   );
 }
