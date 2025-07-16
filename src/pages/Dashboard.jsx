@@ -35,7 +35,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { styled } from "@mui/material/styles";
-import { isAuthenticated } from "../utils/auth";
 import dayjs from "dayjs";
 import advancedFormat from "dayjs/plugin/advancedFormat";
 dayjs.extend(advancedFormat);
@@ -43,7 +42,7 @@ import axios from "axios";
 import Stack from "@mui/material/Stack";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import MemoryIcon from "@mui/icons-material/Memory";
-// const [designation] = useState(localStorage.getItem("designation") || "");
+import { isAuthenticated } from "../utils/auth";
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -248,50 +247,65 @@ export default function Dashboard() {
       });
   }, []);
 
+  const fetchMachinesWithRunLogInfo = async () => {
+    try {
+      // Step 1: Get all machines
+      const machinesRes = await fetch("http://127.0.0.1:8000/api/machines/");
+      const machines = await machinesRes.json();
+
+      // Step 2: Get all machine run logs
+      const logsRes = await fetch(
+        "http://127.0.0.1:8000/api/machinerunlogs/"
+      );
+      const runLogs = await logsRes.json();
+
+      // Step 3: Fetch camera + variants per machine
+      const enrichedMachines = await Promise.all(
+        machines.map(async (machine) => {
+          const detailRes = await fetch(
+            `http://127.0.0.1:8000/api/machines/${machine.id}/`
+          );
+          const detailData = await detailRes.json();
+
+          const latestLog = runLogs
+            .filter((log) => log.machine_name === machine.name)
+            .sort(
+              (a, b) => new Date(b.start_time) - new Date(a.start_time)
+            )[0];
+
+          return {
+            ...machine,
+            ...detailData, // includes camera, variants, etc.
+            min_stack_length: latestLog?.min_stack_length ?? null,
+            max_stack_length: latestLog?.max_stack_length ?? null,
+            min_stack_size: latestLog?.min_stack_size ?? null,
+            max_stack_size: latestLog?.max_stack_size ?? null,
+            is_running: 
+              latestLog?.is_running ?? false,
+          };
+        })
+      );
+
+      console.log("✅ Enriched machines:", enrichedMachines);
+      setAllMachines(enrichedMachines);
+
+      const activeCount = enrichedMachines.filter((m) => m.is_running).length;
+
+      setMachineStatus({
+        active: activeCount,
+        total: enrichedMachines.length,
+        liveFeed: activeCount > 0 ? "Running" : "Stopped",
+      });
+    } catch (err) {
+      console.error("❌ Failed to fetch machine data with stack info:", err);
+    }
+  };
+
   // fetch full machine details
-  React.useEffect(() => {
-    const fetchMachinesWithRunLogInfo = async () => {
-      try {
-        // Step 1: Get all machines
-        const machinesRes = await fetch("http://127.0.0.1:8000/api/machines/");
-        const machines = await machinesRes.json();
-  
-        // Step 2: Get all machine run logs
-        const logsRes = await fetch("http://127.0.0.1:8000/api/machinerunlogs/");
-        const runLogs = await logsRes.json();
-  
-        // Step 3: Fetch camera + variants per machine
-        const enrichedMachines = await Promise.all(
-          machines.map(async (machine) => {
-            const detailRes = await fetch(`http://127.0.0.1:8000/api/machines/${machine.id}/`);
-            const detailData = await detailRes.json();
-  
-            const latestLog = runLogs
-              .filter((log) => log.machine_name === machine.name)
-              .sort((a, b) => new Date(b.start_time) - new Date(a.start_time))[0];
-  
-            return {
-              ...machine,
-              ...detailData, // includes camera, variants, etc.
-              min_stack_length: latestLog?.min_stack_length ?? null,
-              max_stack_length: latestLog?.max_stack_length ?? null,
-              min_stack_size: latestLog?.min_stack_size ?? null,
-              max_stack_size: latestLog?.max_stack_size ?? null,
-              is_running: latestLog?.is_running ?? false,
-            };
-          })
-        );
-  
-        console.log("✅ Enriched machines:", enrichedMachines);
-        setAllMachines(enrichedMachines);
-      } catch (err) {
-        console.error("❌ Failed to fetch machine data with stack info:", err);
-      }
-    };
-  
+  React.useEffect(() => {  
     fetchMachinesWithRunLogInfo();
   }, []);
-  
+
   // handle date filter for summary
   const handleDateFilter = () => {
     if (!dateRange[0] || !dateRange[1]) return;
@@ -400,6 +414,9 @@ export default function Dashboard() {
       }
 
       console.log("✅ All machines started.");
+
+      await fetchMachinesWithRunLogInfo();
+
       setSnackbar({
         open: true,
         message: "✅ All machines started successfully!",
@@ -425,16 +442,16 @@ export default function Dashboard() {
     setIsStopping(true);
     setControlLoading(true);
     console.log("🔴 Sending stop command to all machines (no auth)...");
-  
+
     try {
       for (const machine of allMachines) {
         if (!machine.is_running) {
           console.warn(`⚠️ Skipping stop for "${machine.name}" — not running.`);
           continue;
         }
-  
+
         console.log(`⛔ Stopping "${machine.name}"`);
-  
+
         const response = await fetch(
           `http://127.0.0.1:8000/api/machines/${machine.id}/stop_run/`,
           {
@@ -459,17 +476,21 @@ export default function Dashboard() {
               video_stream: machine.video_stream || false,
               video_folder_path: machine.video_folder_path || "",
               is_operational: true,
-              last_maintenance: machine.last_maintenance || new Date().toISOString(),
+              last_maintenance:
+                machine.last_maintenance || new Date().toISOString(),
             }),
           }
         );
-  
+
         if (!response.ok) {
           throw new Error(`❌ Failed to stop "${machine.name}"`);
         }
       }
-  
+
       console.log("✅ All machines stopped.");
+      
+      await fetchMachinesWithRunLogInfo();
+      
       setSnackbar({
         open: true,
         message: "✅ All machines stopped successfully!",
@@ -488,8 +509,6 @@ export default function Dashboard() {
       setControlLoading(false);
     }
   };
-  
-
   console.log("🔄 Loading State:", controlLoading, controlText);
 
   return (
