@@ -11,6 +11,7 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
+  Chip,
 } from "@mui/material";
 import {
   Assessment,
@@ -221,7 +222,7 @@ export default function Dashboard() {
   const fetchRecentActivityLogs = async () => {
     const startTime = dayjs().subtract(24, "hour").toISOString();
     const endTime = dayjs().toISOString();
-  
+
     try {
       const res = await axios.get(
         "http://127.0.0.1:8000/api/machinerunlogs/dashboard_summary/",
@@ -232,7 +233,7 @@ export default function Dashboard() {
           },
         }
       );
-  
+
       setLogs(res.data.recent_runs || []);
     } catch (error) {
       console.error("❌ Error fetching dashboard summary logs:", error);
@@ -245,10 +246,10 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
-  
+
   // dashboard summary
   React.useEffect(() => {
-    fetchRecentActivityLogs();  
+    fetchRecentActivityLogs();
   }, []);
 
   // machine details
@@ -259,9 +260,7 @@ export default function Dashboard() {
       const machines = await machinesRes.json();
 
       // Step 2: Get all machine run logs
-      const logsRes = await fetch(
-        "http://127.0.0.1:8000/api/machinerunlogs/"
-      );
+      const logsRes = await fetch("http://127.0.0.1:8000/api/machinerunlogs/");
       const runLogs = await logsRes.json();
 
       // Step 3: Fetch camera + variants per machine
@@ -274,9 +273,7 @@ export default function Dashboard() {
 
           const latestLog = runLogs
             .filter((log) => log.machine_name === machine.name)
-            .sort(
-              (a, b) => new Date(b.start_time) - new Date(a.start_time)
-            )[0];
+            .sort((a, b) => new Date(b.start_time) - new Date(a.start_time))[0];
 
           return {
             ...machine,
@@ -285,8 +282,7 @@ export default function Dashboard() {
             max_stack_length: latestLog?.max_stack_length ?? null,
             min_stack_size: latestLog?.min_stack_size ?? null,
             max_stack_size: latestLog?.max_stack_size ?? null,
-            is_running: 
-              latestLog?.is_running ?? false,
+            is_running: latestLog?.is_running ?? false,
           };
         })
       );
@@ -307,7 +303,7 @@ export default function Dashboard() {
   };
 
   // fetch full machine details
-  React.useEffect(() => {  
+  React.useEffect(() => {
     fetchMachinesWithRunLogInfo();
   }, []);
 
@@ -353,9 +349,20 @@ export default function Dashboard() {
     setControlText("starting");
     setIsStarting(true);
     setControlLoading(true);
-    console.log("🟢 Sending start command to all machines (no auth)...");
+    console.log("🟢 Sending start command to all machines ...");
+
+    let successCount = 0;
 
     try {
+      if (!allMachines || allMachines.length === 0) {
+        setSnackbar({
+          open: true,
+          message: "⚠️ No machines available to start.",
+          severity: "warning",
+        });
+        return;
+      }
+
       for (const machine of allMachines) {
         const hasCamera = !!machine.camera?.id;
         const hasVariants =
@@ -413,8 +420,10 @@ export default function Dashboard() {
           }
         );
 
-        if (!response.ok) {
-          throw new Error(`❌ Failed to start "${machine.name}"`);
+        if (response.ok) {
+          successCount++;
+        } else {
+          console.warn(`❌ Failed to start "${machine.name}"`);
         }
       }
 
@@ -423,16 +432,24 @@ export default function Dashboard() {
       await fetchMachinesWithRunLogInfo();
       await fetchRecentActivityLogs();
 
-      setSnackbar({
-        open: true,
-        message: "✅ All machines started successfully!",
-        severity: "success",
-      });
+      if (successCount > 0) {
+        setSnackbar({
+          open: true,
+          message: `✅ ${successCount} machine(s) started successfully!`,
+          severity: "success",
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: "⚠️ No machines started. Please check configurations.",
+          severity: "warning",
+        });
+      }
     } catch (err) {
       console.error("❌ Error starting machines:", err);
       setSnackbar({
         open: true,
-        message: "❌ Failed to start some machines",
+        message: "❌ Failed to start machines.",
         severity: "error",
       });
     } finally {
@@ -449,7 +466,19 @@ export default function Dashboard() {
     setControlLoading(true);
     console.log("🔴 Sending stop command to all machines (no auth)...");
 
+    let successCount = 0;
+
     try {
+
+      if (!allMachines || allMachines.length === 0) {
+        setSnackbar({
+          open: true,
+          message: "⚠️ No machines available to stop.",
+          severity: "warning",
+        });
+        return;
+      }
+
       for (const machine of allMachines) {
         if (!machine.is_running) {
           console.warn(`⚠️ Skipping stop for "${machine.name}" — not running.`);
@@ -488,26 +517,36 @@ export default function Dashboard() {
           }
         );
 
-        if (!response.ok) {
-          throw new Error(`❌ Failed to stop "${machine.name}"`);
-        }
+        if (response.ok) {
+          successCount++;
+        } else {
+          console.warn(`❌ Failed to stop "${machine.name}"`);
+        }   
       }
 
       console.log("✅ All machines stopped.");
-      
+
       await fetchMachinesWithRunLogInfo();
       await fetchRecentActivityLogs();
 
-      setSnackbar({
-        open: true,
-        message: "✅ All machines stopped successfully!",
-        severity: "success",
-      });
+      if (successCount > 0) {
+        setSnackbar({
+          open: true,
+          message: `✅ ${successCount} machine(s) stopped successfully!`,
+          severity: "success",
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: "⚠️ No machines were running.",
+          severity: "warning",
+        });
+      }
     } catch (err) {
       console.error("❌ Error stopping machines:", err);
       setSnackbar({
         open: true,
-        message: "❌ Failed to stop some machines",
+        message: "❌ Failed to stop machines.",
         severity: "error",
       });
     } finally {
@@ -515,20 +554,21 @@ export default function Dashboard() {
       setIsStopping(false);
       setControlLoading(false);
     }
+
+   
   };
   console.log("🔄 Loading State:", controlLoading, controlText);
 
   return (
-
-    <Box sx={{ 
-      p: 4, 
-      bgcolor: "rgb(209, 233, 237)",
-      minHeight: "100vh",  
-      pb:10,             
-      overflowY: "auto",         
+    <Box
+      sx={{
+        p: 4,
+        bgcolor: "rgb(209, 233, 237)",
+        minHeight: "100vh",
+        pb: 10,
+        overflowY: "auto",
       }}
     >
-
       {/* Top Summary */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {/* total produced */}
@@ -733,9 +773,15 @@ export default function Dashboard() {
               fullWidth
               startIcon={<PlayArrow />}
               onClick={handleStartAllMachines}
-              disabled={controlLoading}
+              disabled={controlLoading || isStarting}
+              sx={{
+                backgroundColor: isStarting ? "#2e7d32" : undefined,
+                "&:hover": {
+                  backgroundColor: isStarting ? "#1b5e20" : undefined,
+                },
+              }}
             >
-              {isStarting ? "Starting..." : "Start All Machines"}
+              {isStarting ? "Starting." : "Start All Machines"}
             </Button>
           </Grid>
 
@@ -747,9 +793,15 @@ export default function Dashboard() {
               fullWidth
               startIcon={<Stop />}
               onClick={handleStopAllMachines}
-              disabled={controlLoading}
+              disabled={controlLoading || isStopping}
+              sx={{
+                backgroundColor: isStopping ? "#b71c1c" : undefined,
+                "&:hover": {
+                  backgroundColor: isStopping ? "#7f0000" : undefined,
+                },
+              }}
             >
-              {isStopping ? "Stopping..." : "Stop All Machines"}
+              {isStopping ? "Stopped" : "Stop All Machines"}
             </Button>
           </Grid>
         </Grid>
@@ -840,16 +892,29 @@ export default function Dashboard() {
 
                     {items.map((log) => (
                       <Box key={log.id} mb={1}>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <AccessTimeIcon sx={{ fontSize: 16 }} />
-                          <Typography variant="body2">
-                            {dayjs(log.stop_time || log.start_time).format(
-                              "hh:mm A"
-                            )}{" "}
-                            – <strong>{log.machine_name}</strong> – Variant{" "}
-                            <strong>{log.variant_name}</strong> ran biscuit{" "}
-                            <strong>{log.biscuit_type}</strong>
-                          </Typography>
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          alignItems="center"
+                          justifyContent="space-between"
+                        >
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <AccessTimeIcon sx={{ fontSize: 16 }} />
+                            <Typography variant="body2">
+                              {dayjs(log.stop_time || log.start_time).format(
+                                "hh:mm A"
+                              )}{" "}
+                              – <strong>{log.machine_name}</strong> – Variant{" "}
+                              <strong>{log.variant_name}</strong> ran biscuit{" "}
+                              <strong>{log.biscuit_type}</strong>
+                            </Typography>
+                          </Box>
+
+                          <Chip
+                            label={log.is_running ? "Running" : "Stopped"}
+                            color={log.is_running ? "success" : "default"}
+                            size="small"
+                          />
                         </Stack>
 
                         <Typography
@@ -873,6 +938,5 @@ export default function Dashboard() {
         </Paper>
       </Box>
     </Box>
-
   );
 }
