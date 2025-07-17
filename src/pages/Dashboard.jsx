@@ -44,6 +44,7 @@ import Stack from "@mui/material/Stack";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import MemoryIcon from "@mui/icons-material/Memory";
 import { isAuthenticated } from "../utils/auth";
+import ScrollToTopButton from "./sections/about/ScrollToTop";
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -976,6 +977,10 @@ export default function Dashboard() {
           )}
         </Paper>
       </Box>
+
+      <ScrollToTopButton />
+
     </Box>
+    
   );
 }
