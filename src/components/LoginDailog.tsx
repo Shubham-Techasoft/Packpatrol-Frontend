@@ -14,6 +14,7 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
+import { useNavigate } from "react-router-dom";
 
 const Transition = React.forwardRef(function Transition(props: any, ref: any) {
   return <Slide direction="down" ref={ref} {...props} />;
@@ -34,27 +35,9 @@ const CombinedSignInPage: React.FC<CombinedSignInPageProps> = ({
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
 
-  // const handleLogin = (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   setError("");
+  const navigate = useNavigate(); 
 
-  //   if (!email.includes("@")) {
-  //     setError("Please enter a valid email address.");
-  //     return;
-  //   }
-
-  //   if (password.length < 6) {
-  //     setError("Password must be at least 6 characters.");
-  //     return;
-  //   }
-
-  //   // Placeholder for login logic
-  //   console.log("Email:", email);
-  //   console.log("Password:", password);
-  //   onClose(); // Close after success (replace with actual login result)
-  // };
-
-
+  // handle login function
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -116,7 +99,6 @@ const CombinedSignInPage: React.FC<CombinedSignInPageProps> = ({
       localStorage.setItem("designation",designation); 
       localStorage.setItem("username",username);
       localStorage.setItem("email", email);
-  
       // localStorage.setItem("password", password);
 
       window.dispatchEvent(new Event("storage"));
@@ -125,6 +107,8 @@ const CombinedSignInPage: React.FC<CombinedSignInPageProps> = ({
       console.log("Access Token stored in localStorage.");
       console.log("Redirecting to Home Page...");
 
+      navigate("/");
+      
       // Close modal
       onClose();
   
