@@ -19,18 +19,21 @@ const slides = [
     subtitle:
       "Unlock the power of Machine Learning, Automation, and Cloud Intelligence to supercharge your business.",
     button: "Get Started",
+    link: "https://www.techasoft.com/",
   },
   {
     title: "Transforming Businesses with Next-Gen Software",
     subtitle:
-      "We engineer scalable web, mobile, and enterprise applications tailored to your growth.",
-    button: "Explore Services",
+      "Explore our powerful and scalable product solutions for various industries.",
+    button: "Explore Our Products",
+    link: "https://www.techasoft.com/products",
   },
   {
     title: "Empowering Digital Presence with Creative UI/UX",
     subtitle:
-      "Crafting engaging, modern interfaces that delight users and boost conversions.",
-    button: "View Portfolio",
+      "See how we’ve helped our clients with engaging, high-conversion digital experiences.",
+    button: "Our Clients",
+    link: "https://www.techasoft.com/clients",
   },
 ];
 
@@ -117,6 +120,7 @@ const HeroSection = () => {
                         borderRadius: 8,
                         backgroundColor: "#1976d2",
                       }}
+                      onClick={() => window.open(currentSlide.link, "_blank")} 
                     >
                       {currentSlide.button}
                     </Button>
