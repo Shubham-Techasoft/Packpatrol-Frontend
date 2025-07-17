@@ -127,12 +127,10 @@ export default function Dashboard() {
   const [allMachines, setAllMachines] = React.useState([]);
   const [controlLoading, setControlLoading] = React.useState(false);
   const [controlText, setControlText] = React.useState("");
-  const [snackbar, setSnackbar] = React.useState({
-    open: false,
-    message: "",
-    severity: "info",
+  const [statusMessage, setStatusMessage] = React.useState({
+    text: "",
+    type: "",
   });
-
   const [dateRange, setDateRange] = React.useState([null, null]);
 
   // production-time graph
@@ -355,11 +353,13 @@ export default function Dashboard() {
 
     try {
       if (!allMachines || allMachines.length === 0) {
-        setSnackbar({
-          open: true,
-          message: "⚠️ No machines available to start.",
-          severity: "warning",
+        setStatusMessage({
+          text: "⚠️ No machines available to start.",
+          type: "warning",
         });
+        setTimeout(() => {
+          setStatusMessage({ text: "", type: "" });
+        }, 4000);
         return;
       }
 
@@ -427,33 +427,44 @@ export default function Dashboard() {
         }
       }
 
-      console.log("✅ All machines started.");
+      console.log("✅ Start command completed.");
 
       await fetchMachinesWithRunLogInfo();
       await fetchRecentActivityLogs();
 
       if (successCount > 0) {
-        setSnackbar({
-          open: true,
-          message: `✅ ${successCount} machine(s) started successfully!`,
-          severity: "success",
+        setStatusMessage({
+          text: `✅ ${successCount} machine(s) started successfully!`,
+          type: "success",
         });
+
+        setTimeout(() => {
+          setStatusMessage({ text: "", type: "" });
+        }, 4000);
+        setControlText("started");
       } else {
-        setSnackbar({
-          open: true,
-          message: "⚠️ No machines started. Please check configurations.",
-          severity: "warning",
+        setStatusMessage({
+          text: "⚠️ No machines started. Please check configurations.",
+          type: "warning",
         });
+
+        setTimeout(() => {
+          setStatusMessage({ text: "", type: "" });
+        }, 4000);
+        setControlText("");
       }
     } catch (err) {
       console.error("❌ Error starting machines:", err);
-      setSnackbar({
-        open: true,
-        message: "❌ Failed to start machines.",
-        severity: "error",
+      setStatusMessage({
+        text: "❌ Failed to start machines.",
+        type: "error",
       });
-    } finally {
+
+      setTimeout(() => {
+        setStatusMessage({ text: "", type: "" });
+      }, 4000);
       setControlText("");
+    } finally {
       setIsStarting(false);
       setControlLoading(false);
     }
@@ -464,18 +475,19 @@ export default function Dashboard() {
     setControlText("stopping");
     setIsStopping(true);
     setControlLoading(true);
-    console.log("🔴 Sending stop command to all machines (no auth)...");
+    console.log("🔴 Sending stop command to all machines...");
 
     let successCount = 0;
 
     try {
-
       if (!allMachines || allMachines.length === 0) {
-        setSnackbar({
-          open: true,
-          message: "⚠️ No machines available to stop.",
-          severity: "warning",
+        setStatusMessage({
+          text: "⚠️ No machines available to stop.",
+          type: "warning",
         });
+        setTimeout(() => {
+          setStatusMessage({ text: "", type: "" });
+        }, 4000);
         return;
       }
 
@@ -521,41 +533,50 @@ export default function Dashboard() {
           successCount++;
         } else {
           console.warn(`❌ Failed to stop "${machine.name}"`);
-        }   
+        }
       }
 
-      console.log("✅ All machines stopped.");
+      console.log("✅ Stop command completed.");
 
       await fetchMachinesWithRunLogInfo();
       await fetchRecentActivityLogs();
 
       if (successCount > 0) {
-        setSnackbar({
-          open: true,
-          message: `✅ ${successCount} machine(s) stopped successfully!`,
-          severity: "success",
+        setStatusMessage({
+          text: `✅ ${successCount} machine(s) stopped successfully!`,
+          type: "success",
         });
+        setTimeout(() => {
+          setStatusMessage({ text: "", type: "" });
+        }, 4000);
+
+        setControlText("");
       } else {
-        setSnackbar({
-          open: true,
-          message: "⚠️ No machines were running.",
-          severity: "warning",
+        setStatusMessage({
+          text: "⚠️ No machines were running.",
+          type: "warning",
         });
+
+        setTimeout(() => {
+          setStatusMessage({ text: "", type: "" });
+        }, 4000);
+        setControlText("");
       }
     } catch (err) {
       console.error("❌ Error stopping machines:", err);
-      setSnackbar({
-        open: true,
-        message: "❌ Failed to stop machines.",
-        severity: "error",
+      setStatusMessage({
+        text: "❌ Failed to stop machines.",
+        type: "error",
       });
-    } finally {
+
+      setTimeout(() => {
+        setStatusMessage({ text: "", type: "" });
+      }, 4000);
       setControlText("");
+    } finally {
       setIsStopping(false);
       setControlLoading(false);
     }
-
-   
   };
   console.log("🔄 Loading State:", controlLoading, controlText);
 
@@ -773,15 +794,31 @@ export default function Dashboard() {
               fullWidth
               startIcon={<PlayArrow />}
               onClick={handleStartAllMachines}
-              disabled={controlLoading || isStarting}
+              disabled={
+                controlLoading || isStarting
+              }
               sx={{
-                backgroundColor: isStarting ? "#2e7d32" : undefined,
-                "&:hover": {
-                  backgroundColor: isStarting ? "#1b5e20" : undefined,
+                backgroundColor:
+                isStarting || controlText === "started" ? "#00c853" : undefined, 
+              color: "#fff",
+              fontWeight: controlText === "started" ? "bold" : undefined,
+              boxShadow:
+                controlText === "started"
+                  ? "0 0 18px 4px rgba(0, 200, 83, 0.8)" 
+                  : undefined,
+              pointerEvents: controlText === "started" ? "none" : "auto",
+              opacity: controlText === "started" ? 1 : undefined,
+              "&:hover": {
+                backgroundColor:
+                  isStarting || controlText === "started" ? "#00b248" : undefined,                  
                 },
               }}
             >
-              {isStarting ? "Starting." : "Start All Machines"}
+              {isStarting
+                ? "Starting..."
+                : controlText === "started"
+                  ? "Started"
+                  : "Start All Machines"}
             </Button>
           </Grid>
 
@@ -807,20 +844,22 @@ export default function Dashboard() {
         </Grid>
       </Paper>
 
-      {/* snackbar */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
+      {/* alert box for control panel */}
+      {statusMessage.text && (
         <Alert
-          severity={snackbar.severity}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={statusMessage.type}
+          onClose={() => setStatusMessage({ text: "", type: "" })}
+          sx={{
+            position: "fixed",
+            top: 20,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 2000,
+          }}
         >
-          {snackbar.message}
+          {statusMessage.text}
         </Alert>
-      </Snackbar>
+      )}
 
       {/* Recent Activity Log Section */}
       <Box mt={4}>
