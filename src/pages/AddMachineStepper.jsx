@@ -962,20 +962,21 @@ const AddMachineStepper = ({
               />
             </Grid>
 
+            {/* edit mode warning */}
             {mode === "edit" && (
               <Grid item xs={12}>
                 <Typography
                   variant="body2"
                   sx={{ mb: 1, color: "orange", fontStyle: "italic" }}
                 >
-                  ⚠️ Leave framework and model file empty to retain the existing
+                  ⚠️ Leave model file empty to retain the existing
                   values.
                 </Typography>
               </Grid>
             )}
 
             {/* framework */}
-            <Grid item xs={6}>
+            {/* <Grid item xs={6}>
               <FormControl fullWidth>
                 <InputLabel>Framework</InputLabel>
                 <Select
@@ -991,10 +992,10 @@ const AddMachineStepper = ({
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
+            </Grid> */}
 
             {/* model upload */}
-            <Grid item xs={6}>
+            <Grid item xs={12}>
               <Button variant="outlined" fullWidth component="label">
                 Upload Model
                 <input
