@@ -191,6 +191,9 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
       .then((data) => {
         setVariants(data.variants || []);
         setSelectedVariant(data.active_variant?.id || "");
+
+        setStatus(data.is_running ? "running" : "stopped");
+        
         // Clear stack values when switching machines
         setMinStackSize("");
         setMaxStackSize("");
