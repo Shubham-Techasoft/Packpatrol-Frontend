@@ -519,16 +519,72 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
   //   };
   // }, [selectedMachine]);
 
+  // React.useEffect(() => {
+  //   if (!selectedMachine) {
+  //     console.warn("⚠️ No machine selected. SSE connection skipped.");
+  //     return;
+  //   }
+
+  //   const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
+  //   console.log("📡 Connecting to SSE:", sseUrl);
+
+  //   // Reset values
+  //   setRealtimeData({
+  //     estimated_stack_length: 0,
+  //     estimated_stack_count: 0,
+  //     total_frame_processed: 0,
+  //     total_frame_rejected: 0,
+  //     total_passed: 0,
+  //     image_path: "",
+  //     timestamp: "",
+  //   });
+
+  //   const eventSource = new EventSource(sseUrl);
+
+  //   eventSource.onmessage = (event) => {
+  //     try {
+  //       const data = JSON.parse(event.data);
+  //       console.log("📨 SSE message received:", data);
+
+  //       setRealtimeData((prev) => ({
+  //         estimated_stack_length: data.estimated_stack_length ?? prev.estimated_stack_length,
+  //         estimated_stack_count: data.estimated_stack_count ?? prev.estimated_stack_count,
+  //         total_frame_processed: prev.total_frame_processed + 1,
+  //         total_frame_rejected: data.total_rejected ?? prev.total_frame_rejected,
+  //         total_passed: data.total_passed ?? prev.total_passed,
+  //         image_path: data.image_path ?? prev.image_path,
+  //         timestamp: data.timestamp ?? prev.timestamp,
+  //       }));
+  //     } catch (err) {
+  //       console.error("🚫 SSE JSON parse error:", err);
+  //     }
+  //   };
+
+  //   eventSource.onerror = (error) => {
+  //     console.error("❌ SSE connection error:", error);
+  //     if (eventSource.readyState === EventSource.CLOSED) {
+  //       console.warn("🔌 SSE connection closed by server.");
+  //     } else if (eventSource.readyState === EventSource.CONNECTING) {
+  //       console.warn("🔄 SSE reconnecting...");
+  //     }
+  //     eventSource.close();
+  //   };
+
+  //   return () => {
+  //     console.log("🛑 Cleaning up SSE connection for machine:", selectedMachine);
+  //     eventSource.close();
+  //   };
+  // }, [selectedMachine]);
+
   React.useEffect(() => {
     if (!selectedMachine) {
       console.warn("⚠️ No machine selected. SSE connection skipped.");
       return;
     }
-  
+
     const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
     console.log("📡 Connecting to SSE:", sseUrl);
-  
-    // Reset values
+
     setRealtimeData({
       estimated_stack_length: 0,
       estimated_stack_count: 0,
@@ -538,28 +594,39 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
       image_path: "",
       timestamp: "",
     });
-  
+
     const eventSource = new EventSource(sseUrl);
-  
+
+    let lastSseTime = Date.now();
+
+    const fallbackLogTimer = setInterval(() => {
+      if (Date.now() - lastSseTime > 5000) {
+        console.warn("⚠️ No SSE data received for 5+ seconds.");
+      }
+    }, 5000);
+
     eventSource.onmessage = (event) => {
+      lastSseTime = Date.now();
+      console.log("📨 Raw SSE event received:", event);
+
       try {
         const data = JSON.parse(event.data);
         console.log("📨 SSE message received:", data);
-  
-        setRealtimeData((prev) => ({
-          estimated_stack_length: data.estimated_stack_length ?? prev.estimated_stack_length,
-          estimated_stack_count: data.estimated_stack_count ?? prev.estimated_stack_count,
-          total_frame_processed: prev.total_frame_processed + 1,
-          total_frame_rejected: data.total_rejected ?? prev.total_frame_rejected,
-          total_passed: data.total_passed ?? prev.total_passed,
-          image_path: data.image_path ?? prev.image_path,
-          timestamp: data.timestamp ?? prev.timestamp,
-        }));
+
+        setRealtimeData({
+          estimated_stack_length: data.estimated_stack_length || 0,
+          estimated_stack_count: data.estimated_stack_count || 0,
+          total_passed: data.total_passed || 0,
+          total_frame_rejected: data.total_rejected || 0,
+          image_path: data.image_path || "",
+          timestamp: data.timestamp || "",
+          total_frame_processed: data.total_passed + data.total_rejected || 0,
+        });
       } catch (err) {
         console.error("🚫 SSE JSON parse error:", err);
       }
     };
-  
+
     eventSource.onerror = (error) => {
       console.error("❌ SSE connection error:", error);
       if (eventSource.readyState === EventSource.CLOSED) {
@@ -569,13 +636,17 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
       }
       eventSource.close();
     };
-  
+
     return () => {
-      console.log("🛑 Cleaning up SSE connection for machine:", selectedMachine);
+      console.log(
+        "🛑 Cleaning up SSE connection for machine:",
+        selectedMachine
+      );
       eventSource.close();
+      clearInterval(fallbackLogTimer); 
     };
   }, [selectedMachine]);
-  
+
   // handle favourites
   // const handleFavorite = () => {
   //   if (
