@@ -63,7 +63,6 @@ type Variant = {
 };
 
 export default function Home({ recentDialogOpen, closeRecentDialog }) {
-
   const [imageUrls, setImageUrls] = React.useState([]);
   const [messages, setMessages] = React.useState(logMessages);
   const [selectedMachine, setSelectedMachine] = React.useState("");
@@ -83,6 +82,9 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
     estimated_stack_count: 0,
     total_frame_processed: 0,
     total_frame_rejected: 0,
+    total_passed: 0,
+    image_path: "",
+    timestamp: "",
   });
 
   // summary cards at top
@@ -193,7 +195,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
         setSelectedVariant(data.active_variant?.id || "");
 
         setStatus(data.is_running ? "running" : "stopped");
-        
+
         // Clear stack values when switching machines
         setMinStackSize("");
         setMaxStackSize("");
@@ -294,7 +296,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
         setMinStackLength("");
         setMaxStackLength("");
         return;
-      };
+      }
 
       if (skipAutoFetch) {
         console.log("⏭ Skipping auto-fetch due to applyRecentLog");
@@ -316,7 +318,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
           setMinStackLength("");
           setMaxStackLength("");
           return;
-        };
+        }
 
         // Find matching log
         const matchingLog = data.find(
@@ -346,7 +348,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
     };
 
     fetchRunLogsAndSetStackValues();
-  }, [selectedMachine, selectedVariant, machines, variants, skipAutoFetch ]);
+  }, [selectedMachine, selectedVariant, machines, variants, skipAutoFetch]);
 
   // apply recent logs
   const applyRecentLog = async (log) => {
@@ -406,50 +408,174 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
   };
 
   // SSE stream
-  React.useEffect(() => {
-    if (!selectedMachine) return;
+  // React.useEffect(() => {
+  //   if (!selectedMachine) {
+  //     console.warn("⚠️ No machine selected. SSE connection skipped.");
+  //     return;
+  //   }
 
+  //   const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
+  //   console.log("📡 Connecting to SSE:", sseUrl);
+
+  //   // Reset values when switching machines
+  //   setRealtimeData({
+  //     estimated_stack_length: 0,
+  //     estimated_stack_count: 0,
+  //     total_frame_processed: 0,
+  //     total_frame_rejected: 0,
+  //   });
+
+  //   const eventSource = new EventSource(sseUrl);
+
+  //   eventSource.onmessage = (event) => {
+  //     console.log("📨 SSE Message Received:", event.data);
+
+  //     try {
+  //       const data = JSON.parse(event.data);
+
+  //       setRealtimeData((prev) => ({
+  //         estimated_stack_length: data.estimated_stack_length,
+  //         estimated_stack_count: data.estimated_stack_count,
+  //         total_frame_processed: prev.total_frame_processed + 1,
+  //         total_frame_rejected: prev.total_frame_rejected + (data.is_rejected ? 1 : 0),
+  //       }));
+  //     } catch (err) {
+  //       console.error("🚫 SSE JSON parse error:", err);
+  //     }
+  //   };
+
+  //   eventSource.onerror = (err) => {
+  //     console.error("❌ SSE error:", err);
+  //     eventSource.close();
+  //   };
+
+  //   return () => {
+  //     console.log("🔌 Closing SSE connection");
+  //     eventSource.close();
+  //   };
+  // }, [selectedMachine]);
+
+  //   React.useEffect(() => {
+  //   if (!selectedMachine) {
+  //     console.warn("⚠️ No machine selected. SSE connection skipped.");
+  //     return;
+  //   }
+
+  //   const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
+  //   console.log("📡 Connecting to SSE:", sseUrl);
+
+  //   // Reset values when switching machines
+  //   setRealtimeData({
+  //     estimated_stack_length: 0,
+  //     estimated_stack_count: 0,
+  //     total_frame_processed: 0,
+  //     total_frame_rejected: 0,
+  //   });
+
+  //   let eventSource;
+
+  //   try {
+  //     eventSource = new EventSource(sseUrl);
+
+  //     eventSource.onopen = () => {
+  //       console.log("✅ SSE connection opened successfully.");
+  //     };
+
+  //     eventSource.onmessage = (event) => {
+  //       console.log("📨 SSE message received:", event);
+
+  //       try {
+  //         const data = JSON.parse(event.data);
+  //         console.log("✅ Parsed SSE data:", data);
+
+  //         setRealtimeData((prev) => ({
+  //           estimated_stack_length: data.estimated_stack_length ?? prev.estimated_stack_length,
+  //           estimated_stack_count: data.estimated_stack_count ?? prev.estimated_stack_count,
+  //           total_frame_processed: prev.total_frame_processed + 1,
+  //           total_frame_rejected: prev.total_frame_rejected + (data.is_rejected ? 1 : 0),
+  //         }));
+
+  //       } catch (parseError) {
+  //         console.error("🚫 Error parsing SSE data:", parseError, "Raw:", event.data);
+  //       }
+  //     };
+
+  //     eventSource.onerror = (error) => {
+  //       console.error("❌ SSE connection error:", error);
+  //       if (eventSource.readyState === EventSource.CLOSED) {
+  //         console.warn("🔌 SSE connection closed by server.");
+  //       } else if (eventSource.readyState === EventSource.CONNECTING) {
+  //         console.warn("🔄 SSE reconnecting...");
+  //       }
+  //       eventSource.close(); // Optional: You can keep retrying if needed
+  //     };
+  //   } catch (err) {
+  //     console.error("🔥 Failed to initialize SSE connection:", err);
+  //   }
+
+  //   return () => {
+  //     console.log("🛑 Cleaning up SSE connection for machine:", selectedMachine);
+  //     if (eventSource) eventSource.close();
+  //   };
+  // }, [selectedMachine]);
+
+  React.useEffect(() => {
+    if (!selectedMachine) {
+      console.warn("⚠️ No machine selected. SSE connection skipped.");
+      return;
+    }
+  
     const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
     console.log("📡 Connecting to SSE:", sseUrl);
-
-    // Reset values when switching machines
+  
+    // Reset values
     setRealtimeData({
       estimated_stack_length: 0,
       estimated_stack_count: 0,
       total_frame_processed: 0,
       total_frame_rejected: 0,
+      total_passed: 0,
+      image_path: "",
+      timestamp: "",
     });
-
+  
     const eventSource = new EventSource(sseUrl);
-
+  
     eventSource.onmessage = (event) => {
-      console.log("📨 SSE Message Received:", event.data);
-
       try {
         const data = JSON.parse(event.data);
-
+        console.log("📨 SSE message received:", data);
+  
         setRealtimeData((prev) => ({
-          estimated_stack_length: data.estimated_stack_length,
-          estimated_stack_count: data.estimated_stack_count,
+          estimated_stack_length: data.estimated_stack_length ?? prev.estimated_stack_length,
+          estimated_stack_count: data.estimated_stack_count ?? prev.estimated_stack_count,
           total_frame_processed: prev.total_frame_processed + 1,
-          total_frame_rejected: prev.total_frame_rejected + (data.is_rejected ? 1 : 0),
+          total_frame_rejected: data.total_rejected ?? prev.total_frame_rejected,
+          total_passed: data.total_passed ?? prev.total_passed,
+          image_path: data.image_path ?? prev.image_path,
+          timestamp: data.timestamp ?? prev.timestamp,
         }));
       } catch (err) {
         console.error("🚫 SSE JSON parse error:", err);
       }
     };
-
-    eventSource.onerror = (err) => {
-      console.error("❌ SSE error:", err);
+  
+    eventSource.onerror = (error) => {
+      console.error("❌ SSE connection error:", error);
+      if (eventSource.readyState === EventSource.CLOSED) {
+        console.warn("🔌 SSE connection closed by server.");
+      } else if (eventSource.readyState === EventSource.CONNECTING) {
+        console.warn("🔄 SSE reconnecting...");
+      }
       eventSource.close();
     };
-
+  
     return () => {
-      console.log("🔌 Closing SSE connection");
+      console.log("🛑 Cleaning up SSE connection for machine:", selectedMachine);
       eventSource.close();
     };
   }, [selectedMachine]);
-
+  
   // handle favourites
   // const handleFavorite = () => {
   //   if (
@@ -629,7 +755,6 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
             >
               {stackData.map((item, index) => (
                 <Tooltip key={index} title={item.tooltip} arrow>
-
                   <Box
                     sx={{
                       flex: 1,
@@ -670,15 +795,15 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
                 sx={{
                   flex: 1.2,
                   marginX: 0.5,
-                  paddingY: 1.5, 
+                  paddingY: 1.5,
                   borderRadius: 2,
                   background: "linear-gradient(40deg, #e0f7fa, #b2ebf2)",
-                  color: "#00695c",               
+                  color: "#00695c",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)", 
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                   textAlign: "center",
                   // gap: 1,
                   // borderRadius: 2,
@@ -690,10 +815,10 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
                   select
                   label="Choose Machine"
                   value={selectedMachine}
-                  onChange={(e) => {      setSelectedMachine(e.target.value);
-                  
+                  onChange={(e) => {
+                    setSelectedMachine(e.target.value);
                   }}
-                  size="small" 
+                  size="small"
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       "&.Mui-focused fieldset": {
@@ -704,7 +829,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
                     "& label.Mui-focused": {
                       color: "#00695c",
                     },
-                  }}        
+                  }}
                 >
                   <MenuItem value="">Select</MenuItem>
                   {machines.map((machine) => (
@@ -742,9 +867,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
                     </MenuItem>
                   )}
                 </TextField> */}
-                
               </Box>
-
             </Box>
 
             {/* Image section */}
@@ -880,7 +1003,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
                   //   },
                   // }}
                 >
-                  <MenuItem value="">Select Machine</MenuItem>                 
+                  <MenuItem value="">Select Machine</MenuItem>
                   {machines.map((machine) => (
                     <MenuItem key={machine.id} value={machine.id}>
                       {machine.name}
@@ -900,9 +1023,9 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
                   value={selectedVariant}
                   onChange={handleVariantChange}
                   size="small"
-                  disabled={!selectedMachine}         
+                  disabled={!selectedMachine}
                 >
-                  <MenuItem value="">Select Variant</MenuItem>                
+                  <MenuItem value="">Select Variant</MenuItem>
                   {variants.map((variant) => (
                     <MenuItem key={variant.id} value={variant.id}>
                       {variant.name}

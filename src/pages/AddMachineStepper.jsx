@@ -25,8 +25,6 @@ import {
 import { isManager } from "../utils/auth";
 // import { isSuperAdmin } from "../utils/auth";
 
-const frameworks = ["PyTorch", "TensorFlow", "ONNX", "Other"];
-
 const AddMachineStepper = ({
   mode = "add",
   editData = null,
@@ -404,10 +402,12 @@ const AddMachineStepper = ({
       // 2. Update Machine or Variant depending on role
       if (isManager) {
         // Only send PATCH if model_threshold is defined
-        if (machine.model_threshold !== undefined) {
+        if (mlModel.recommended_threshold !== undefined) {
           const variantPayload = {
-            model_threshold: machine.model_threshold,
+            model_threshold: parseFloat(mlModel.recommended_threshold),
           };
+
+          console.log("🔧 Sending manager update:", variantPayload);
 
           await fetch(
             `http://localhost:8000/api/machinevariants/${variantId}/manager_update/`,
@@ -441,13 +441,18 @@ const AddMachineStepper = ({
         });
 
         // 3. Create or update ML Model (only if provided)
-        if (mlModel.name && mlModel.version && mlModel.model_file) {
+        if (
+          mlModel.name ||
+          mlModel.version ||
+          mlModel.description ||
+          mlModel.recommended_threshold
+        ) {
           const mlFormData = new FormData();
           for (const key in mlModel) {
             if (mlModel[key] !== undefined && mlModel[key] !== null) {
-              if (key === "model_file") {
+              if (key === "model_file" && mlModel[key] instanceof File) {
                 mlFormData.append(key, mlModel[key]);
-              } else {
+              } else if (key !== "model_file") {
                 mlFormData.append(key, String(mlModel[key]));
               }
             }
@@ -467,8 +472,8 @@ const AddMachineStepper = ({
             body: mlFormData,
           });
 
-          const mlModelData = await mlRes.json(); 
-          const mlModelId = mlModelData.id;   
+          const mlModelData = await mlRes.json();
+          const mlModelId = mlModelData.id;
 
           if (!mlRes.ok) {
             const err = await mlRes.json();
@@ -495,16 +500,92 @@ const AddMachineStepper = ({
                 }),
               }
             );
-          
+
             if (!linkVariantRes.ok) {
               const err = await linkVariantRes.json();
               console.error("❌ Failed to re-link ML model to variant:", err);
               throw new Error("Variant linking failed");
             }
-          
+
             console.log("✅ ML model re-linked to variant");
           }
-              
+        }
+
+        // ✅ POST only new variants (ignore existing ones)
+        for (const variant of variants) {
+          if (!variant.id) {
+            const variantPayload = {
+              name: variant.name,
+              description: variant.description,
+              biscuit_type: variant.biscuit_type,
+              model_threshold: variant.model_threshold ?? 0.5,
+              model_verbose: variant.model_verbose ?? 0.5,
+            };
+
+            console.log("🟢 Creating new variant:", variantPayload);
+
+            try {
+              const res = await fetch(
+                "http://localhost:8000/api/machinevariants/",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify(variantPayload),
+                }
+              );
+
+              if (!res.ok) {
+                const err = await res.json();
+                console.error(
+                  "❌ Failed to create variant:",
+                  variantPayload,
+                  err
+                );
+              } else {
+                const newVariant = await res.json();
+                console.log("✅ Successfully created variant:", newVariant);
+
+                // ✅ Link newly created variant to the machine
+                const linkRes = await fetch(
+                  `http://localhost:8000/api/machines/${machineId}/add_variant/`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ variant_id: newVariant.id }),
+                  }
+                );
+
+                if (!linkRes.ok) {
+                  const err = await linkRes.json();
+                  console.error(
+                    "❌ Failed to link variant to machine:",
+                    newVariant.id,
+                    err
+                  );
+                } else {
+                  console.log("✅ Variant linked to machine:", newVariant.id);
+                  variantsUpdated = true;
+                }
+              }
+            } catch (error) {
+              console.error(
+                "❌ Exception while creating variant:",
+                variantPayload,
+                error
+              );
+            }
+          } else {
+            console.log(
+              "⚠️ Skipping existing variant (no edits):",
+              variant.name
+            );
+          }
         }
 
         // 🧹 Delete ML model if skipped
@@ -969,8 +1050,7 @@ const AddMachineStepper = ({
                   variant="body2"
                   sx={{ mb: 1, color: "orange", fontStyle: "italic" }}
                 >
-                  ⚠️ Leave model file empty to retain the existing
-                  values.
+                  ⚠️ Leave model file empty to retain the existing values.
                 </Typography>
               </Grid>
             )}
@@ -1410,3 +1490,4 @@ const AddMachineStepper = ({
 };
 
 export default AddMachineStepper;
+ 
