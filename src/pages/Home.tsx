@@ -576,76 +576,118 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
   //   };
   // }, [selectedMachine]);
 
-  React.useEffect(() => {
-    if (!selectedMachine) {
-      console.warn("⚠️ No machine selected. SSE connection skipped.");
-      return;
+// Add these hooks at the TOP of your component (after existing useState/useEffect imports)
+const latestDataRef = React.useRef({
+  estimated_stack_length: 0,
+  estimated_stack_count: 0,
+  total_frame_processed: 0,
+  total_frame_rejected: 0,
+  total_passed: 0,
+  image_path: "",
+  timestamp: "",
+});
+
+const updateTimeoutRef = React.useRef(null);
+const messageCountRef = React.useRef(0);
+
+// REPLACE your existing useEffect with this enhanced version:
+React.useEffect(() => {
+  if (!selectedMachine) {
+    console.warn("⚠️ No machine selected. SSE connection skipped.");
+    return;
+  }
+
+  const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
+  console.log("📡 Connecting to SSE:", sseUrl);
+
+  // Reset data when machine changes
+  latestDataRef.current = {
+    estimated_stack_length: 0,
+    estimated_stack_count: 0,
+    total_frame_processed: 0,
+    total_frame_rejected: 0,
+    total_passed: 0,
+    image_path: "",
+    timestamp: "",
+  };
+
+  messageCountRef.current = 0;
+
+  // Initialize state
+  setRealtimeData({ ...latestDataRef.current });
+
+  const eventSource = new EventSource(sseUrl);
+  let lastSseTime = Date.now();
+
+  const fallbackLogTimer = setInterval(() => {
+    if (Date.now() - lastSseTime > 5000) {
+      console.warn("⚠️ No SSE data received for 5+ seconds.");
     }
+  }, 5000);
 
-    const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
-    console.log("📡 Connecting to SSE:", sseUrl);
+  eventSource.onmessage = (event) => {
+    lastSseTime = Date.now();
+    messageCountRef.current++;
 
-    setRealtimeData({
-      estimated_stack_length: 0,
-      estimated_stack_count: 0,
-      total_frame_processed: 0,
-      total_frame_rejected: 0,
-      total_passed: 0,
-      image_path: "",
-      timestamp: "",
-    });
+    try {
+      const data = JSON.parse(event.data);
+      console.log(`📨 SSE message #${messageCountRef.current}:`, data);
 
-    const eventSource = new EventSource(sseUrl);
+      // ✅ IMMEDIATELY update the ref with latest data (no re-render)
+      latestDataRef.current = {
+        estimated_stack_length: data.estimated_stack_length ?? latestDataRef.current.estimated_stack_length,
+        estimated_stack_count: data.estimated_stack_count ?? latestDataRef.current.estimated_stack_count,
+        total_passed: data.total_passed ?? latestDataRef.current.total_passed,
+        total_frame_rejected: data.total_rejected ?? latestDataRef.current.total_frame_rejected,
+        image_path: data.image_path ?? latestDataRef.current.image_path,
+        timestamp: data.timestamp ?? latestDataRef.current.timestamp,
+        total_frame_processed: (data.total_passed ?? 0) + (data.total_rejected ?? 0),
+      };
 
-    let lastSseTime = Date.now();
-
-    const fallbackLogTimer = setInterval(() => {
-      if (Date.now() - lastSseTime > 5000) {
-        console.warn("⚠️ No SSE data received for 5+ seconds.");
+      // ✅ DEBOUNCED state updates - only update UI every 100ms
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
       }
-    }, 5000);
 
-    eventSource.onmessage = (event) => {
-      lastSseTime = Date.now();
-      console.log("📨 Raw SSE event received:", event);
+      updateTimeoutRef.current = setTimeout(() => {
+        console.log("🎯 Updating UI state with latest data:", latestDataRef.current);
+        setRealtimeData({ ...latestDataRef.current });
+        updateTimeoutRef.current = null;
+      }, 100);
 
-      try {
-        const data = JSON.parse(event.data);
-        console.log("📨 SSE message received:", data);
+    } catch (err) {
+      console.error("🚫 SSE JSON parse error:", err);
+    }
+  };
 
-        setRealtimeData({
-          estimated_stack_length: data.estimated_stack_length || 0,
-          estimated_stack_count: data.estimated_stack_count || 0,
-          total_passed: data.total_passed || 0,
-          total_frame_rejected: data.total_rejected || 0,
-          image_path: data.image_path || "",
-          timestamp: data.timestamp || "",
-          total_frame_processed: data.total_passed + data.total_rejected || 0,
-        });
-      } catch (err) {
-        console.error("🚫 SSE JSON parse error:", err);
-      }
-    };
+  eventSource.onopen = (event) => {
+    console.log("✅ SSE connection opened:", event);
+  };
 
-    eventSource.onerror = (error) => {
-      console.error("❌ SSE connection error:", error);
-      if (eventSource.readyState === EventSource.CLOSED) {
-        console.warn("🔌 SSE connection closed by server.");
-      } else if (eventSource.readyState === EventSource.CONNECTING) {
-        console.warn("🔄 SSE reconnecting...");
-      }
-      eventSource.close();
-    };
+  eventSource.onerror = (error) => {
+    console.error("❌ SSE connection error:", error);
+    if (eventSource.readyState === EventSource.CLOSED) {
+      console.warn("🔌 SSE connection closed by server.");
+    } else if (eventSource.readyState === EventSource.CONNECTING) {
+      console.warn("🔄 SSE reconnecting...");
+    }
+  };
 
-    return () => {
-      console.log(
-        "🛑 Cleaning up SSE connection for machine:",
-        selectedMachine
-      );
-      eventSource.close();
-      clearInterval(fallbackLogTimer); 
-    };
-  }, [selectedMachine]);
+  return () => {
+    console.log("🛑 Cleaning up SSE connection");
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+      updateTimeoutRef.current = null;
+    }
+    clearInterval(fallbackLogTimer);
+    eventSource.close();
+  };
+}, [selectedMachine]);
+
+// Optional: Add this useEffect to monitor state changes (for debugging)
+React.useEffect(() => {
+  console.log("🎯 RealtimeData state updated:", realtimeData);
+}, [realtimeData]);
 
   // handle favourites
   // const handleFavorite = () => {
