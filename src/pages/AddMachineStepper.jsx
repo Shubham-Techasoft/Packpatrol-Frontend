@@ -14,6 +14,7 @@ import {
   MenuItem,
   Paper,
   Radio,
+  Checkbox,
   Select,
   Step,
   StepLabel,
@@ -37,6 +38,10 @@ const AddMachineStepper = ({
   const [variants, setVariants] = useState([{ name: "", description: "" }]);
   const [activeVariantIndex, setActiveVariantIndex] = useState(0);
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
+  const [useExistingVariant, setUseExistingVariant] = useState(false);
+  const [existingVariants, setExistingVariants] = useState([]);
+  const [selectedVariantId, setSelectedVariantId] = useState("");
+
 
   const [mlModel, setMlModel] = useState({
     name: "",
@@ -65,6 +70,26 @@ const AddMachineStepper = ({
   });
 
   const isManagerUser = isManager();
+
+  // fetch existig variants
+  useEffect(() => {
+    const fetchExistingVariants = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/machinevariants/", {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+        const data = await res.json();
+        setExistingVariants(data);
+      } catch (err) {
+        console.error("Failed to load existing variants", err);
+      }
+    };
+  
+    fetchExistingVariants();
+  }, []);
+  
 
   useEffect(() => {
     if (mode === "edit" && editData) {
@@ -1001,8 +1026,55 @@ const AddMachineStepper = ({
 
   const renderStepOne = () => (
     <Box p={2}>
+
+    <Typography variant="h6">ML Model / Variant</Typography>
+
+      {/* Use Existing Variant Toggle */}
+      <FormControlLabel
+      control={
+        <Checkbox
+          checked={useExistingVariant}
+          onChange={() => {
+            setUseExistingVariant(!useExistingVariant);
+            setVariants([{ name: "", description: "" }]);
+            setMlModel({
+              name: "",
+              version: "",
+              description: "",
+              framework: "",
+              model_file: null,
+              recommended_threshold: "",
+            });
+            setSelectedVariantId("");
+          }}
+        />
+      }
+      label="Use Existing Variant"
+    />
+
+       {/* If useExistingVariant is checked — show dropdown */}
+       {useExistingVariant && (
+      <FormControl fullWidth sx={{ mt: 2 }}>
+        <InputLabel>Select Existing Variant</InputLabel>
+        <Select
+          value={selectedVariantId}
+          label="Select Existing Variant"
+          onChange={(e) => setSelectedVariantId(e.target.value)}
+        >
+          {existingVariants.map((v) => (
+            <MenuItem key={v.id} value={v.id}>
+              {v.name} (Model: {v.active_ml_model?.name || "N/A"})
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    )}
+
+      {/* Else: Show ML model + variant creation form */}
       {/* ml model */}
-      <Typography variant="h6">ML Model (Optional)</Typography>
+      {!useExistingVariant && (
+        <>
+      <Typography variant="h6">ML Model and Variant</Typography>
       <Grid container spacing={2} mt={1}>
         {/* name */}
         {!isManagerUser && (
@@ -1106,7 +1178,7 @@ const AddMachineStepper = ({
       {!isManagerUser && (
         <>
           <Typography variant="h6" mt={4}>
-            Variants (Optional)
+            Variants 
           </Typography>
 
           {variants.map((v, idx) => (
@@ -1125,6 +1197,7 @@ const AddMachineStepper = ({
                   // disabled={isManagerUser}
                 />
               </Grid>
+
               {/* biscuit type */}
               <Grid item xs={4}>
                 <TextField
@@ -1180,6 +1253,8 @@ const AddMachineStepper = ({
           >
             + Add Variant
           </Button>
+        </>
+      )}
         </>
       )}
     </Box>

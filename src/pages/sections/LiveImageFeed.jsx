@@ -5,9 +5,7 @@ function LiveImageFeed({ imageArray }) {
   const [currentImage, setCurrentImage] = useState(null);
 
   useEffect(() => {
-    if (imageArray.length > 0) {
-      setCurrentImage(imageArray[imageArray.length - 1]);
-    }
+      setCurrentImage(imageArray)
   }, [imageArray]);
 
   return (

@@ -63,7 +63,8 @@ type Variant = {
 };
 
 export default function Home({ recentDialogOpen, closeRecentDialog }) {
-  const [imageUrls, setImageUrls] = React.useState([]);
+  // const [imageUrls, setImageUrls] = React.useState([]);
+  const [imageUrls, setImageUrls] = React.useState<string[]>([]);
   const [messages, setMessages] = React.useState(logMessages);
   const [selectedMachine, setSelectedMachine] = React.useState("");
   const [stackSize, setStackSize] = React.useState("");
@@ -76,6 +77,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
   const [minStackLength, setMinStackLength] = React.useState("");
   const [maxStackLength, setMaxStackLength] = React.useState("");
   const [skipAutoFetch, setSkipAutoFetch] = React.useState(false);
+  const [isMachineRunning, setIsMachineRunning] = React.useState(false);
+  const [baseDirPath, setBaseDirPath] = React.useState("");
 
   const [realtimeData, setRealtimeData] = React.useState({
     estimated_stack_length: 0,
@@ -87,7 +90,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
     timestamp: "",
   });
 
-  // summary cards at top
+  // summary cards at top (sse data)
   const stackData = [
     {
       title: "Stack Count",
@@ -112,7 +115,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
     },
     {
       title: "Passed Count",
-      value: realtimeData.total_frame_processed?.toLocaleString() || "0",
+      value: realtimeData.total_passed?.toLocaleString() || "0",
       bg: "#00b09b, #96c93d",
       tooltip: "Items that passed quality checks",
       icon: <CheckCircleIcon sx={{ fontSize: 28, mb: 0.5 }} />,
@@ -407,154 +410,73 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
     }
   };
 
+  // fetch base dir path for machine after selecting
+  React.useEffect(() => {
+    if (!selectedMachine) return;
+
+    fetch(`http://localhost:8000/api/machines/${selectedMachine}/`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.base_dir_path) {
+          // Normalize slashes for URL use
+          const normalizedPath = data.base_dir_path.replace(/\\/g, "/");
+          setBaseDirPath(normalizedPath);
+        }
+      })
+      .catch((err) => console.error("❌ Error fetching base dir path:", err));
+  }, [selectedMachine]);
+
   // SSE stream
   // React.useEffect(() => {
-  //   if (!selectedMachine) {
-  //     console.warn("⚠️ No machine selected. SSE connection skipped.");
+  //   if (!selectedMachine || !isMachineRunning) {
+  //     console.warn("⚠️ No machine selected or not running. SSE connection skipped.");
   //     return;
   //   }
 
   //   const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
   //   console.log("📡 Connecting to SSE:", sseUrl);
 
-  //   // Reset values when switching machines
   //   setRealtimeData({
+  //     machine_run: "",
   //     estimated_stack_length: 0,
   //     estimated_stack_count: 0,
-  //     total_frame_processed: 0,
-  //     total_frame_rejected: 0,
-  //   });
-
-  //   const eventSource = new EventSource(sseUrl);
-
-  //   eventSource.onmessage = (event) => {
-  //     console.log("📨 SSE Message Received:", event.data);
-
-  //     try {
-  //       const data = JSON.parse(event.data);
-
-  //       setRealtimeData((prev) => ({
-  //         estimated_stack_length: data.estimated_stack_length,
-  //         estimated_stack_count: data.estimated_stack_count,
-  //         total_frame_processed: prev.total_frame_processed + 1,
-  //         total_frame_rejected: prev.total_frame_rejected + (data.is_rejected ? 1 : 0),
-  //       }));
-  //     } catch (err) {
-  //       console.error("🚫 SSE JSON parse error:", err);
-  //     }
-  //   };
-
-  //   eventSource.onerror = (err) => {
-  //     console.error("❌ SSE error:", err);
-  //     eventSource.close();
-  //   };
-
-  //   return () => {
-  //     console.log("🔌 Closing SSE connection");
-  //     eventSource.close();
-  //   };
-  // }, [selectedMachine]);
-
-  //   React.useEffect(() => {
-  //   if (!selectedMachine) {
-  //     console.warn("⚠️ No machine selected. SSE connection skipped.");
-  //     return;
-  //   }
-
-  //   const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
-  //   console.log("📡 Connecting to SSE:", sseUrl);
-
-  //   // Reset values when switching machines
-  //   setRealtimeData({
-  //     estimated_stack_length: 0,
-  //     estimated_stack_count: 0,
-  //     total_frame_processed: 0,
-  //     total_frame_rejected: 0,
-  //   });
-
-  //   let eventSource;
-
-  //   try {
-  //     eventSource = new EventSource(sseUrl);
-
-  //     eventSource.onopen = () => {
-  //       console.log("✅ SSE connection opened successfully.");
-  //     };
-
-  //     eventSource.onmessage = (event) => {
-  //       console.log("📨 SSE message received:", event);
-
-  //       try {
-  //         const data = JSON.parse(event.data);
-  //         console.log("✅ Parsed SSE data:", data);
-
-  //         setRealtimeData((prev) => ({
-  //           estimated_stack_length: data.estimated_stack_length ?? prev.estimated_stack_length,
-  //           estimated_stack_count: data.estimated_stack_count ?? prev.estimated_stack_count,
-  //           total_frame_processed: prev.total_frame_processed + 1,
-  //           total_frame_rejected: prev.total_frame_rejected + (data.is_rejected ? 1 : 0),
-  //         }));
-
-  //       } catch (parseError) {
-  //         console.error("🚫 Error parsing SSE data:", parseError, "Raw:", event.data);
-  //       }
-  //     };
-
-  //     eventSource.onerror = (error) => {
-  //       console.error("❌ SSE connection error:", error);
-  //       if (eventSource.readyState === EventSource.CLOSED) {
-  //         console.warn("🔌 SSE connection closed by server.");
-  //       } else if (eventSource.readyState === EventSource.CONNECTING) {
-  //         console.warn("🔄 SSE reconnecting...");
-  //       }
-  //       eventSource.close(); // Optional: You can keep retrying if needed
-  //     };
-  //   } catch (err) {
-  //     console.error("🔥 Failed to initialize SSE connection:", err);
-  //   }
-
-  //   return () => {
-  //     console.log("🛑 Cleaning up SSE connection for machine:", selectedMachine);
-  //     if (eventSource) eventSource.close();
-  //   };
-  // }, [selectedMachine]);
-
-  // React.useEffect(() => {
-  //   if (!selectedMachine) {
-  //     console.warn("⚠️ No machine selected. SSE connection skipped.");
-  //     return;
-  //   }
-
-  //   const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
-  //   console.log("📡 Connecting to SSE:", sseUrl);
-
-  //   // Reset values
-  //   setRealtimeData({
-  //     estimated_stack_length: 0,
-  //     estimated_stack_count: 0,
-  //     total_frame_processed: 0,
-  //     total_frame_rejected: 0,
   //     total_passed: 0,
+  //     total_rejected: 0,
+  //     total_frame_processed: 0,
   //     image_path: "",
+  //     is_rejected: null,
   //     timestamp: "",
   //   });
 
   //   const eventSource = new EventSource(sseUrl);
 
+  //   let lastSseTime = Date.now();
+
+  //   const fallbackLogTimer = setInterval(() => {
+  //     if (Date.now() - lastSseTime > 5000) {
+  //       console.warn("⚠️ No SSE data received for 5+ seconds.");
+  //     }
+  //   }, 5000);
+
   //   eventSource.onmessage = (event) => {
+  //     lastSseTime = Date.now();
+  //     console.log("📨 Raw SSE event received:", event);
+
   //     try {
   //       const data = JSON.parse(event.data);
   //       console.log("📨 SSE message received:", data);
 
-  //       setRealtimeData((prev) => ({
-  //         estimated_stack_length: data.estimated_stack_length ?? prev.estimated_stack_length,
-  //         estimated_stack_count: data.estimated_stack_count ?? prev.estimated_stack_count,
-  //         total_frame_processed: prev.total_frame_processed + 1,
-  //         total_frame_rejected: data.total_rejected ?? prev.total_frame_rejected,
-  //         total_passed: data.total_passed ?? prev.total_passed,
-  //         image_path: data.image_path ?? prev.image_path,
-  //         timestamp: data.timestamp ?? prev.timestamp,
-  //       }));
+  //       setRealtimeData({
+  //         machine_run: data.machine_run || "",
+  //         estimated_stack_length: data.estimated_stack_length || 0,
+  //         estimated_stack_count: data.estimated_stack_count || 0,
+  //         total_passed: data.total_passed || 0,
+  //         total_rejected: data.total_rejected || 0,
+  //         image_path: data.image_path || "",
+  //         timestamp: data.timestamp || "",
+  //         total_frame_processed: (data.total_passed || 0 ) + (data.total_rejected || 0),
+  //         is_rejected: data.is_rejected ?? null,
+  //       });
   //     } catch (err) {
   //       console.error("🚫 SSE JSON parse error:", err);
   //     }
@@ -571,11 +493,33 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
   //   };
 
   //   return () => {
-  //     console.log("🛑 Cleaning up SSE connection for machine:", selectedMachine);
+  //     console.log(
+  //       "🛑 Cleaning up SSE connection for machine:",
+  //       selectedMachine
+  //     );
   //     eventSource.close();
+  //     clearInterval(fallbackLogTimer);
   //   };
-  // }, [selectedMachine]);
+  // }, [selectedMachine, isMachineRunning]);
 
+  // sse endpoint
+  const latestDataRef = React.useRef({
+    estimated_stack_length: 0,
+    estimated_stack_count: 0,
+    total_frame_processed: 0,
+    total_frame_rejected: 0,
+    total_passed: 0,
+    image_path: "",
+    timestamp: "",
+  });
+
+  // const updateTimeoutRef = React.useRef(null);
+  const updateTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const messageCountRef = React.useRef(0);
+
+  // REPLACE your existing useEffect with this enhanced version:
   React.useEffect(() => {
     if (!selectedMachine) {
       console.warn("⚠️ No machine selected. SSE connection skipped.");
@@ -585,7 +529,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
     const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
     console.log("📡 Connecting to SSE:", sseUrl);
 
-    setRealtimeData({
+    // Reset data when machine changes
+    latestDataRef.current = {
       estimated_stack_length: 0,
       estimated_stack_count: 0,
       total_frame_processed: 0,
@@ -593,10 +538,14 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
       total_passed: 0,
       image_path: "",
       timestamp: "",
-    });
+    };
+
+    messageCountRef.current = 0;
+
+    // Initialize state
+    setRealtimeData({ ...latestDataRef.current });
 
     const eventSource = new EventSource(sseUrl);
-
     let lastSseTime = Date.now();
 
     const fallbackLogTimer = setInterval(() => {
@@ -607,24 +556,96 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
 
     eventSource.onmessage = (event) => {
       lastSseTime = Date.now();
-      console.log("📨 Raw SSE event received:", event);
+      messageCountRef.current++;
 
       try {
         const data = JSON.parse(event.data);
-        console.log("📨 SSE message received:", data);
+        console.log(`📨 SSE message #${messageCountRef.current}:`, data);
 
-        setRealtimeData({
-          estimated_stack_length: data.estimated_stack_length || 0,
-          estimated_stack_count: data.estimated_stack_count || 0,
-          total_passed: data.total_passed || 0,
-          total_frame_rejected: data.total_rejected || 0,
-          image_path: data.image_path || "",
-          timestamp: data.timestamp || "",
-          total_frame_processed: data.total_passed + data.total_rejected || 0,
-        });
+        // ✅ IMMEDIATELY update the ref with latest data (no re-render)
+        latestDataRef.current = {
+          estimated_stack_length:
+            data.estimated_stack_length ??
+            latestDataRef.current.estimated_stack_length,
+          estimated_stack_count:
+            data.estimated_stack_count ??
+            latestDataRef.current.estimated_stack_count,
+          total_passed: data.total_passed ?? latestDataRef.current.total_passed,
+          total_frame_rejected:
+            data.total_frame_rejected ??
+            data.total_rejected ??
+            latestDataRef.current.total_frame_rejected,
+
+          // image_path: data.image_path
+          //   ? `/ssc_images${data.image_path}?t=${Date.now()}`
+          //   : latestDataRef.current.image_path,
+          image_path: data.image_path
+            ? `/ssc_images${data.image_path.split("?")[0]}?t=${Date.now()}`
+            : latestDataRef.current.image_path,
+
+          timestamp: data.timestamp ?? latestDataRef.current.timestamp,
+          // total_frame_processed:
+          //   (data.total_passed ?? 0) + (data.total_rejected ?? 0),
+          total_frame_processed:
+            (data.total_passed ?? latestDataRef.current.total_passed) +
+            (data.total_frame_rejected ??
+              latestDataRef.current.total_frame_rejected),
+        };
+
+        // sse image
+        // if (data.image_path) {
+        //   // Build local URL from public/ssc_images folder
+        //   const cacheBustedUrl = `${baseDirPath}${data.image_path}?t=${Date.now()}`;
+
+        //   setImageUrls((prev) => {
+        //     if (prev[0] === cacheBustedUrl) return prev; // Avoid duplicates
+        //     return [cacheBustedUrl, ...prev];
+        //   });
+
+        //   latestDataRef.current.image_path = cacheBustedUrl;
+        // }
+
+        //         if (data.image_path) {
+        //   const cacheBustedUrl = `/ssc_images${data.image_path}?t=${Date.now()}`;
+        //   setImageUrls((prev) => {
+        //     if (prev[0] === cacheBustedUrl) return prev;
+        //     return [cacheBustedUrl, ...prev];
+        //   });
+        //   latestDataRef.current.image_path = cacheBustedUrl;
+        // }
+
+        if (data.image_path) {
+          const cleanPath = data.image_path.startsWith("/ssc_images")
+            ? data.image_path
+            : `/ssc_images${data.image_path}`;
+          const cacheBustedUrl = `${cleanPath}?t=${Date.now()}`;
+
+          setImageUrls((prev) =>
+            prev[0] === cacheBustedUrl ? prev : [cacheBustedUrl]
+          );
+          latestDataRef.current.image_path = cacheBustedUrl;
+        }
+
+        // ✅ DEBOUNCED state updates - only update UI every 100ms
+        if (updateTimeoutRef.current) {
+          clearTimeout(updateTimeoutRef.current);
+        }
+
+        updateTimeoutRef.current = setTimeout(() => {
+          console.log(
+            "🎯 Updating UI state with latest data:",
+            latestDataRef.current
+          );
+          setRealtimeData({ ...latestDataRef.current });
+          updateTimeoutRef.current = null;
+        }, 100);
       } catch (err) {
         console.error("🚫 SSE JSON parse error:", err);
       }
+    };
+
+    eventSource.onopen = (event) => {
+      console.log("✅ SSE connection opened:", event);
     };
 
     eventSource.onerror = (error) => {
@@ -634,18 +655,104 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
       } else if (eventSource.readyState === EventSource.CONNECTING) {
         console.warn("🔄 SSE reconnecting...");
       }
-      eventSource.close();
     };
 
     return () => {
-      console.log(
-        "🛑 Cleaning up SSE connection for machine:",
-        selectedMachine
-      );
+      console.log("🛑 Cleaning up SSE connection");
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+        updateTimeoutRef.current = null;
+      }
+      clearInterval(fallbackLogTimer);
       eventSource.close();
-      clearInterval(fallbackLogTimer); 
     };
   }, [selectedMachine]);
+
+  // Optional: Add this useEffect to monitor state changes (for debugging)
+  React.useEffect(() => {
+    console.log("🎯 RealtimeData state updated:", realtimeData);
+  }, [realtimeData]);
+
+  // handle submit
+  const handleSubmit = async (actionType) => {
+    if (!selectedMachine) {
+      alert("Please select a machine.");
+      return;
+    }
+
+    // For 'start', validate that required fields are filled
+    if (actionType === "start") {
+      if (
+        !selectedVariant ||
+        !minStackSize ||
+        !maxStackSize ||
+        !minStackLength ||
+        !maxStackLength
+      ) {
+        alert("Please fill in all fields before starting the machine.");
+        return;
+      }
+    }
+
+    const endpoint = `http://127.0.0.1:8000/api/machines/${selectedMachine}/${actionType}_run/`;
+
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body:
+          actionType === "start"
+            ? JSON.stringify({
+                machine: selectedMachine,
+                variant: selectedVariant,
+                min_stack_length: Number(minStackLength),
+                max_stack_length: Number(maxStackLength),
+                min_stack_size: Number(minStackSize),
+                max_stack_size: Number(maxStackSize),
+              })
+            : null, // 'stop' API doesn't need a body
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || "Something went wrong.");
+      }
+
+      console.log("Machine Control Response:", data);
+      setStatus(actionType === "start" ? "running" : "stopped");
+      setIsMachineRunning(actionType === "start");
+    } catch (err) {
+      console.error("Control Error:", err);
+      alert(err.message || "Failed to control machine.");
+    }
+
+    // fetch("http://localhost:8000/machine/control", {
+    //   method: "POST",
+    //   headers: { "Content-Type": "application/json" },
+    //   body: JSON.stringify({
+    //     action: actionType, // for now we are only sending the action type later on we can send the input val as well
+    //   }),
+    // })
+    //   .then((res) => {
+    //     if (!res.ok) {
+    //       return res.json().then((err) => {
+    //         throw new Error(err.detail || "Something went wrong");
+    //       });
+    //     }
+    //     return res.json();
+    //   })
+    //   .then((data) => {
+    //     console.log("Machine Control Response:", data);
+    //     setStatus(actionType === "start" ? "running" : "stopped");
+    //   })
+    //   .catch((err) => {
+    //     console.error("Control Error:", err);
+    //     alert(err.message || "Failed to control machine.");
+    //   });
+  };
 
   // handle favourites
   // const handleFavorite = () => {
@@ -709,84 +816,6 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
   //     eventSource.close();
   //   };
   // }, []);
-
-  const handleSubmit = async (actionType) => {
-    if (!selectedMachine) {
-      alert("Please select a machine.");
-      return;
-    }
-    // For 'start', validate that required fields are filled
-    if (actionType === "start") {
-      if (
-        !selectedVariant ||
-        !minStackSize ||
-        !maxStackSize ||
-        !minStackLength ||
-        !maxStackLength
-      ) {
-        alert("Please fill in all fields before starting the machine.");
-        return;
-      }
-    }
-
-    const endpoint = `http://127.0.0.1:8000/api/machines/${selectedMachine}/${actionType}_run/`;
-
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body:
-          actionType === "start"
-            ? JSON.stringify({
-                machine: selectedMachine,
-                variant: selectedVariant,
-                min_stack_length: Number(minStackLength),
-                max_stack_length: Number(maxStackLength),
-                min_stack_size: Number(minStackSize),
-                max_stack_size: Number(maxStackSize),
-              })
-            : null, // 'stop' API doesn't need a body
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail || "Something went wrong.");
-      }
-
-      console.log("Machine Control Response:", data);
-      setStatus(actionType === "start" ? "running" : "stopped");
-    } catch (err) {
-      console.error("Control Error:", err);
-      alert(err.message || "Failed to control machine.");
-    }
-
-    // fetch("http://localhost:8000/machine/control", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({
-    //     action: actionType, // for now we are only sending the action type later on we can send the input val as well
-    //   }),
-    // })
-    //   .then((res) => {
-    //     if (!res.ok) {
-    //       return res.json().then((err) => {
-    //         throw new Error(err.detail || "Something went wrong");
-    //       });
-    //     }
-    //     return res.json();
-    //   })
-    //   .then((data) => {
-    //     console.log("Machine Control Response:", data);
-    //     setStatus(actionType === "start" ? "running" : "stopped");
-    //   })
-    //   .catch((err) => {
-    //     console.error("Control Error:", err);
-    //     alert(err.message || "Failed to control machine.");
-    //   });
-  };
 
   return (
     <Box
