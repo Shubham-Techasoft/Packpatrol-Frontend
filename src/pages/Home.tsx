@@ -421,7 +421,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
           // Normalize slashes for URL use
           const normalizedPath = data.base_dir_path.replace(/\\/g, "/");
           setBaseDirPath(normalizedPath);
-        }
+        }``
       })
       .catch((err) => console.error("❌ Error fetching base dir path:", err));
   }, [selectedMachine]);
@@ -574,11 +574,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
           total_frame_rejected:
             data.total_frame_rejected ??
             data.total_rejected ??
-            latestDataRef.current.total_frame_rejected,
-
-          // image_path: data.image_path
-          //   ? `/ssc_images${data.image_path}?t=${Date.now()}`
-          //   : latestDataRef.current.image_path,
+            latestDataRef.current.total_frame_rejected,         
           image_path: data.image_path
             ? `/ssc_images${data.image_path.split("?")[0]}?t=${Date.now()}`
             : latestDataRef.current.image_path,
