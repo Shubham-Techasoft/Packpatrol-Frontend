@@ -526,8 +526,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
       return;
     }
 
-    const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
-    console.log("📡 Connecting to SSE:", sseUrl);
+  const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
+  console.log("📡 Connecting to SSE:", sseUrl);
 
     // Reset data when machine changes
     latestDataRef.current = {
@@ -548,11 +548,11 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
     const eventSource = new EventSource(sseUrl);
     let lastSseTime = Date.now();
 
-    const fallbackLogTimer = setInterval(() => {
-      if (Date.now() - lastSseTime > 5000) {
-        console.warn("⚠️ No SSE data received for 5+ seconds.");
-      }
-    }, 5000);
+  const fallbackLogTimer = setInterval(() => {
+    if (Date.now() - lastSseTime > 5000) {
+      console.warn("⚠️ No SSE data received for 5+ seconds.");
+    }
+  }, 5000);
 
     eventSource.onmessage = (event) => {
       lastSseTime = Date.now();
