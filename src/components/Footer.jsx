@@ -77,11 +77,11 @@ export default function Footer({ onRecentOpen, onApplyLog }) {
           reserved.
         </Typography>
       </Paper>
-      <RecentActivitiesDialog
+      {/* <RecentActivitiesDialog
         open={recentOpen}
         handleClose={handleRecentClose}
         onApplyLog={onApplyLog}
-      />
+      /> */}
       {/* <FavoritesDialog
         open={favoritesOpen}
         handleClose={handleFavoritesClose}
