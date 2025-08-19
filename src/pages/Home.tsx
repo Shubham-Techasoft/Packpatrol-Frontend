@@ -62,7 +62,7 @@ type Variant = {
   name: string;
 };
 
-export default function Home({ recentDialogOpen, closeRecentDialog }) {
+export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, clearAppliedLog }) {
   // const [imageUrls, setImageUrls] = React.useState([]);
   const [imageUrls, setImageUrls] = React.useState<string[]>([]);
   const [messages, setMessages] = React.useState(logMessages);
@@ -79,6 +79,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
   const [skipAutoFetch, setSkipAutoFetch] = React.useState(false);
   const [isMachineRunning, setIsMachineRunning] = React.useState(false);
   const [baseDirPath, setBaseDirPath] = React.useState("");
+  const [skipMachineEffect, setSkipMachineEffect] = React.useState(false);
+
 
   const [realtimeData, setRealtimeData] = React.useState({
     estimated_stack_length: 0,
@@ -137,6 +139,13 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
   );
   const [isLoadingVariants, setIsLoadingVariants] = React.useState(false);
 
+  React.useEffect(() => {
+    if (appliedLog && machines.length > 0) {
+      applyRecentLog(appliedLog);
+      // clearAppliedLog();
+    }
+  }, [appliedLog,machines]);
+  
   // initial fetch for machines
   React.useEffect(() => {
     const fetchMachines = async () => {
@@ -303,7 +312,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
 
       if (skipAutoFetch) {
         console.log("⏭ Skipping auto-fetch due to applyRecentLog");
-        setSkipAutoFetch(false); // Reset after one skip
+        // setSkipAutoFetch(false); Reset after one skip
         return;
       }
 
@@ -356,6 +365,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
   // apply recent logs
   const applyRecentLog = async (log) => {
     console.log("🟡 APPLY RECENT LOG START:", log);
+
     setSkipAutoFetch(true);
 
     const matchedMachine = machines.find((m) => m.name === log.machine_name);
@@ -366,6 +376,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
     }
 
     console.log("✅ Matched Machine ID:", matchedMachine.id);
+
     setSelectedMachine(matchedMachine.id);
 
     try {
@@ -386,11 +397,13 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
       );
       if (matchedVariant) {
         setSelectedVariant(matchedVariant.id);
-        console.log("✅ Matched Variant ID:", matchedVariant.id);
-      } else {
-        console.warn("❌ Variant not found:", log.variant_name);
-      }
-
+        
+      //   console.log("✅ Matched Variant ID:", matchedVariant.id);
+      // } else {
+      //   console.warn("❌ Variant not found:", log.variant_name);
+      // }
+      
+      setTimeout(() =>{
       setMinStackSize(String(log.min_stack_size || ""));
       setMaxStackSize(String(log.max_stack_size || ""));
       setMinStackLength(String(log.min_stack_length || ""));
@@ -402,6 +415,9 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
         minStackLength: log.min_stack_length,
         maxStackLength: log.max_stack_length,
       });
+      clearAppliedLog();
+    },50);
+  }
 
       alert("✅ Applied successfully!");
     } catch (err) {
@@ -409,6 +425,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
       alert("❌ Failed to apply log.");
     }
   };
+   
 
   // fetch base dir path for machine after selecting
   React.useEffect(() => {
@@ -426,82 +443,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
       .catch((err) => console.error("❌ Error fetching base dir path:", err));
   }, [selectedMachine]);
 
-  // SSE stream
-  // React.useEffect(() => {
-  //   if (!selectedMachine || !isMachineRunning) {
-  //     console.warn("⚠️ No machine selected or not running. SSE connection skipped.");
-  //     return;
-  //   }
-
-  //   const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
-  //   console.log("📡 Connecting to SSE:", sseUrl);
-
-  //   setRealtimeData({
-  //     machine_run: "",
-  //     estimated_stack_length: 0,
-  //     estimated_stack_count: 0,
-  //     total_passed: 0,
-  //     total_rejected: 0,
-  //     total_frame_processed: 0,
-  //     image_path: "",
-  //     is_rejected: null,
-  //     timestamp: "",
-  //   });
-
-  //   const eventSource = new EventSource(sseUrl);
-
-  //   let lastSseTime = Date.now();
-
-  //   const fallbackLogTimer = setInterval(() => {
-  //     if (Date.now() - lastSseTime > 5000) {
-  //       console.warn("⚠️ No SSE data received for 5+ seconds.");
-  //     }
-  //   }, 5000);
-
-  //   eventSource.onmessage = (event) => {
-  //     lastSseTime = Date.now();
-  //     console.log("📨 Raw SSE event received:", event);
-
-  //     try {
-  //       const data = JSON.parse(event.data);
-  //       console.log("📨 SSE message received:", data);
-
-  //       setRealtimeData({
-  //         machine_run: data.machine_run || "",
-  //         estimated_stack_length: data.estimated_stack_length || 0,
-  //         estimated_stack_count: data.estimated_stack_count || 0,
-  //         total_passed: data.total_passed || 0,
-  //         total_rejected: data.total_rejected || 0,
-  //         image_path: data.image_path || "",
-  //         timestamp: data.timestamp || "",
-  //         total_frame_processed: (data.total_passed || 0 ) + (data.total_rejected || 0),
-  //         is_rejected: data.is_rejected ?? null,
-  //       });
-  //     } catch (err) {
-  //       console.error("🚫 SSE JSON parse error:", err);
-  //     }
-  //   };
-
-  //   eventSource.onerror = (error) => {
-  //     console.error("❌ SSE connection error:", error);
-  //     if (eventSource.readyState === EventSource.CLOSED) {
-  //       console.warn("🔌 SSE connection closed by server.");
-  //     } else if (eventSource.readyState === EventSource.CONNECTING) {
-  //       console.warn("🔄 SSE reconnecting...");
-  //     }
-  //     eventSource.close();
-  //   };
-
-  //   return () => {
-  //     console.log(
-  //       "🛑 Cleaning up SSE connection for machine:",
-  //       selectedMachine
-  //     );
-  //     eventSource.close();
-  //     clearInterval(fallbackLogTimer);
-  //   };
-  // }, [selectedMachine, isMachineRunning]);
-
+  
   // sse endpoint
   const latestDataRef = React.useRef({
     estimated_stack_length: 0,
@@ -574,7 +516,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
           total_frame_rejected:
             data.total_frame_rejected ??
             data.total_rejected ??
-            latestDataRef.current.total_frame_rejected,         
+            latestDataRef.current.total_frame_rejected,  
+
           image_path: data.image_path
             ? `/ssc_images${data.image_path.split("?")[0]}?t=${Date.now()}`
             : latestDataRef.current.image_path,
@@ -589,27 +532,6 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
         };
 
         // sse image
-        // if (data.image_path) {
-        //   // Build local URL from public/ssc_images folder
-        //   const cacheBustedUrl = `${baseDirPath}${data.image_path}?t=${Date.now()}`;
-
-        //   setImageUrls((prev) => {
-        //     if (prev[0] === cacheBustedUrl) return prev; // Avoid duplicates
-        //     return [cacheBustedUrl, ...prev];
-        //   });
-
-        //   latestDataRef.current.image_path = cacheBustedUrl;
-        // }
-
-        //         if (data.image_path) {
-        //   const cacheBustedUrl = `/ssc_images${data.image_path}?t=${Date.now()}`;
-        //   setImageUrls((prev) => {
-        //     if (prev[0] === cacheBustedUrl) return prev;
-        //     return [cacheBustedUrl, ...prev];
-        //   });
-        //   latestDataRef.current.image_path = cacheBustedUrl;
-        // }
-
         if (data.image_path) {
           const cleanPath = data.image_path.startsWith("/ssc_images")
             ? data.image_path
@@ -969,6 +891,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
             {/* Image section */}
 
             <LiveImageFeed imageArray={imageUrls} />
+            
           </StyledPaper>
         </Grid>
 
@@ -1115,7 +1038,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog }) {
                 <TextField
                   fullWidth
                   select
-                  label="Choose Variant"
+                  label="Variant"
                   value={selectedVariant}
                   onChange={handleVariantChange}
                   size="small"
