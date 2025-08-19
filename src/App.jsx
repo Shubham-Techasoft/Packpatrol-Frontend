@@ -12,11 +12,13 @@ import Footer from "./components/Footer";
 // import BasicSpeedDial from "./components/BasicSpeedDial";
 import AppSuccessAlert from "./components/alerts";
 import GalleryPage from "./pages/GalleryPage";
+import RecentActivitiesDialog from "./components/RecentActivitiesDialog";
 
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import About from "./pages/About";
 import MachineGallery from "./pages/MachineGallery";
+
 import DeveloperSettingsPage from "./pages/DeveloperSettingsPage";
 import MachineDetailsPage from "./pages/MachineDetailsPage";
 import FolderTree from "./components/FolderTree";
@@ -31,37 +33,41 @@ function TokenWatcherWrapper() {
   return <TokenWatcher navigate={navigate} />;
 }
 
-
-
 // Main App component
 function App() {
-
+  const navigate = useNavigate();
   const [recentDialogOpen, setRecentDialogOpen] = useState(false);
+
   const openRecentDialog = () => setRecentDialogOpen(true);
   const closeRecentDialog = () => setRecentDialogOpen(false);
 
-  const onApplyLog = (log) => {
-    console.log("🟢 App received applied log:", log);
-    // Forward this to Home or handle it here
-  };
+  const [appliedLog, setAppliedLog] = useState(null);
 
-  
+  const onApplyLog = (log) => {
+    console.log("🟢 App received applied log:", log);  
+     if (window.location.pathname !== "/") {
+      navigate("/");     
+     } 
+      setAppliedLog(log); 
+  };
+  const clearAppliedLog = () => setAppliedLog(null);
+
   return (
-    <Router>
+    <>
       <TokenWatcherWrapper />
       <AppSuccessAlert />
       <ResponsiveAppBar />
       <Routes>
-
-        <Route 
-        path="/" 
-        element={
-          <Home 
-            recentDialogOpen={recentDialogOpen}
-            closeRecentDialog={closeRecentDialog}
-            onApplyLog={onApplyLog}
-          />
-        } 
+        <Route
+          path="/"
+          element={
+            <Home
+              recentDialogOpen={recentDialogOpen}
+              closeRecentDialog={closeRecentDialog}
+              appliedLog={appliedLog}
+              clearAppliedLog={clearAppliedLog}
+            />
+          }
         />
 
         <Route path="/dashboard" element={<Dashboard />} />
@@ -81,32 +87,34 @@ function App() {
           }
         />
 
-        <Route 
-          path="/profile" 
+        <Route
+          path="/profile"
           element={
             <ProtectedRoute>
               <ProfilePage />
-            </ProtectedRoute>         
-          } 
+            </ProtectedRoute>
+          }
         />
 
-        <Route 
-          path="/users" 
+        <Route
+          path="/users"
           element={
             <ProtectedRoute requireSuperAdmin>
               <UsersPage />
             </ProtectedRoute>
-            } 
+          }
         />
-
       </Routes>
       {/* <BasicSpeedDial /> */}
 
-      <Footer 
-        onRecentOpen={openRecentDialog} 
+      <RecentActivitiesDialog
+        open={recentDialogOpen}
+        handleClose={closeRecentDialog}
         onApplyLog={onApplyLog}
       />
-    </Router>
+
+      <Footer onRecentOpen={openRecentDialog} onApplyLog={onApplyLog} />
+    </>
   );
 }
 
