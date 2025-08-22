@@ -35,22 +35,29 @@ const AddMachineStepper = ({
   const [activeStep, setActiveStep] = useState(0);
   const [editMachine, setEditMachine] = useState(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [variants, setVariants] = useState([{ name: "", description: "" }]);
-  const [activeVariantIndex, setActiveVariantIndex] = useState(0);
+  const [variant, setVariant] = useState({
+    id: null,
+    name: "",
+    description: "",
+    biscuit_type: "",
+    models: [
+      {
+        name: "",
+        version: "",
+        description: "",
+        framework: "",
+        model_file: null,
+        recommended_threshold: "",
+      },
+    ],
+    activeModelIndex: 0,
+  });
+  const [modelsByVariant, setModelsByVariant] = useState({});
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
   const [useExistingVariant, setUseExistingVariant] = useState(false);
   const [existingVariants, setExistingVariants] = useState([]);
   const [selectedVariantId, setSelectedVariantId] = useState("");
-
-
-  const [mlModel, setMlModel] = useState({
-    name: "",
-    version: "",
-    description: "",
-    framework: "",
-    model_file: null,
-    recommended_threshold: "",
-  });
+  const [selectedModelId, setSelectedModelId] = useState(null);
 
   const [machine, setMachine] = useState({
     name: "",
@@ -71,6 +78,76 @@ const AddMachineStepper = ({
 
   const isManagerUser = isManager();
 
+  const loadVariantForEdit = async (variantId) => {
+    try {
+      // 1. Fetch variant
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/machinevariants/${variantId}/`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        }
+      );
+      if (!res.ok) throw new Error(await res.text());
+      const full = await res.json();
+
+      // 2. Fetch all models
+      const modelsRes = await fetch(`http://127.0.0.1:8000/api/mlmodels/`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+      });
+      if (!modelsRes.ok) throw new Error(await modelsRes.text());
+      const allModels = await modelsRes.json();
+
+      // 3. Filter models linked to this variant
+      let models = allModels
+        .filter((mdl) => mdl.variant === variantId)
+        .map((mdl) => ({
+          id: mdl.id,
+          name: mdl.name || "",
+          version: mdl.version || "",
+          description: mdl.description || "",
+          recommended_threshold: mdl.recommended_threshold ?? "",
+          model_file: null,
+        }));
+
+      // 4. If no models found, use active_ml_model
+      if (models.length === 0 && full.active_ml_model) {
+        models = [
+          {
+            id: full.active_ml_model.id,
+            name: full.active_ml_model.name || "",
+            version: full.active_ml_model.version || "",
+            description: full.active_ml_model.description || "",
+            recommended_threshold:
+              full.active_ml_model.recommended_threshold ?? "",
+            model_file: null,
+          },
+        ];
+      }
+
+      // 5. Find active model index
+      const activeId = full.active_ml_model?.id || null;
+      const activeIndex = models.findIndex((m) => m.id === activeId);
+
+      // 6. Set state
+      setVariant({
+        id: full.id,
+        name: full.name || "",
+        description: full.description || "",
+        biscuit_type: full.biscuit_type || "",
+        models,
+        activeModelIndex: activeIndex >= 0 ? activeIndex : 0,
+      });
+
+      if (activeId) setSelectedModelId(activeId);
+    } catch (e) {
+      console.error("❌ Failed to load variant + models:", e);
+    }
+  };
+
   // fetch existig variants
   useEffect(() => {
     const fetchExistingVariants = async () => {
@@ -86,10 +163,9 @@ const AddMachineStepper = ({
         console.error("Failed to load existing variants", err);
       }
     };
-  
+
     fetchExistingVariants();
   }, []);
-  
 
   useEffect(() => {
     if (mode === "edit" && editData) {
@@ -99,7 +175,7 @@ const AddMachineStepper = ({
         name: m.name || "",
         camera_serial_numbers: m.camera?.serial_number || "",
         camera_name: m.camera?.name || "",
-        features_file_path: null, // Can't prefill file input
+        features_file_path: null,
         frame_height: m.camera?.frame_height || 720,
         frame_width: m.camera?.frame_width || 1280,
         acquisition_frame_rate: m.camera?.acquisition_frame_rate || 0,
@@ -112,39 +188,126 @@ const AddMachineStepper = ({
         watchdog_obs_folder_path: m.base_dir_path || "",
       });
 
-      setMlModel({
-        id: editData.mlModel?.id || null,
-        name: editData.mlModel?.name || "",
-        version: editData.mlModel?.version || "",
-        description: editData.mlModel?.description || "",
-        framework: editData.mlModel?.framework || "",
-        model_file: null, // Can't prefill file input
-        recommended_threshold: editData.mlModel?.recommended_threshold || "",
-      });
+      const v = (m.variants && m.variants[0]) || null;
+      if (v?.id) {
+        setSelectedVariantId(v.id);
 
-      const variantList = (m.variants || []).map((v, idx) => ({
-        name: v.name || "",
-        description: v.description || "",
-        biscuit_type: v.biscuit_type || "",
-        is_active: v.is_active || idx === 0,
-      }));
+        // ✅ If this machine was created using an existing variant
+        if (m.created_using_existing_variant) {
+          setUseExistingVariant(true); // check the box
+        }
 
-      setVariants(variantList);
-
-      const activeIndex = variantList.findIndex((v) => v.is_active);
-      setActiveVariantIndex(activeIndex !== -1 ? activeIndex : 0);
+        loadVariantForEdit(v.id); // load variant + models as usual
+      }
 
       setActiveStep(0);
     }
   }, [mode, editData]);
 
-  const handleMLChange = (e) => {
-    const { name, value, type, checked, files } = e.target;
-    setMlModel((prev) => ({
+  // const handleMLChange = (e) => {
+  //   const { name, value, type, checked, files } = e.target;
+  //   setMlModel((prev) => ({
+  //     ...prev,
+  //     [name]:
+  //       type === "file" ? files[0] : type === "checkbox" ? checked : value,
+  //   }));
+  // };
+
+  const handleModelChange = (e, idx) => {
+    const { name, value, files, type } = e.target;
+    setVariant((prev) => {
+      const models = [...prev.models];
+      models[idx] = {
+        ...models[idx],
+        [name]: type === "file" ? files[0] : value,
+      };
+      return { ...prev, models };
+    });
+  };
+
+  // Add a new empty model row
+  const addModel = () => {
+    setVariant((prev) => ({
       ...prev,
-      [name]:
-        type === "file" ? files[0] : type === "checkbox" ? checked : value,
+      models: [
+        ...prev.models,
+        {
+          name: "",
+          version: "",
+          description: "",
+          framework: "",
+          model_file: null,
+          recommended_threshold: "",
+        },
+      ],
     }));
+  };
+
+  // Set active model (radio)
+  const setActiveModelIndex = (idx) => {
+    setVariant((prev) => ({ ...prev, activeModelIndex: idx }));
+  };
+
+  // Toggle "Use Existing Variant" and reset local variant state
+  const onToggleUseExisting = () => {
+    setUseExistingVariant((prev) => {
+      const newVal = !prev; // new state after toggle
+
+      if (mode === "add") {
+        // Reset variant only in add mode
+        if (!newVal) {
+          // turning OFF → restore empty variant
+          setVariant({
+            name: "",
+            description: "",
+            biscuit_type: "",
+            models: [
+              {
+                name: "",
+                version: "",
+                description: "",
+                framework: "",
+                model_file: null,
+                recommended_threshold: "",
+              },
+            ],
+            activeModelIndex: 0,
+          });
+          setSelectedVariantId("");
+        } else {
+          setSelectedVariantId(""); // just clear selection when turning ON
+        }
+      } else if (mode === "edit" && editData?.machine) {
+        const originalVariant =
+          (editData.machine.variants && editData.machine.variants[0]) || null;
+        if (!newVal && originalVariant?.id) {
+          // Only restore when unchecking
+          loadVariantForEdit(originalVariant.id);
+          setSelectedVariantId(originalVariant.id);
+        } else if (newVal) {
+          // When checking "Use Existing", clear variant fields
+          setVariant({
+            name: "",
+            description: "",
+            biscuit_type: "",
+            models: [
+              {
+                name: "",
+                version: "",
+                description: "",
+                framework: "",
+                model_file: null,
+                recommended_threshold: "",
+              },
+            ],
+            activeModelIndex: 0,
+          });
+          setSelectedVariantId("");
+        }
+      }
+
+      return newVal;
+    });
   };
 
   const handleMachineChange = (e) => {
@@ -156,56 +319,31 @@ const AddMachineStepper = ({
     }));
   };
 
-  // Create Machine Logic
+  // machine creation function
   const handleCreate = async () => {
     let cameraId = null;
 
     try {
-      let mlModelId = null;
+      console.log("🚀 Starting machine creation...");
+      console.log("Machine data: ", machine);
+      console.log("Variant data: ", variant);
+      console.log(
+        "Use existing variant:",
+        useExistingVariant,
+        "Selected variant ID:",
+        selectedVariantId
+      );
 
-      // 1. Create ML Model (optional)
-      if (mlModel.name && mlModel.version && mlModel.model_file) {
-        const mlFormData = new FormData();
-        for (const key in mlModel) {
-          if (mlModel[key] !== undefined && mlModel[key] !== null) {
-            if (key === "model_file") {
-              mlFormData.append(key, mlModel[key]);
-            } else {
-              mlFormData.append(key, String(mlModel[key]));
-            }
-          }
-        }
-
-        const mlRes = await fetch("http://localhost:8000/api/mlmodels/", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-          body: mlFormData,
-        });
-
-        if (!mlRes.ok) {
-          const err = await mlRes.json();
-          console.error("❌ ML Model creation failed:", err);
-          throw new Error("Failed to create ML model");
-        }
-
-        const mlData = await mlRes.json();
-        mlModelId = mlData.id;
-        console.log("✅ ML Model ID:", mlModelId);
-      }
-
-      // 2. Create Camera
+      // 1) Create Camera
+      console.log("📸 Creating camera...");
       const camFormData = new FormData();
       camFormData.append("is_active", true);
       camFormData.append("name", `${machine.name}-cam`);
       camFormData.append("serial_number", machine.camera_serial_numbers);
       camFormData.append("description", "Auto-generated camera");
-
       if (machine.features_file_path instanceof File) {
         camFormData.append("features_file_path", machine.features_file_path);
       }
-
       camFormData.append("frame_height", machine.frame_height);
       camFormData.append("frame_width", machine.frame_width);
       camFormData.append(
@@ -228,104 +366,172 @@ const AddMachineStepper = ({
       });
 
       if (!camRes.ok) {
-        const err = await camRes.json();
-        console.error("❌ Camera creation failed:", err);
-        throw new Error("Failed to create camera");
+        const errText = await camRes.text();
+        console.error("❌ Camera creation failed. Response:", errText);
+        alert("❌ Camera creation failed: " + errText);
+        return;
       }
 
       const camData = await camRes.json();
       cameraId = camData.id;
-      console.log("📷 Camera ID:", cameraId);
+      console.log("✅ Camera created:", camData);
 
-      // 3. Create Variants
-      let variantIds = [];
-      let activeVariantId = null;
+      // 2) Variant + Models
+      let variantId = null;
 
-      if (mlModelId && variants.length > 0) {
-        for (const [index, variant] of variants.entries()) {
-          const variantPayload = {
-            name: variant.name,
-            description: variant.description || "",
-            biscuit_type: variant.biscuit_type,
-            active_ml_model: mlModelId,
-            model_threshold: 0.5,
-            model_verbose: true,
-          };
+      if (useExistingVariant && selectedVariantId) {
+        variantId =
+          typeof selectedVariantId === "object"
+            ? String(selectedVariantId.id)
+            : String(selectedVariantId);
+        console.log("🔗 Using existing variant:", variantId);
 
-          const variantRes = await fetch(
-            "http://localhost:8000/api/machinevariants/",
+        // Prefill variant + models in state before saving
+        await loadVariantForEdit(variantId);
+      } else if (variant.name && variant.models && variant.models.length > 0) {
+        console.log("🆕 Creating new Variant...");
+
+        // Step 2a: Create Variant
+        const variantPayload = {
+          name: variant.name,
+          description: variant.description || "",
+          biscuit_type: variant.biscuit_type || "",
+          model_threshold: 0.5,
+          model_verbose: true,
+        };
+
+        const varRes = await fetch(
+          "http://localhost:8000/api/machinevariants/",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            },
+            body: JSON.stringify(variantPayload),
+          }
+        );
+
+        if (!varRes.ok) {
+          const errText = await varRes.text();
+          throw new Error("❌ Variant creation failed: " + errText);
+        }
+
+        const varData = await varRes.json();
+        // variantId = String(varData.id || varData.uuid || null);
+        console.log("✅ Variant created:", varData);
+
+        // Fetch the variant ID by name immediately after creation
+        const variantsRes = await fetch(
+          "http://localhost:8000/api/machinevariants/",
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            },
+          }
+        );
+        const variantsList = await variantsRes.json();
+        const createdVariant = variantsList.find(
+          (v) => v.name === variant.name
+        );
+
+        if (!createdVariant)
+          throw new Error("❌ Could not find created variant by name");
+        variantId = createdVariant.id || createdVariant.uuid;
+        console.log("🔗 Fetched variant ID:", variantId);
+
+        // Step 2b: Create ML models linked to this Variant
+        const createdModels = [];
+        for (let i = 0; i < variant.models.length; i++) {
+          const m = variant.models[i];
+
+          console.log("📦 Preparing model for POST:", m);
+
+          if (!m.name || !m.version || !m.model_file) {
+            console.warn("⚠️ Skipping model due to missing fields:", m);
+            continue;
+          }
+
+          const mlFormData = new FormData();
+          mlFormData.append("name", m.name);
+          mlFormData.append("version", m.version);
+          mlFormData.append("description", m.description || "");
+          mlFormData.append(
+            "recommended_threshold",
+            m.recommended_threshold || 0
+          );
+          mlFormData.append("model_file", m.model_file);
+          mlFormData.append("variant", variantId);
+          mlFormData.append("is_active", true);
+
+          console.log("📤 Sending ML Model POST →", [...mlFormData.entries()]);
+
+          // ⚠️ do NOT send variant here (backend PATCH handles linking)
+          const mlRes = await fetch("http://localhost:8000/api/mlmodels/", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            },
+            body: mlFormData,
+          });
+
+          const resText = await mlRes.text();
+          console.log("📥 ML Model raw response:", resText);
+
+          if (!mlRes.ok) {
+            throw new Error("❌ ML model creation failed: " + resText);
+          } else {
+            const mlData = await JSON.parse(resText);
+            createdModels.push(mlData);
+            console.log("✅ ML model created:", mlData);
+          }
+        }
+        // Step 2c: Set active model for Variant
+        if (createdModels.length > 0) {
+          const activeModel = createdModels[variant.activeModelIndex || 0];
+          console.log("🔹 Candidate active model:", activeModel);
+
+          const activeRes = await fetch(
+            `http://localhost:8000/api/machinevariants/${variantId}/set_active_model/`,
             {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${localStorage.getItem("access_token")}`,
               },
-              body: JSON.stringify(variantPayload),
+              body: JSON.stringify({
+                model_id: activeModel.id,
+                biscuit_type: variant.biscuit_type || "",
+                name: variant.name,
+                is_active: true,
+              }),
             }
           );
 
-          if (!variantRes.ok) {
-            const err = await variantRes.json();
-            console.error(`❌ Variant ${index + 1} creation failed:`, err);
-            throw new Error("Failed to create variant");
+          if (!activeRes.ok) {
+            const errText = await activeRes.text();
+            throw new Error("❌ Failed to set active model: " + errText);
           }
 
-          const varData = await variantRes.json();
-          console.log("🔍 Raw Variant Response:", varData);
-
-          // 🔄 Re-fetch the latest variants to get their IDs
-          const allVariantsRes = await fetch(
-            "http://localhost:8000/api/machinevariants/",
-            {
-              headers: {
-                Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-              },
-            }
-          );
-
-          const allVariants = await allVariantsRes.json();
-          const matching = allVariants.find(
-            (v) => v.name === variant.name && v.active_ml_model.id === mlModelId
-          );
-
-          if (!matching || !matching.id) {
-            console.error(
-              `❌ Could not retrieve ID for Variant ${index + 1}`,
-              matching
-            );
-            throw new Error("Variant ID missing after creation");
-          }
-
-          variantIds.push(matching.id);
-          console.log(`✅ Variant ${index + 1} created with ID:`, matching.id);
-
-          // ⭐ Set as active if selected via radio
-          if (variant.is_active) {
-            activeVariantId = matching.id;
-          }
-        }
-
-        // Fallback: if user didn't select any variant, use first one
-        if (!activeVariantId) {
-          activeVariantId = variantIds[0];
+          const activeData = await activeRes.json();
+          console.log("✅ Active model set for variant:", activeData);
         }
       }
 
-      // 4. Create Machine with all variant info
+      // 3) Create Machine
+      console.log("🏭 Creating machine...");
       const machinePayload = {
         is_active: true,
         name: machine.name,
         description: "Machine created via form",
-        camera_id: cameraId,
+        // cameras: cameraId,
         video_stream: true,
         video_folder_path: machine.video_folder_path,
         watchdog_file_expi_time: machine.watchdog_file_expi_time,
         base_dir_path: machine.watchdog_obs_folder_path,
-        variant_ids: variantIds,
-        active_variant_id: activeVariantId,
+        variant_ids: variantId ? [variantId] : [],
+        active_variant_id: variantId || null,
       };
-
-      console.log("🛠️ Final Machine Payload:", machinePayload);
 
       const machineRes = await fetch("http://localhost:8000/api/machines/", {
         method: "POST",
@@ -337,34 +543,53 @@ const AddMachineStepper = ({
       });
 
       if (!machineRes.ok) {
-        const err = await machineRes.json();
-        console.error("❌ Machine creation failed:", err);
-        throw new Error("Failed to create machine");
+        const errText = await machineRes.text();
+        throw new Error("❌ Machine creation failed: " + errText);
       }
 
-      const machineData = await machineRes.json();
-      console.log("✅ Machine created with ID:", machineData.id);
+      let machineData = await machineRes.json();
+      console.log("✅ Machine created:", machineData);
 
-      // 🔄 Refresh machine list in DeveloperSettings
+      // 4) PATCH machine to link camera
+      if (cameraId) {
+        const patchRes = await fetch(
+          `http://localhost:8000/api/machines/${machineData.id}/`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            },
+            body: JSON.stringify({ camera_id: cameraId }),
+          }
+        );
+
+        if (!patchRes.ok) throw new Error("❌ Failed to link camera");
+        const patchedMachine = await patchRes.json();
+        console.log("✅ Camera linked to machine:", patchedMachine);
+
+        machineData = patchedMachine;
+      }
+
       if (onMachineCreated) onMachineCreated();
 
-      // alert("✅ Machine and Variants created successfully!");
-      let message = "✅ Machine created successfully!";
-      if (mlModelId && variantIds.length > 0) {
-        message += " ML Model and Variants also created.";
-      } else if (mlModelId) {
-        message += " ML Model created.";
-      } else if (variantIds.length > 0) {
-        message += " Variants created.";
+      let msgA = "";
+      if (useExistingVariant && selectedVariantId) {
+        msgA = "✅ Machine created (linked to existing Variant).";
+      } else if (variantId) {
+        msgA = "✅ Machine, Variant and Models created.";
+      } else {
+        msgA = "✅ Machine and Camera created.";
       }
 
-      alert(message);
+      alert(msgA);
       if (onClose) onClose();
     } catch (error) {
       console.error("❌ Error in submission:", error);
 
-      // Cleanup orphan camera
+      // Cleanup orphan camera if machine creation fails
       if (cameraId) {
+        console.warn("🧹 Cleaning up orphan camera:", cameraId);
         await fetch(`http://localhost:8000/api/cameras/${cameraId}/`, {
           method: "DELETE",
           headers: {
@@ -374,21 +599,29 @@ const AddMachineStepper = ({
         console.warn("🧹 Deleted orphan camera:", cameraId);
       }
 
-      alert(error.message);
+      alert(error.message || "Failed to create machine");
     }
   };
 
   // handleEditSubmit function
   const handleEditSubmit = async () => {
+    console.log("🚀 handleEditSubmit triggered");
+
     const token = localStorage.getItem("access_token");
     const isManager = localStorage.getItem("designation") === "manager";
-
     const machineId = editData?.machine?.id;
     const cameraId = editData?.machine?.camera?.id;
-    const variantId = editData?.variant?.id;
+    const variantId = editData?.machine?.variants?.[0]?.id;
+
+    const mlModel =
+      !useExistingVariant && variant.models?.length > 0
+        ? variant.models[variant.activeModelIndex]
+        : editData?.mlModel || {};
+
+    const variants = !useExistingVariant && variant.name ? [variant] : [];
 
     try {
-      // 1. Update Camera
+      // 1️⃣ Update Camera
       const camPayload = isManager
         ? {
             frame_height: machine.frame_height,
@@ -415,7 +648,7 @@ const AddMachineStepper = ({
         ? `http://localhost:8000/api/cameras/${cameraId}/manager_update/`
         : `http://localhost:8000/api/cameras/${cameraId}/`;
 
-      await fetch(cameraEndpoint, {
+      const camRes = await fetch(cameraEndpoint, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -424,29 +657,10 @@ const AddMachineStepper = ({
         body: JSON.stringify(camPayload),
       });
 
-      // 2. Update Machine or Variant depending on role
-      if (isManager) {
-        // Only send PATCH if model_threshold is defined
-        if (mlModel.recommended_threshold !== undefined) {
-          const variantPayload = {
-            model_threshold: parseFloat(mlModel.recommended_threshold),
-          };
+      console.log("Camera update response:", camRes.status);
 
-          console.log("🔧 Sending manager update:", variantPayload);
-
-          await fetch(
-            `http://localhost:8000/api/machinevariants/${variantId}/manager_update/`,
-            {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify(variantPayload),
-            }
-          );
-        }
-      } else {
+      // 2️⃣ Update Machine (non-manager)
+      if (!isManager) {
         const machinePayload = {
           name: machine.name,
           description: "Updated via Edit",
@@ -456,187 +670,181 @@ const AddMachineStepper = ({
           base_dir_path: machine.watchdog_obs_folder_path,
         };
 
-        await fetch(`http://localhost:8000/api/machines/${machineId}/`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(machinePayload),
-        });
-
-        // 3. Create or update ML Model (only if provided)
-        if (
-          mlModel.name ||
-          mlModel.version ||
-          mlModel.description ||
-          mlModel.recommended_threshold
-        ) {
-          const mlFormData = new FormData();
-          for (const key in mlModel) {
-            if (mlModel[key] !== undefined && mlModel[key] !== null) {
-              if (key === "model_file" && mlModel[key] instanceof File) {
-                mlFormData.append(key, mlModel[key]);
-              } else if (key !== "model_file") {
-                mlFormData.append(key, String(mlModel[key]));
-              }
-            }
-          }
-
-          const mlModelEndpoint = editData?.mlModel?.id
-            ? `http://localhost:8000/api/mlmodels/${editData.mlModel.id}/`
-            : "http://localhost:8000/api/mlmodels/";
-
-          const method = editData?.mlModel?.id ? "PATCH" : "POST";
-
-          const mlRes = await fetch(mlModelEndpoint, {
-            method,
+        const machineRes = await fetch(
+          `http://localhost:8000/api/machines/${machineId}/`,
+          {
+            method: "PATCH",
             headers: {
+              "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: mlFormData,
-          });
+            body: JSON.stringify(machinePayload),
+          }
+        );
 
-          const mlModelData = await mlRes.json();
-          const mlModelId = mlModelData.id;
+        console.log("Machine update response:", machineRes.status);
+      }
 
-          if (!mlRes.ok) {
-            const err = await mlRes.json();
-            console.error("❌ ML Model update/create failed:", err);
-            throw new Error("Failed to update/create ML model");
+      // 3️⃣ Update/Create ML Model
+      const mlModelChanged =
+        editData?.mlModel &&
+        ((mlModel.name && mlModel.name !== editData.mlModel.name) ||
+          (mlModel.version && mlModel.version !== editData.mlModel.version) ||
+          (mlModel.description &&
+            mlModel.description !== editData.mlModel.description) ||
+          (mlModel.recommended_threshold !== undefined &&
+            mlModel.recommended_threshold !==
+              editData.mlModel.recommended_threshold) ||
+          mlModel.model_file instanceof File);
+
+      console.log("🔹 mlModelChanged?", mlModelChanged);
+
+      if (mlModelChanged) {
+        if (editData?.mlModel?.id) {
+          console.log("🔹 Editing existing ML model:", editData.mlModel.id);
+
+          // Always send name + version (they must stay a unique pair)
+          const mlPayload = {
+            name: mlModel.name || editData.mlModel.name,
+            version: mlModel.version || editData.mlModel.version,
+          };
+
+          if (
+            mlModel.description &&
+            mlModel.description !== editData.mlModel.description
+          ) {
+            mlPayload.description = mlModel.description;
+          }
+          if (
+            mlModel.recommended_threshold !== undefined &&
+            mlModel.recommended_threshold !==
+              editData.mlModel.recommended_threshold
+          ) {
+            mlPayload.recommended_threshold = mlModel.recommended_threshold;
+          }
+          if (
+            mlModel.is_active !== undefined &&
+            mlModel.is_active !== editData.mlModel.is_active
+          ) {
+            mlPayload.is_active = mlModel.is_active;
           }
 
-          console.log(
-            `✅ ML Model ${editData?.mlModel?.id ? "updated" : "created"} successfully`
-          );
+          // Check if we have a new file
+          if (mlModel.model_file instanceof File) {
+            console.log("🔹 ML model has new file, using FormData upload");
 
-          //  Link newly created ML model to the variant (only if it was just created)
-          if (editData?.machine?.variants?.[0]?.id && mlModelId) {
-            const linkVariantRes = await fetch(
-              `http://localhost:8000/api/machinevariants/${editData.machine.variants[0].id}/`,
+            const formData = new FormData();
+            formData.append("model_file", mlModel.model_file);
+            Object.entries(mlPayload).forEach(([key, value]) =>
+              formData.append(key, value)
+            );
+
+            console.log("🔹 FormData keys:", Array.from(formData.keys()));
+
+            const mlRes = await fetch(
+              `http://localhost:8000/api/mlmodels/${editData.mlModel.id}/`,
+              {
+                method: "PATCH",
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData,
+              }
+            );
+
+            console.log("🔹 PATCH ML Model response status:", mlRes.status);
+            console.log("🔹 PATCH ML Model response body:", await mlRes.text());
+          } else {
+            console.log("🔹 ML model file not changed, sending JSON only");
+
+            delete mlPayload.model_file;
+
+            console.log("🔹 PATCH ML Model JSON payload:", mlPayload);
+
+            const mlRes = await fetch(
+              `http://localhost:8000/api/mlmodels/${editData.mlModel.id}/`,
               {
                 method: "PATCH",
                 headers: {
                   "Content-Type": "application/json",
                   Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({
-                  active_ml_model: mlModelId,
-                }),
+                body: JSON.stringify(mlPayload),
               }
             );
 
-            if (!linkVariantRes.ok) {
-              const err = await linkVariantRes.json();
-              console.error("❌ Failed to re-link ML model to variant:", err);
-              throw new Error("Variant linking failed");
+            console.log("🔹 PATCH ML Model response status:", mlRes.status);
+            const mlResText = await mlRes.text();
+            console.log("🔹 PATCH ML Model response body:", mlResText);
+
+            if (mlRes.ok) {
+              const mlModelData = JSON.parse(mlResText);
+              console.log("✅ ML Model updated:", mlModelData);
+            } else {
+              console.error("❌ ML Model update failed");
             }
-
-            console.log("✅ ML model re-linked to variant");
           }
+        } else {
+          console.log("⚠️ ML Model is new, will use POST (FormData)");
         }
+      }
 
-        // ✅ POST only new variants (ignore existing ones)
-        for (const variant of variants) {
-          if (!variant.id) {
-            const variantPayload = {
-              name: variant.name,
-              description: variant.description,
-              biscuit_type: variant.biscuit_type,
-              model_threshold: variant.model_threshold ?? 0.5,
-              model_verbose: variant.model_verbose ?? 0.5,
-            };
+      // 4️⃣ Update existing variants or create new ones
+      for (const variant of variants) {
+        const variantPayload = {
+          name: variant.name,
+          description: variant.description,
+          biscuit_type: variant.biscuit_type,
+        };
 
-            console.log("🟢 Creating new variant:", variantPayload);
-
-            try {
-              const res = await fetch(
-                "http://localhost:8000/api/machinevariants/",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify(variantPayload),
-                }
-              );
-
-              if (!res.ok) {
-                const err = await res.json();
-                console.error(
-                  "❌ Failed to create variant:",
-                  variantPayload,
-                  err
-                );
-              } else {
-                const newVariant = await res.json();
-                console.log("✅ Successfully created variant:", newVariant);
-
-                // ✅ Link newly created variant to the machine
-                const linkRes = await fetch(
-                  `http://localhost:8000/api/machines/${machineId}/add_variant/`,
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({ variant_id: newVariant.id }),
-                  }
-                );
-
-                if (!linkRes.ok) {
-                  const err = await linkRes.json();
-                  console.error(
-                    "❌ Failed to link variant to machine:",
-                    newVariant.id,
-                    err
-                  );
-                } else {
-                  console.log("✅ Variant linked to machine:", newVariant.id);
-                  variantsUpdated = true;
-                }
-              }
-            } catch (error) {
-              console.error(
-                "❌ Exception while creating variant:",
-                variantPayload,
-                error
-              );
-            }
-          } else {
-            console.log(
-              "⚠️ Skipping existing variant (no edits):",
-              variant.name
-            );
-          }
-        }
-
-        // 🧹 Delete ML model if skipped
-        if (!mlModel.name && editData?.mlModel?.id) {
-          await fetch(
-            `http://localhost:8000/api/mlmodels/${editData.mlModel.id}/`,
+        if (variant.id) {
+          // PATCH existing variant
+          const res = await fetch(
+            `http://localhost:8000/api/machinevariants/${variant.id}/`,
             {
-              method: "DELETE",
+              method: "PATCH",
               headers: {
+                "Content-Type": "application/json",
                 Authorization: `Bearer ${token}`,
               },
+              body: JSON.stringify(variantPayload),
             }
           );
-          console.log("🧹 Deleted ML model due to skip.");
-        }
 
-        // 🧹 Delete all variants if skipped
-        if (variants.length === 0 && editData?.machine?.variants?.length > 0) {
-          for (const v of editData.machine.variants) {
-            await fetch(`http://localhost:8000/api/machinevariants/${v.id}/`, {
-              method: "DELETE",
+          if (res.ok) {
+            const updatedVariant = await res.json();
+            setVariant((prev) => ({ ...prev, ...updatedVariant }));
+          } else {
+            console.warn("❌ Variant update failed:", await res.text());
+          }
+        } else {
+          // POST new variant
+          const res = await fetch(
+            `http://localhost:8000/api/machinevariants/`,
+            {
+              method: "POST",
               headers: {
+                "Content-Type": "application/json",
                 Authorization: `Bearer ${token}`,
               },
-            });
-            console.log("🧹 Deleted variant with ID:", v.id);
+              body: JSON.stringify(variantPayload),
+            }
+          );
+
+          if (res.ok) {
+            const newVariant = await res.json();
+            // Link new variant to machine
+            await fetch(
+              `http://localhost:8000/api/machines/${machineId}/add_variant/`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ variant_id: newVariant.id }),
+              }
+            );
+          } else {
+            console.warn("❌ Variant creation failed:", await res.text());
           }
         }
       }
@@ -648,594 +856,208 @@ const AddMachineStepper = ({
       console.error("❌ Error updating machine:", error);
       alert("Failed to update machine");
     }
+
+    // 5️⃣ Update active model if switched in UI
+    if (variantId && variant.activeModelIndex !== undefined) {
+      const chosenModel = variant.models?.[variant.activeModelIndex];
+      if (chosenModel && chosenModel.id) {
+        console.log("🔹 Setting active model via API:", chosenModel);
+
+        const activeRes = await fetch(
+          `http://localhost:8000/api/machinevariants/${variantId}/set_active_model/`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              model_id: chosenModel.id,
+              is_active: true,
+            }),
+          }
+        );
+
+        const activeResText = await activeRes.text();
+        if (activeRes.ok) {
+          const activeData = JSON.parse(activeResText);
+          console.log("✅ Active model updated:", activeData);
+        } else {
+          console.error("❌ Failed to set active model:", activeResText);
+          alert("❌ Failed to update active model: " + activeResText);
+        }
+      }
+    }
   };
 
-  // const handleSubmit = async () => {
-  //   let cameraId = null;
-  //   let machineId = null;
-
-  //   try {
-  //     let mlModelId = null;
-
-  //     // 1. Create ML Model (optional)
-  //     if (mlModel.name && mlModel.version && mlModel.model_file) {
-  //       const mlFormData = new FormData();
-  //       for (const key in mlModel) {
-  //         if (mlModel[key] !== undefined && mlModel[key] !== null) {
-  //           if (key === "model_file") {
-  //             mlFormData.append(key, mlModel[key]);
-  //           } else {
-  //             mlFormData.append(key, String(mlModel[key]));
-  //           }
-  //         }
-  //       }
-
-  //       console.log("🚀 ML Model FormData:");
-  //       for (let [key, value] of mlFormData.entries()) {
-  //         console.log(`${key}:`, value);
-  //       }
-
-  //       const mlRes = await fetch("http://localhost:8000/api/mlmodels/", {
-  //         method: "POST",
-  //         headers: {
-  //           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-  //         },
-  //         body: mlFormData,
-  //       });
-
-  //       console.log("📡 ML Response Status:", mlRes.status);
-  //       if (!mlRes.ok) {
-  //         const err = await mlRes.json();
-  //         console.error("❌ ML Model creation failed:", err);
-  //         throw new Error("Failed to create ML model");
-  //       }
-
-  //       const mlData = await mlRes.json();
-  //       mlModelId = mlData.id;
-  //       console.log("✅ ML Model ID:", mlModelId);
-  //     }
-
-  //     // 2. Create Camera
-  //     const camFormData = new FormData();
-  //     camFormData.append("is_active", true);
-  //     camFormData.append("name", `${machine.name}-cam`);
-  //     camFormData.append("serial_number", machine.camera_serial_numbers);
-  //     camFormData.append("description", "Auto-generated camera");
-
-  //     if (machine.features_file_path instanceof File) {
-  //       camFormData.append("features_file_path", machine.features_file_path);
-  //     }
-
-  //     camFormData.append("frame_height", machine.frame_height);
-  //     camFormData.append("frame_width", machine.frame_width);
-  //     camFormData.append("acquisition_frame_rate", machine.acquisition_frame_rate);
-  //     camFormData.append("exposure_time", machine.exposure_time);
-  //     camFormData.append("trigger_mode", machine.trigger_mode);
-  //     camFormData.append("offset_x", machine.offset_x);
-  //     camFormData.append("offset_y", machine.offset_y);
-  //     camFormData.append("max_failed_frames", 5);
-  //     camFormData.append("check_max_failed_frames", true);
-
-  //     const camRes = await fetch("http://localhost:8000/api/cameras/", {
-  //       method: "POST",
-  //       headers: {
-  //         Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-  //       },
-  //       body: camFormData,
-  //     });
-
-  //     if (!camRes.ok) {
-  //       const err = await camRes.json();
-  //       console.error("❌ Camera creation failed:", err);
-  //       throw new Error("Failed to create camera");
-  //     }
-
-  //     const camData = await camRes.json();
-  //     cameraId = camData.id;
-  //     console.log("📷 Camera ID:", cameraId);
-
-  //     // 3. Create Machine
-  //     const machinePayload = {
-  //       is_active: true,
-  //       name: machine.name,
-  //       description: "Machine created via form",
-  //       camera: cameraId,
-  //       video_stream: true,
-  //       video_folder_path: machine.video_folder_path,
-  //       watchdog_file_expi_time: machine.watchdog_file_expi_time,
-  //       base_dir_path: machine.watchdog_obs_folder_path,
-  //     };
-
-  //     console.log("🛠️ Machine Payload:", machinePayload);
-
-  //     const machineRes = await fetch("http://localhost:8000/api/machines/", {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //         Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-  //       },
-  //       body: JSON.stringify(machinePayload),
-  //     });
-
-  //     if (!machineRes.ok) {
-  //       const err = await machineRes.json();
-  //       console.error("❌ Machine creation failed:", err);
-  //       throw new Error("Failed to create machine");
-  //     }
-
-  //     const machineData = await machineRes.json();
-  //     machineId = machineData.id;
-  //     console.log("🏭 Machine ID:", machineId);
-
-  //     // 4. Create Variants
-  //     let variantIds = [];
-  //     if (mlModelId && variants.length > 0) {
-  //       for (const [index, variant] of variants.entries()) {
-  //         const variantPayload = {
-  //           name: variant.name,
-  //           description: variant.description || "",
-  //           biscuit_type: variant.biscuit_type,
-  //           active_ml_model: mlModelId,
-  //           machine: machineId,
-  //           model_threshold: 0.5,
-  //           model_verbose: true,
-  //         };
-
-  //         console.log(`🧬 Variant ${index + 1} Payload:`, variantPayload);
-
-  //         const variantRes = await fetch("http://localhost:8000/api/machinevariants/", {
-  //           method: "POST",
-  //           headers: {
-  //             "Content-Type": "application/json",
-  //             Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-  //           },
-  //           body: JSON.stringify(variantPayload),
-  //         });
-
-  //         if (!variantRes.ok) {
-  //           const err = await variantRes.json();
-  //           console.error(`❌ Variant ${index + 1} creation failed:`, err);
-  //           throw new Error("Failed to create variant");
-  //         }
-
-  //         const varData = await variantRes.json();
-  //         variantIds.push(varData.id);
-  //         console.log(`✅ Variant ${index + 1} created with ID:`, varData.id);
-  //       }
-  //     }
-
-  //     if (variantIds.length > 0 && machineId) {
-  //       const patchPayload = {
-  //         variant_ids: variantIds,
-  //         active_variant_id: variantIds[0],
-  //       };
-
-  //       const patchRes = await fetch(`http://localhost:8000/api/machines/${machineId}/`, {
-  //         method: "PATCH",
-  //         headers: {
-  //           "Content-Type": "application/json",
-  //           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-  //         },
-  //         body: JSON.stringify(patchPayload),
-  //       });
-
-  //       if (!patchRes.ok) {
-  //         const err = await patchRes.json();
-  //         console.error("❌ Failed to link variants to machine:", err);
-  //         throw new Error("Linking variants failed");
-  //       }
-
-  //       console.log("✅ Machine successfully patched with variants");
-  //     }
-
-  //     alert("✅ Machine and Variants created successfully!");
-  //     if (onClose) onClose();
-
-  //   } catch (error) {
-  //     console.error("❌ Error in submission:", error);
-
-  //     // Cleanup orphan camera
-  //     if (cameraId) {
-  //       await fetch(`http://localhost:8000/api/cameras/${cameraId}/`, {
-  //         method: "DELETE",
-  //         headers: {
-  //           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-  //         },
-  //       });
-  //       console.warn("🧹 Deleted orphan camera:", cameraId);
-  //     }
-
-  //     alert(error.message);
-  //   }
-  // };
-
-  // const handleSubmit = async () => {
-  //   let cameraId = null;
-  //   let machineId = null;
-
-  //   try {
-  //     let mlModelId = null;
-
-  //     // 1. Create ML Model (optional)
-  //     if (mlModel.name && mlModel.version && mlModel.model_file) {
-  //       const mlFormData = new FormData();
-  //       for (const key in mlModel) {
-  //         if (mlModel[key] !== undefined && mlModel[key] !== null) {
-  //           if (key === "model_file") {
-  //             mlFormData.append(key, mlModel[key]);
-  //           } else {
-  //             mlFormData.append(key, String(mlModel[key]));
-  //           }
-  //         }
-  //       }
-
-  //       console.log("🚀 ML Model FormData:");
-  //       for (let [key, value] of mlFormData.entries()) {
-  //         console.log(`${key}:`, value);
-  //       }
-
-  //       const mlRes = await fetch("http://localhost:8000/api/mlmodels/", {
-  //         method: "POST",
-  //         headers: {
-  //           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-  //         },
-  //         body: mlFormData,
-  //       });
-
-  //       console.log("📡 ML Response Status:", mlRes.status);
-  //       if (!mlRes.ok) {
-  //         const err = await mlRes.json();
-  //         console.error("❌ ML Model creation failed:", err);
-  //         throw new Error("Failed to create ML model");
-  //       }
-
-  //       const mlData = await mlRes.json();
-  //       mlModelId = mlData.id;
-  //     }
-
-  //     // 2. Create Camera (required)
-  //     const camFormData = new FormData();
-  //     camFormData.append("is_active", true);
-  //     camFormData.append("name", `${machine.name}-cam`);
-  //     camFormData.append("serial_number", machine.camera_serial_numbers);
-  //     camFormData.append("description", "Auto-generated camera");
-
-  //     if (machine.features_file_path instanceof File) {
-  //       camFormData.append("features_file_path", machine.features_file_path);
-  //     }
-
-  //     camFormData.append("frame_height", machine.frame_height);
-  //     camFormData.append("frame_width", machine.frame_width);
-  //     camFormData.append(
-  //       "acquisition_frame_rate",
-  //       machine.acquisition_frame_rate
-  //     );
-  //     camFormData.append("exposure_time", machine.exposure_time);
-  //     camFormData.append("trigger_mode", machine.trigger_mode);
-  //     camFormData.append("offset_x", machine.offset_x);
-  //     camFormData.append("offset_y", machine.offset_y);
-  //     camFormData.append("max_failed_frames", 5);
-  //     camFormData.append("check_max_failed_frames", true);
-
-  //     const camRes = await fetch("http://localhost:8000/api/cameras/", {
-  //       method: "POST",
-  //       headers: {
-  //         Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-  //       },
-  //       body: camFormData,
-  //     });
-
-  //     if (!camRes.ok) {
-  //       const err = await camRes.json();
-  //       console.error("❌ Camera creation failed:", err);
-  //       throw new Error("Failed to create camera");
-  //     }
-
-  //     const camData = await camRes.json();
-  //     cameraId = camData.id;
-
-  //     // 3. Create Machine
-  //     const machinePayload = {
-  //       is_active: true,
-  //       name: machine.name,
-  //       description: "Machine created via form",
-  //       camera: cameraId,
-  //       video_stream: true,
-  //       video_folder_path: machine.video_folder_path,
-  //       watchdog_file_expi_time: machine.watchdog_file_expi_time,
-  //       base_dir_path: machine.watchdog_obs_folder_path,
-  //     };
-
-  //     console.log("🛠️ Machine Payload:", machinePayload);
-
-  //     const machineRes = await fetch("http://localhost:8000/api/machines/", {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //         Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-  //       },
-  //       body: JSON.stringify(machinePayload),
-  //     });
-
-  //     if (!machineRes.ok) {
-  //       const err = await machineRes.json();
-  //       console.error("❌ Machine creation failed:", err);
-  //       throw new Error("Failed to create machine");
-  //     }
-
-  //     alert("✅ Machine created successfully!");
-  //     if (onClose) onClose();
-  //   } catch (error) {
-  //     console.error(error);
-
-  //     // 🧹 Cleanup orphan camera if needed
-  //     if (cameraId) {
-  //       await fetch(`http://localhost:8000/api/cameras/${cameraId}/`, {
-  //         method: "DELETE",
-  //         headers: {
-  //           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-  //         },
-  //       });
-  //       console.warn("🧹 Deleted orphan camera:", cameraId);
-  //     }
-
-  //     alert(error.message);
-  //   }
-
-  //   // 4. Create Variants (if mlModel exists)
-  //   let variantIds = [];
-  //   if (mlModelId) {
-  //     for (const [index, variant] of variants.entries()) {
-  //       const variantPayload = {
-  //         name: variant.name,
-  //         description: variant.description || "",
-  //         biscuit_type: variant.biscuit_type,
-  //         active_ml_model: mlModelId,
-  //         model_threshold: 0.5,
-  //         model_verbose: true,
-  //         machine: machineId,
-  //       };
-
-  //       console.log(`🧬 Variant ${index + 1} Payload:`, variantPayload);
-
-  //       const variantRes = await fetch(
-  //         "http://localhost:8000/api/machinevariants/",
-  //         {
-  //           method: "POST",
-  //           headers: {
-  //             "Content-Type": "application/json",
-  //             Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-  //           },
-  //           body: JSON.stringify(variantPayload),
-  //         }
-  //       );
-
-  //       if (!variantRes.ok) {
-  //         const err = await variantRes.json();
-  //         console.error(`❌ Variant ${index + 1} creation failed:`, err);
-  //         throw new Error("Failed to create variant");
-  //       }
-
-  //       const varData = await variantRes.json();
-  //       variantIds.push(varData.id);
-  //     }
-  //   }
-  // };
-
-  // mlmodel and variant form
-
+  // model and variant form
   const renderStepOne = () => (
     <Box p={2}>
-
-    <Typography variant="h6">ML Model / Variant</Typography>
+      <Typography variant="h6">ML Model / Variant</Typography>
 
       {/* Use Existing Variant Toggle */}
       <FormControlLabel
-      control={
-        <Checkbox
-          checked={useExistingVariant}
-          onChange={() => {
-            setUseExistingVariant(!useExistingVariant);
-            setVariants([{ name: "", description: "" }]);
-            setMlModel({
-              name: "",
-              version: "",
-              description: "",
-              framework: "",
-              model_file: null,
-              recommended_threshold: "",
-            });
-            setSelectedVariantId("");
-          }}
-        />
-      }
-      label="Use Existing Variant"
-    />
-
-       {/* If useExistingVariant is checked — show dropdown */}
-       {useExistingVariant && (
-      <FormControl fullWidth sx={{ mt: 2 }}>
-        <InputLabel>Select Existing Variant</InputLabel>
-        <Select
-          value={selectedVariantId}
-          label="Select Existing Variant"
-          onChange={(e) => setSelectedVariantId(e.target.value)}
-        >
-          {existingVariants.map((v) => (
-            <MenuItem key={v.id} value={v.id}>
-              {v.name} (Model: {v.active_ml_model?.name || "N/A"})
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-    )}
-
-      {/* Else: Show ML model + variant creation form */}
-      {/* ml model */}
-      {!useExistingVariant && (
-        <>
-      <Typography variant="h6">ML Model and Variant</Typography>
-      <Grid container spacing={2} mt={1}>
-        {/* name */}
-        {!isManagerUser && (
-          <>
-            <Grid item xs={6}>
-              <TextField
-                label="Model Name"
-                fullWidth
-                name="name"
-                value={mlModel.name}
-                onChange={handleMLChange}
-                // disabled={isManager}
-              />
-            </Grid>
-
-            {/* version */}
-            <Grid item xs={6}>
-              <TextField
-                label="Version"
-                fullWidth
-                name="version"
-                value={mlModel.version}
-                onChange={handleMLChange}
-                // disabled={isManager}
-              />
-            </Grid>
-
-            {/* description */}
-            <Grid item xs={12}>
-              <TextField
-                label="Description"
-                fullWidth
-                multiline
-                name="description"
-                value={mlModel.description}
-                onChange={handleMLChange}
-                // disabled={isManager}
-              />
-            </Grid>
-
-            {/* edit mode warning */}
-            {mode === "edit" && (
-              <Grid item xs={12}>
-                <Typography
-                  variant="body2"
-                  sx={{ mb: 1, color: "orange", fontStyle: "italic" }}
-                >
-                  ⚠️ Leave model file empty to retain the existing values.
-                </Typography>
-              </Grid>
-            )}
-
-            {/* framework */}
-            {/* <Grid item xs={6}>
-              <FormControl fullWidth>
-                <InputLabel>Framework</InputLabel>
-                <Select
-                  name="framework"
-                  value={mlModel.framework}
-                  onChange={handleMLChange}
-                  // disabled={isManager}
-                >
-                  {frameworks.map((f) => (
-                    <MenuItem key={f} value={f}>
-                      {f}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid> */}
-
-            {/* model upload */}
-            <Grid item xs={12}>
-              <Button variant="outlined" fullWidth component="label">
-                Upload Model
-                <input
-                  type="file"
-                  hidden
-                  name="model_file"
-                  onChange={handleMLChange}
-                  // disabled={isManager}
-                />
-              </Button>
-            </Grid>
-          </>
-        )}
-
-        {/* Threshold */}
-        <Grid item xs={6}>
-          <TextField
-            label="Recommended Threshold"
-            fullWidth
-            name="recommended_threshold"
-            value={mlModel.recommended_threshold}
-            onChange={handleMLChange}
+        control={
+          <Checkbox
+            checked={useExistingVariant}
+            onChange={onToggleUseExisting}
           />
-        </Grid>
-      </Grid>
+        }
+        label="Use Existing Variant"
+      />
 
-      {/* Variants */}
-      {!isManagerUser && (
+      {/* Existing variant dropdown */}
+      {useExistingVariant && (
+        <FormControl fullWidth sx={{ mt: 2 }}>
+          <InputLabel>Select Existing Variant</InputLabel>
+          <Select
+            value={selectedVariantId}
+            onChange={(e) => setSelectedVariantId(String(e.target.value))}
+            label="Select Existing Variant"
+          >
+            {existingVariants.map((v) => (
+              <MenuItem key={v.id} value={String(v.id)}>
+                {v.name} (Model: {v.active_ml_model?.name || "N/A"})
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
+
+      {/* Variant creation form */}
+      {!useExistingVariant && !isManagerUser && (
         <>
           <Typography variant="h6" mt={4}>
-            Variants 
+            Variant
+          </Typography>
+          <Grid container spacing={2} mt={1}>
+            <Grid item xs={4}>
+              <TextField
+                fullWidth
+                label="Variant Name"
+                value={variant.name}
+                onChange={(e) =>
+                  setVariant((prev) => ({ ...prev, name: e.target.value }))
+                }
+              />
+            </Grid>
+            <Grid item xs={4}>
+              <TextField
+                fullWidth
+                label="Biscuit Type"
+                value={variant.biscuit_type || ""}
+                onChange={(e) =>
+                  setVariant((prev) => ({
+                    ...prev,
+                    biscuit_type: e.target.value,
+                  }))
+                }
+              />
+            </Grid>
+            <Grid item xs={4}>
+              <TextField
+                fullWidth
+                label="Description"
+                value={variant.description}
+                onChange={(e) =>
+                  setVariant((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+              />
+            </Grid>
+          </Grid>
+        </>
+      )}
+
+      {/* ML Models Section */}
+      {!useExistingVariant && variant.models.length > 0 && (
+        <>
+          <Typography variant="h6" mt={4}>
+            ML Models
           </Typography>
 
-          {variants.map((v, idx) => (
-            // variant name
-            <Grid container spacing={2} key={idx} alignItems="center" mt={1}>
-              <Grid item xs={4}>
+          {variant.models.map((model, idx) => (
+            <Grid container spacing={2} mt={1} key={idx}>
+              {!isManagerUser && (
+                <>
+                  <Grid item xs={6}>
+                    <TextField
+                      label="Model Name"
+                      fullWidth
+                      name="name"
+                      value={model.name}
+                      onChange={(e) => handleModelChange(e, idx)}
+                    />
+                  </Grid>
+                  <Grid item xs={6}>
+                    <TextField
+                      label="Version"
+                      fullWidth
+                      name="version"
+                      value={model.version}
+                      onChange={(e) => handleModelChange(e, idx)}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Description"
+                      fullWidth
+                      multiline
+                      name="description"
+                      value={model.description}
+                      onChange={(e) => handleModelChange(e, idx)}
+                    />
+                  </Grid>
+
+                  {!useExistingVariant && mode === "edit" && (
+                    <Grid item xs={12}>
+                      <Typography
+                        variant="body2"
+                        sx={{ mb: 1, color: "orange", fontStyle: "italic" }}
+                      >
+                        ⚠️ Leave model file empty to retain the existing values.
+                      </Typography>
+                    </Grid>
+                  )}
+
+                  {!useExistingVariant && (
+                    <Grid item xs={12}>
+                      <Button variant="outlined" fullWidth component="label">
+                        Upload Model
+                        <input
+                          type="file"
+                          hidden
+                          name="model_file"
+                          onChange={(e) => handleModelChange(e, idx)}
+                        />
+                      </Button>
+                    </Grid>
+                  )}
+                </>
+              )}
+
+              <Grid item xs={6}>
                 <TextField
+                  label="Recommended Threshold"
                   fullWidth
-                  label="Variant Name"
-                  value={v.name}
-                  onChange={(e) => {
-                    const updated = [...variants];
-                    updated[idx].name = e.target.value;
-                    setVariants(updated);
-                  }}
-                  // disabled={isManagerUser}
+                  name="recommended_threshold"
+                  value={model.recommended_threshold ?? ""}
+                  onChange={(e) => handleModelChange(e, idx)}
                 />
               </Grid>
 
-              {/* biscuit type */}
-              <Grid item xs={4}>
-                <TextField
-                  fullWidth
-                  label="Biscuit Type"
-                  value={v.biscuit_type || ""}
-                  onChange={(e) => {
-                    const updated = [...variants];
-                    updated[idx].biscuit_type = e.target.value;
-                    setVariants(updated);
-                  }}
-                  // disabled={isManagerUser}
-                />
-              </Grid>
-
-              {/* variant description */}
-              <Grid item xs={4}>
-                <TextField
-                  fullWidth
-                  label="Description"
-                  value={v.description}
-                  onChange={(e) => {
-                    const updated = [...variants];
-                    updated[idx].description = e.target.value;
-                    setVariants(updated);
-                  }}
-                  // disabled={isManagerUser}
-                />
-              </Grid>
-
-              {/* active variant */}
+              {/* Active model selector */}
               <Grid item xs={2}>
                 <FormControlLabel
                   control={
                     <Radio
-                      checked={activeVariantIndex === idx}
-                      onChange={() => setActiveVariantIndex(idx)}
-                      // disabled={isManagerUser}
+                      checked={variant.activeModelIndex === idx}
+                      onChange={() => {
+                        setActiveModelIndex(idx);
+                        setSelectedModelId(variant.models[idx].id);
+                      }}
                     />
                   }
                   label="Active"
@@ -1244,17 +1066,12 @@ const AddMachineStepper = ({
             </Grid>
           ))}
 
-          <Button
-            onClick={() =>
-              setVariants([...variants, { name: "", description: "" }])
-            }
-            sx={{ mt: 2 }}
-            //  disabled={isManagerUser}
-          >
-            + Add Variant
-          </Button>
-        </>
-      )}
+          {/* Add new model button */}
+          {!isManagerUser && !useExistingVariant && (
+            <Button onClick={addModel} sx={{ mt: 2 }}>
+              + Add Model
+            </Button>
+          )}
         </>
       )}
     </Box>
@@ -1435,8 +1252,8 @@ const AddMachineStepper = ({
   );
 
   const hasExistingModelOrVariants =
-    mode === "edit" &&
-    (!!mlModel.name || !!mlModel.version || variants.length > 0);
+    mode === "edit" && (!!variant.name || (variant.models?.length || 0) > 0);
+  // (!!mlModel.name || !!mlModel.version || variants.length > 0);
 
   return (
     <>
@@ -1452,12 +1269,15 @@ const AddMachineStepper = ({
 
         <Box mt={4}>{activeStep === 0 ? renderStepOne() : renderStepTwo()}</Box>
 
-        {activeStep === 1 && !mlModel.name && !isManagerUser && (
-          <Typography color="warning.main" mt={2}>
-            ⚠️ You skipped ML model creation. That’s okay — camera & machine
-            will still be created.
-          </Typography>
-        )}
+        {activeStep === 1 &&
+          !isManagerUser &&
+          variant?.activeModelId &&
+          variant.models.length === 0 && (
+            <Typography color="warning.main" mt={2}>
+              ⚠️ You skipped ML model creation. That’s okay — camera & machine
+              will still be created.
+            </Typography>
+          )}
 
         <Box mt={4} display="flex" justifyContent="flex-end" gap={2}>
           {/* Back Button */}
@@ -1538,18 +1358,15 @@ const AddMachineStepper = ({
           <Button onClick={() => setSkipDialogOpen(false)}>Cancel</Button>
           <Button
             onClick={() => {
-              setMlModel({
+              setVariant({
                 name: "",
-                version: "",
-                model_file: null,
                 description: "",
-                input_shape: "",
-                output_shape: "",
-                framework: "",
-                recommended_threshold: "",
+                biscuit_type: "",
+                models: [],
+                activeModelIndex: 0,
               });
-              setVariants([]);
-              setActiveVariantIndex(null);
+              setUseExistingVariant(false);
+              setSelectedVariantId("");
               setActiveStep(1);
               setSkipDialogOpen(false);
             }}
@@ -1565,4 +1382,3 @@ const AddMachineStepper = ({
 };
 
 export default AddMachineStepper;
- 
