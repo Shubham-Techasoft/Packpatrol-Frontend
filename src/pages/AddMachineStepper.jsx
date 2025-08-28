@@ -611,14 +611,20 @@ const AddMachineStepper = ({
     const isManager = localStorage.getItem("designation") === "manager";
     const machineId = editData?.machine?.id;
     const cameraId = editData?.machine?.camera?.id;
-    const variantId = editData?.machine?.variants?.[0]?.id;
+    let variantId = editData?.machine?.variants?.[0]?.id || null;
 
     const mlModel =
       !useExistingVariant && variant.models?.length > 0
         ? variant.models[variant.activeModelIndex]
         : editData?.mlModel || {};
 
-    const variants = !useExistingVariant && variant.name ? [variant] : [];
+    // const variants = !useExistingVariant && variant.name ? [variant] : [];
+    const variants =
+      useExistingVariant && editData?.selectedVariantId
+        ? [{ id: editData.selectedVariantId }]
+        : !useExistingVariant && variant.name
+          ? [{ ...variant, models: variant.models }]
+          : [];
 
     try {
       // 1️⃣ Update Camera
@@ -813,10 +819,29 @@ const AddMachineStepper = ({
             const updatedVariant = await res.json();
             setVariant((prev) => ({ ...prev, ...updatedVariant }));
           } else {
-            console.warn("❌ Variant update failed:", await res.text());
+            const errorData = await res.json().catch(() => null);
+            const errorMsg =
+              errorData && typeof errorData === "object"
+                ? JSON.stringify(errorData)
+                : await res.text();
+            console.warn("❌ Variant update failed:", errorMsg);
+            alert(`❌ Variant update failed: ${errorMsg}`);
+            return; // stop further execution
           }
         } else {
           // POST new variant
+          const variantPayload = {
+            name: variant.name,
+            description: variant.description || "",
+            biscuit_type: variant.biscuit_type || "",
+            active_ml_model: null,     // will link later
+            model_threshold: 0.5,      // default
+            model_verbose: true,       // default
+            variant_config_file: null, // optional
+          };
+          
+          console.log("➡️ Creating new Variant:", variantPayload);
+
           const res = await fetch(
             `http://localhost:8000/api/machinevariants/`,
             {
@@ -830,21 +855,118 @@ const AddMachineStepper = ({
           );
 
           if (res.ok) {
+
             const newVariant = await res.json();
-            // Link new variant to machine
-            await fetch(
-              `http://localhost:8000/api/machines/${machineId}/add_variant/`,
+            
+  if (!newVariant.id) {
+    console.error("❌ Variant created but no ID returned:", newVariant);
+    alert("❌ Variant creation failed: Backend did not return an ID");
+    return;
+  }
+
+  variantId = newVariant.id;
+  console.log("✅ Variant created with ID:", variantId);
+
+            // ✅ Patch machine to include this new variant
+            const linkRes = await fetch(
+              `http://localhost:8000/api/machines/${machineId}/`,
               {
-                method: "POST",
+                method: "PATCH",
                 headers: {
                   "Content-Type": "application/json",
                   Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({ variant_id: newVariant.id }),
+                body: JSON.stringify({
+                  variant_ids: [variantId],
+                  active_variant_id: variantId,
+                }),
               }
             );
+
+            console.log("Machine link response:", linkRes.status);
+
+            if (!linkRes.ok) {
+              const err = await linkRes.text();
+              console.error("❌ Linking variant to machine failed:", err);
+              alert(`❌ Failed to link new variant: ${err}`);
+              return;
+            }
+
+            console.log("✅ Variant linked to machine successfully");
+
+            // ✅ Now create ML models for this new variant
+            const createdModels = [];
+            if (variant.models && variant.models.length > 0) {
+              for (const m of variant.models) {
+                if (!m.name || !m.version || !m.model_file) {
+                  console.warn("⚠️ Skipping invalid model:", m);
+                  continue;
+                }
+
+                const mlFormData = new FormData();
+                mlFormData.append("name", m.name);
+                mlFormData.append("version", m.version);
+                mlFormData.append("description", m.description || "");
+                mlFormData.append(
+                  "recommended_threshold",
+                  m.recommended_threshold || 0
+                );
+                mlFormData.append("model_file", m.model_file);
+                mlFormData.append("variant", variantId);
+                mlFormData.append("is_active", true);
+
+                const mlRes = await fetch(
+                  `http://localhost:8000/api/mlmodels/`,
+                  {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${token}` },
+                    body: mlFormData,
+                  }
+                );
+
+                const resText = await mlRes.text();
+                if (mlRes.ok) {
+                  const mlData = JSON.parse(resText);
+                  createdModels.push(mlData);
+                  console.log("✅ ML model created:", mlData);
+                } else {
+                  console.error("❌ ML model creation failed:", resText);
+                }
+              }
+            }
+
+            // ✅ If we created models, set the active one
+            if (
+              createdModels.length > 0 &&
+              variant.activeModelIndex !== undefined
+            ) {
+              const activeModel = createdModels[variant.activeModelIndex];
+              if (activeModel) {
+                await fetch(
+                  `http://localhost:8000/api/machinevariants/${variantId}/set_active_model/`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      model_id: activeModel.id,
+                      is_active: true,
+                    }),
+                  }
+                );
+                console.log(
+                  "✅ Active model set for new variant:",
+                  activeModel
+                );
+              }
+            }
           } else {
-            console.warn("❌ Variant creation failed:", await res.text());
+            const errorText = await res.text();
+            console.warn("❌ Variant creation failed:", errorText);
+            alert(`❌ Variant creation failed: ${errorText}`);
+            return;
           }
         }
       }
@@ -854,11 +976,11 @@ const AddMachineStepper = ({
       if (onClose) onClose();
     } catch (error) {
       console.error("❌ Error updating machine:", error);
-      alert("Failed to update machine");
+      alert(`❌ Failed to update machine: ${error.message}`);
     }
 
     // 5️⃣ Update active model if switched in UI
-    if (variantId && variant.activeModelIndex !== undefined) {
+    if (variantId && variant?.activeModelIndex !== undefined) {
       const chosenModel = variant.models?.[variant.activeModelIndex];
       if (chosenModel && chosenModel.id) {
         console.log("🔹 Setting active model via API:", chosenModel);
