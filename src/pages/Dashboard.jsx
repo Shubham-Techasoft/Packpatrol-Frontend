@@ -12,6 +12,10 @@ import {
   Snackbar,
   Alert,
   Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import {
   Assessment,
@@ -134,6 +138,26 @@ export default function Dashboard() {
   });
   const [dateRange, setDateRange] = React.useState([null, null]);
 
+  //added for machine filter
+  const [selectedMachineId, setSelectedMachineId] = React.useState("all");
+  const selectedMachine = React.useMemo(
+    () =>
+      selectedMachineId === "all"
+        ? null
+        : allMachines.find((m) => String(m.id) === String(selectedMachineId)) ||
+          null,
+    [selectedMachineId, allMachines]
+  );
+
+  const [variants, setVariants] = useState([]);
+  const [selectedVariant, setSelectedVariant] = useState("");
+  const [status, setStatus] = useState("");
+  const [minStackSize, setMinStackSize] = useState("");
+  const [maxStackSize, setMaxStackSize] = useState("");
+  const [minStackLength, setMinStackLength] = useState("");
+  const [maxStackLength, setMaxStackLength] = useState("");
+  const [isLoadingVariants, setIsLoadingVariants] = useState(false);
+
   // production-time graph
   React.useEffect(() => {
     const auth = isAuthenticated();
@@ -143,46 +167,63 @@ export default function Dashboard() {
     const now = dayjs();
 
     Promise.all([
-      fetch("http://127.0.0.1:8000/api/machinerunlogs/").then((res) =>
-        res.json()
-      ),
+      fetch("http://127.0.0.1:8000/api/machinerunlogs/").then((res) => res.json()),
       fetch("http://127.0.0.1:8000/api/machines/").then((res) => res.json()),
     ])
       .then(([logs, machines]) => {
         console.log("Raw API Data:", logs);
         console.log("Machines List:", machines);
 
-        // 🔎 Apply time filtering
-        const filtered = logs.filter((item) => {
+        // 🔎 Apply time + machine filtering
+        const filteredByTime = logs.filter((item) => {
           const itemTime = dayjs(item.start_time);
           if (restricted) return now.diff(itemTime, "hour") <= 24;
           if (timeFilter === "24h") return now.diff(itemTime, "hour") <= 24;
           if (timeFilter === "7d") return now.diff(itemTime, "day") <= 7;
           if (timeFilter === "30d") return now.diff(itemTime, "day") <= 30;
+          if (timeFilter === "Custom") {
+            const [start, end] = dateRange;
+            if (!start || !end) return false;
+            const ts = itemTime.valueOf();
+            return (
+              ts >= dayjs(start).startOf("day").valueOf() &&
+              ts <= dayjs(end).endOf("day").valueOf()
+            );
+          }
           return true;
         });
 
-        console.log(
-          "Active Time Filter:",
-          restricted ? "24h (restricted)" : timeFilter
-        );
-        console.log("Filtered Logs:", filtered);
+        const filtered =
+          selectedMachineId !== "all"
+            ? filteredByTime.filter(
+                (it) =>
+                  String(it.machine_id ?? "") === String(selectedMachineId) ||
+                  it.machine_name === (selectedMachine?.name ?? "")
+              )
+            : filteredByTime;
+
+        console.log("Active Time Filter:", restricted ? "24h (restricted)" : timeFilter);
+        console.log("Filtered Logs (with machine):", filtered);
 
         // 🧮 Group production per hour
+        // Group by hour including date, consistent format "YYYY-MM-DD HH:mm"
         const grouped = {};
         filtered.forEach((item) => {
-          const hourLabel = dayjs(item.start_time).format("hh A");
+          const hourKey = dayjs(item.start_time).startOf("hour").format("YYYY-MM-DD HH:mm");
           const production = item.total_frames_processed || 0;
-          grouped[hourLabel] = (grouped[hourLabel] || 0) + production;
+          grouped[hourKey] = (grouped[hourKey] || 0) + production;
         });
 
-        const chart = Object.entries(grouped).map(([hour, production]) => ({
-          name: hour,
+        const chart = Object.entries(grouped).map(([ts, production]) => ({
+          name: ts,        // same format used above
           production,
         }));
 
-        const sortedChart = chart.sort((a, b) =>
-          dayjs(a.name, "hh A").isBefore(dayjs(b.name, "hh A")) ? -1 : 1
+        // Sort using same parse format "YYYY-MM-DD HH:mm"
+        const sortedChart = chart.sort(
+          (a, b) =>
+            dayjs(a.name, "YYYY-MM-DD HH:mm").valueOf() -
+            dayjs(b.name, "YYYY-MM-DD HH:mm").valueOf()
         );
 
         setChartData(sortedChart);
@@ -215,7 +256,55 @@ export default function Dashboard() {
       .catch((err) => {
         console.error("Failed to fetch performance stats:", err);
       });
-  }, [timeFilter, restricted]);
+  }, [timeFilter, restricted, selectedMachineId, dateRange, selectedMachine]);
+
+  // fetch variants when machine changes
+  useEffect(() => {
+    if (selectedMachineId === "all" || !selectedMachineId) {
+      setVariants([]);
+      setSelectedVariant("");
+      setStatus("");
+      setMinStackSize("");
+      setMaxStackSize("");
+      setMinStackLength("");
+      setMaxStackLength("");
+      return;
+    }
+    setIsLoadingVariants(true);
+    fetch(`http://127.0.0.1:8000/api/machines/${selectedMachineId}/`)
+      .then((res) => res.json())
+      .then((data) => {
+        const list = Array.isArray(data.variants) ? data.variants : [];
+        setVariants(list);
+
+        // Prefer explicit active flag, then backend's active_variant id, then fallback
+        const activeByFlag = list.find((v) => v.is_active === true);
+        const fromActiveObj = data.active_variant?.id ?? null;
+        console.log("Variant Selected:", activeByFlag);
+
+        if (activeByFlag) {
+          setSelectedVariant(activeByFlag.id); // pick variant with is_active true
+        } else if (fromActiveObj) {
+          setSelectedVariant(fromActiveObj); // pick backend-declared active_variant
+        } else {
+          setSelectedVariant(""); // none active, force user selection
+        }
+
+        setStatus(data.is_running ? "running" : "stopped");
+
+        // Clear stack values when switching machines
+        setMinStackSize("");
+        setMaxStackSize("");
+        setMinStackLength("");
+        setMaxStackLength("");
+      })
+      .catch((err) => {
+        console.error("Failed to fetch machine details", err);
+        setVariants([]);
+        setSelectedVariant("");
+      })
+      .finally(() => setIsLoadingVariants(false));
+  }, [selectedMachineId]);
 
   // dashbaord summary real time update
   const fetchRecentActivityLogs = async () => {
@@ -591,12 +680,83 @@ export default function Dashboard() {
         overflowY: "auto",
       }}
     >
+      {/* TO DO-- add dropdown for filter */}
+      {/* DropDown to slecte which Machine we want to see */}
+      <Box
+        display="flex"
+        gap={2}
+        alignItems="center"
+        mb={2}
+        sx={{ width: "100%" }}
+        justifyContent={"space-between"}
+      >
+        {!restricted && (
+          <Box display="flex" alignItems="center" gap={2}>
+            {["24h", "7d", "30d", "all", "Custom"].map((filter) => (
+              <Button
+                variant={timeFilter === filter ? "contained" : "outlined"}
+                onClick={() => setTimeFilter(filter)}
+                color="primary"
+              >
+                {filter === "24h"
+                  ? "24 Hours"
+                  : filter === "7d"
+                    ? "7 Days"
+                    : filter === "30d"
+                      ? "30 Days"
+                      : filter === "all"
+                        ? "All Time"
+                        : "Custom Range"}
+              </Button>
+            ))}
+          </Box>
+        )}
+        <FormControl size="small" sx={{ width: "50%" }}>
+          <InputLabel id="machine-select-label">Machine</InputLabel>
+          <Select
+            labelId="machine-select-label"
+            label="Machine"
+            value={selectedMachineId}
+            onChange={(e) => setSelectedMachineId(e.target.value)}
+            sx={{ width: "100%" }}
+          >
+            <MenuItem value="all">All machines</MenuItem>
+            {allMachines.map((m) => (
+              <MenuItem key={m.id} value={String(m.id)}>
+                {m.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
 
-    
-    {/* add dropdown for filter */}
-    {/* <div>
-
-    </div> */}
+      {!restricted && timeFilter === "Custom" && (
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <Box display="flex" alignItems="center" gap={2} mb={2}>
+            {/* Start Date Picker */}
+            <DatePicker
+              label="Start Date"
+              value={dateRange[0]} // Use the first element of dateRange
+              onChange={(newValue) => setDateRange([newValue, dateRange[1]])} // Update only the start date
+              renderInput={(params) => <TextField size="small" {...params} />}
+            />
+            {/* End Date Picker */}
+            <DatePicker
+              label="End Date"
+              value={dateRange[1]} // Use the second element of dateRange
+              onChange={(newValue) => setDateRange([dateRange[0], newValue])} // Update only the end date
+              renderInput={(params) => <TextField size="small" {...params} />}
+            />
+            <Button
+              variant="contained"
+              onClick={handleDateFilter}
+              disabled={!dateRange[0] || !dateRange[1]}
+            >
+              Apply
+            </Button>
+          </Box>
+        </LocalizationProvider>
+      )}
 
       {/* Top Summary */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -695,27 +855,6 @@ export default function Dashboard() {
               </Box>
             )}
 
-            {/* restricted chart buttons */}
-            {!restricted && (
-              <Box display="flex" gap={2} mb={2}>
-                {["24h", "7d", "30d", "all"].map((filter) => (
-                  <Button
-                    variant={timeFilter === filter ? "contained" : "outlined"}
-                    onClick={() => setTimeFilter(filter)}
-                    color="primary"
-                  >
-                    {filter === "24h"
-                      ? "24 Hours"
-                      : filter === "7d"
-                        ? "7 Days"
-                        : filter === "30d"
-                          ? "30 Days"
-                          : "All Time"}
-                  </Button>
-                ))}
-              </Box>
-            )}
-
             {loading ? (
               <Box display="flex" justifyContent="center" mt={4}>
                 <CircularProgress color="primary" />
@@ -732,16 +871,17 @@ export default function Dashboard() {
                     tick={{ fontSize: 12 }}
                     label={{
                       value: "Time",
-                      position: "insideBottomRight",
+                      position: "insideBottom",
                       offset: -5,
                       fontSize: 12,
                     }}
+                    tickFormatter={(v) => dayjs(v, "YYYY-MM-DD HH:mm").format("MMM D, HH:mm")}
                   />
                   <YAxis
                     label={{
                       value: "Units Produced",
                       angle: -90,
-                      position: "insideLeft",
+                      position: "insideCenter",
                       fontSize: 12,
                     }}
                   />
@@ -802,23 +942,25 @@ export default function Dashboard() {
               fullWidth
               startIcon={<PlayArrow />}
               onClick={handleStartAllMachines}
-              disabled={
-                controlLoading || isStarting
-              }
+              disabled={controlLoading || isStarting}
               sx={{
                 backgroundColor:
-                isStarting || controlText === "started" ? "#00c853" : undefined, 
-              color: "#fff",
-              fontWeight: controlText === "started" ? "bold" : undefined,
-              boxShadow:
-                controlText === "started"
-                  ? "0 0 18px 4px rgba(0, 200, 83, 0.8)" 
-                  : undefined,
-              pointerEvents: controlText === "started" ? "none" : "auto",
-              opacity: controlText === "started" ? 1 : undefined,
-              "&:hover": {
-                backgroundColor:
-                  isStarting || controlText === "started" ? "#00b248" : undefined,                  
+                  isStarting || controlText === "started"
+                    ? "#00c853"
+                    : undefined,
+                color: "#fff",
+                fontWeight: controlText === "started" ? "bold" : undefined,
+                boxShadow:
+                  controlText === "started"
+                    ? "0 0 18px 4px rgba(0, 200, 83, 0.8)"
+                    : undefined,
+                pointerEvents: controlText === "started" ? "none" : "auto",
+                opacity: controlText === "started" ? 1 : undefined,
+                "&:hover": {
+                  backgroundColor:
+                    isStarting || controlText === "started"
+                      ? "#00b248"
+                      : undefined,
                 },
               }}
             >
@@ -986,8 +1128,6 @@ export default function Dashboard() {
       </Box>
 
       <ScrollToTopButton />
-
     </Box>
-    
   );
 }

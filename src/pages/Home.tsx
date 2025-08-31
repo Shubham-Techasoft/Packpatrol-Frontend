@@ -208,6 +208,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
         setStatus(data.is_running ? "running" : "stopped");
 
+        console.log( "📦 data received:", data );
         // Clear stack values when switching machines
         setMinStackSize("");
         setMaxStackSize("");
