@@ -493,6 +493,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
     messageCountRef.current = 0;
 
+    console.log("latestDataRef reset:", latestDataRef.current);
     // Initialize state
     setRealtimeData({ ...latestDataRef.current });
 
@@ -508,7 +509,6 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
     eventSource.onmessage = (event) => {
       lastSseTime = Date.now();
       messageCountRef.current++;
-
       try {
         const data = JSON.parse(event.data);
         console.log(`📨 SSE message #${messageCountRef.current}:`, data);
@@ -824,13 +824,13 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                   marginX: 0.5,
                   paddingY: 1.5,
                   borderRadius: 2,
-                  background: "linear-gradient(40deg, #e0f7fa, #b2ebf2)",
+                  // background: "linear-gradient(40deg, #e0f7fa, #b2ebf2)",
                   color: "#00695c",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                  // boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                   textAlign: "center",
                   // gap: 1,
                   // borderRadius: 2,

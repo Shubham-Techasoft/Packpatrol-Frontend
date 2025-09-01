@@ -45,8 +45,8 @@ const GalleryPage = () => {
 
   return (
     <>
-      <AppBar sx={{ background: "linear-gradient(to right, #4b6cb7, #182848)" }}>
-        <Toolbar>
+      <AppBar sx={{ background: "linear-gradient(to right, #4b6cb7, #182848)", height:'fit-content' }} position="static">
+        <Toolbar sx={{ minHeight: "fit-content !important", padding: "4px 16px" }}>
           <IconButton color="inherit" onClick={() => navigate(-1)}>
             <ArrowBackIcon />
           </IconButton>

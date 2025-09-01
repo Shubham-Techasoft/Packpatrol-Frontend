@@ -43,8 +43,8 @@ const MachineDetailsPage = () => {
   return (
     <>
       {/* Top AppBar */}
-      <AppBar sx={{ background: "linear-gradient(to right, #4b6cb7, #182848)" }}>
-        <Toolbar>
+      <AppBar sx={{ background: "linear-gradient(to right, #4b6cb7, #182848)", height:'fit-content' }} position="static" >
+        <Toolbar sx={{ minHeight: "fit-content !important", padding: "4px 16px" }}>
           <IconButton color="inherit" onClick={() => navigate(-1)}>
             <ArrowBackIcon />
           </IconButton>
@@ -62,8 +62,8 @@ const MachineDetailsPage = () => {
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-            gap: 3,
+            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+            gap: 4,
           }}
         >
           {machine.variants.map((variant) => (

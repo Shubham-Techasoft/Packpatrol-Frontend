@@ -124,34 +124,67 @@ function App() {
 
 export default App;
 
-// Token expiry function
+// Token expiry function with refresh support
 function TokenWatcher({ navigate }) {
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (!token) return;
+    const checkAndRefresh = async () => {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
 
-    try {
-      const decoded = jwtDecode(token);
-      const now = Date.now() / 1000;
-
-      if (decoded.exp < now) {
-        alert("Session expired. Please log in again.");
-        localStorage.clear();
-        navigate("/");
-      } else {
+      try {
+        const decoded = jwtDecode(token);
+        const now = Date.now() / 1000;
         const timeLeft = decoded.exp - now;
-        const timeout = setTimeout(() => {
-          alert("Session expired. Please log in again.");
-          localStorage.clear();
-          navigate("/");
-        }, timeLeft * 1000);
 
-        return () => clearTimeout(timeout); // Cleanup
+        if (timeLeft <= 0) {
+          // expired → try refresh
+          await attemptRefresh(navigate);
+        } else {
+          // schedule refresh 30s before expiry
+          const timeout = setTimeout(async () => {
+            await attemptRefresh(navigate);
+          }, Math.max((timeLeft - 30) * 1000, 0));
+
+          return () => clearTimeout(timeout);
+        }
+      } catch (err) {
+        console.error("Invalid token:", err);
+        navigate("/");
       }
-    } catch (err) {
-      console.error("Invalid token:", err);
-    }
+    };
+
+    checkAndRefresh();
   }, [navigate]);
 
   return null;
+}
+
+async function attemptRefresh(navigate) {
+  try {
+    const refreshToken = localStorage.getItem("refresh_token");
+    if (!refreshToken) throw new Error("No refresh token found");
+
+    const res = await fetch("/api/auth/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (!res.ok) throw new Error("Refresh request failed");
+
+    const data = await res.json();
+
+    if (data.access_token) {
+      localStorage.setItem("access_token", data.access_token);
+      console.log("🟢 Token refreshed successfully");
+      // ✅ No need to reload page
+    } else {
+      throw new Error("No access_token in response");
+    }
+  } catch (err) {
+    console.error("🔴 Token refresh failed:", err);
+    alert("Session expired. Please log in again.");
+    localStorage.clear();
+    navigate("/");
+  }
 }

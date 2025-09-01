@@ -58,16 +58,18 @@ function ResponsiveAppBar() {
       window.removeEventListener("storage", syncAuth);
   }, []);
 
-  const pages = [
-    { name: "Home", path: "/" },
-    { name: "Dashboard", path: "/dashboard" },
-    { name: "About", path: "/about" },
-    ...(auth && isPrivilegedUser() 
-    ? [{ name: "Dev Settings", path: "/dev-settings" }] : []),  
-    ...(auth &&  isSuperAdmin()
+const pages = [
+  { name: "Home", path: "/" },
+  { name: "Dashboard", path: "/dashboard" },
+  ...(auth && isPrivilegedUser()
+    ? [{ name: "Dev Settings", path: "/dev-settings" }]
+    : []),
+  ...(auth && isSuperAdmin()
     ? [{ name: "Users", path: "/users" }]
     : []),
-  ];
+  // 👇 Always keep "About" at the end
+  { name: "About", path: "/about" },
+];
 
   const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) =>
     setAnchorElNav(event.currentTarget);

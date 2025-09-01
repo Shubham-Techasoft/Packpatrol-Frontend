@@ -72,7 +72,6 @@ const CombinedSignInPage: React.FC<CombinedSignInPageProps> = ({
         setError(data?.detail || data?.email?.[0] || "Login failed.");
         return;
       }
-  
       const data = await loginResponse.json();
       const accessToken = data.access;
       const refreshToken = data.refresh;
