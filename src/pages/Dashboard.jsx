@@ -50,6 +50,8 @@ import MemoryIcon from "@mui/icons-material/Memory";
 import { isAuthenticated } from "../utils/auth";
 import ScrollToTopButton from "./sections/about/ScrollToTop";
 
+import { useMachineSelection } from "../MachineSelectionContext";
+
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
   borderRadius: 16,
@@ -139,16 +141,18 @@ export default function Dashboard() {
   const [dateRange, setDateRange] = React.useState([null, null]);
 
   //added for machine filter
-  const [selectedMachineId, setSelectedMachineId] = React.useState("all");
+  // const [selectedMachineId, setSelectedMachineId] = React.useState("all");
+  const { selectedMachineId, setSelectedMachineId } = useMachineSelection();
   const selectedMachine = React.useMemo(
     () =>
       selectedMachineId === "all"
         ? null
         : allMachines.find((m) => String(m.id) === String(selectedMachineId)) ||
           null,
-    [selectedMachineId, allMachines]
-  );
+          [selectedMachineId, allMachines]
+        );
 
+  //For Future use of starting machine with selected variant and stack parameters
   const [variants, setVariants] = useState([]);
   const [selectedVariant, setSelectedVariant] = useState("");
   const [status, setStatus] = useState("");
@@ -174,7 +178,7 @@ export default function Dashboard() {
         console.log("Raw API Data:", logs);
         console.log("Machines List:", machines);
 
-        // 🔎 Apply time + machine filtering
+        // 🔎 Apply time filtering
         const filteredByTime = logs.filter((item) => {
           const itemTime = dayjs(item.start_time);
           if (restricted) return now.diff(itemTime, "hour") <= 24;
@@ -193,6 +197,7 @@ export default function Dashboard() {
           return true;
         });
 
+        // 🔎 Apply machine filtering
         const filtered =
           selectedMachineId !== "all"
             ? filteredByTime.filter(
@@ -680,8 +685,7 @@ export default function Dashboard() {
         overflowY: "auto",
       }}
     >
-      {/* TO DO-- add dropdown for filter */}
-      {/* DropDown to slecte which Machine we want to see */}
+      {/* Tested ✅dropdown for filter */}
       <Box
         display="flex"
         gap={2}
@@ -855,6 +859,7 @@ export default function Dashboard() {
               </Box>
             )}
 
+            {/* Tested ✅ */}
             {loading ? (
               <Box display="flex" justifyContent="center" mt={4}>
                 <CircularProgress color="primary" />

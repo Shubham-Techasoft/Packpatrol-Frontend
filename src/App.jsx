@@ -28,6 +28,8 @@ import UsersPage from "./pages/UsersPage";
 import { isAuthenticated, isPrivilegedUser } from "./utils/auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 
+import { MachineSelectionProvider } from "./MachineSelectionContext";
+
 function TokenWatcherWrapper() {
   const navigate = useNavigate();
   return <TokenWatcher navigate={navigate} />;
@@ -57,54 +59,56 @@ function App() {
       <TokenWatcherWrapper />
       <AppSuccessAlert />
       <ResponsiveAppBar />
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <Home
-              recentDialogOpen={recentDialogOpen}
-              closeRecentDialog={closeRecentDialog}
-              appliedLog={appliedLog}
-              clearAppliedLog={clearAppliedLog}
-            />
-          }
-        />
+      <MachineSelectionProvider>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <Home
+                recentDialogOpen={recentDialogOpen}
+                closeRecentDialog={closeRecentDialog}
+                appliedLog={appliedLog}
+                clearAppliedLog={clearAppliedLog}
+              />
+            }
+          />
 
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/gallery" element={<GalleryPage />} />
-        <Route path="/machine/:id" element={<MachineDetailsPage />} />
-        <Route path="/machine/:machineName" element={<MachineGallery />} />
-        <Route path="/folder-structure" element={<FolderTree />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/gallery" element={<GalleryPage />} />
+          <Route path="/machine/:id" element={<MachineDetailsPage />} />
+          <Route path="/machine/:machineName" element={<MachineGallery />} />
+          <Route path="/folder-structure" element={<FolderTree />} />
 
-        {/* dev settings page */}
-        <Route
-          path="/dev-settings"
-          element={
-            <ProtectedRoute>
-              <DeveloperSettingsPage />
-            </ProtectedRoute>
-          }
-        />
+          {/* dev settings page */}
+          <Route
+            path="/dev-settings"
+            element={
+              <ProtectedRoute>
+                <DeveloperSettingsPage />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/users"
-          element={
-            <ProtectedRoute requireSuperAdmin>
-              <UsersPage />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+          <Route
+            path="/users"
+            element={
+              <ProtectedRoute requireSuperAdmin>
+                <UsersPage />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </MachineSelectionProvider>
       {/* <BasicSpeedDial /> */}
 
       <RecentActivitiesDialog

@@ -24,6 +24,8 @@ import ErrorIcon from "@mui/icons-material/ErrorOutline";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import RecentActivitiesDialog from "../components/RecentActivitiesDialog";
 
+import { useMachineSelection } from "../MachineSelectionContext";
+
 const StyledPaper = styled(Paper)(({ theme }) => ({
   backgroundColor: "#fff",
   padding: theme.spacing(2),
@@ -66,6 +68,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   // const [imageUrls, setImageUrls] = React.useState([]);
   const [imageUrls, setImageUrls] = React.useState<string[]>([]);
   const [messages, setMessages] = React.useState(logMessages);
+  const { selectedMachineId, setSelectedMachineId } = useMachineSelection();
   const [selectedMachine, setSelectedMachine] = React.useState("");
   const [stackSize, setStackSize] = React.useState("");
   const [status, setStatus] = React.useState("stopped");
@@ -81,6 +84,11 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   const [baseDirPath, setBaseDirPath] = React.useState("");
   const [skipMachineEffect, setSkipMachineEffect] = React.useState(false);
 
+  // IMPORTANT DON'T REMOVE
+  React.useEffect(() => {
+    console.log("🔄 Syncing selectedMachineId from context:", selectedMachineId);
+    setSelectedMachine(selectedMachineId);
+  }, [selectedMachineId]);
 
   const [realtimeData, setRealtimeData] = React.useState({
     estimated_stack_length: 0,
@@ -833,9 +841,10 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                   fullWidth
                   select
                   label="Choose Machine"
-                  value={selectedMachine}
+                  value={selectedMachine || ""}
                   onChange={(e) => {
                     setSelectedMachine(e.target.value);
+                    setSelectedMachineId(e.target.value);
                   }}
                   size="small"
                   sx={{
@@ -1003,7 +1012,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                   select
                   label="Choose Machine"
                   value={selectedMachine}
-                  onChange={(e) => setSelectedMachine(e.target.value)}
+                  onChange={(e) => {setSelectedMachine(e.target.value)
+                    setSelectedMachineId(e.target.value)}}
                   size="small"
                   // SelectProps={{
                   //   MenuProps: {
