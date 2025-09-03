@@ -15,6 +15,7 @@ import axios from "axios";
 
 const MachineDetailsPage = () => {
   const { id } = useParams(); // Machine ID
+  console.log("all params", useParams());
   const navigate = useNavigate();
   const [machine, setMachine] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -23,6 +24,7 @@ const MachineDetailsPage = () => {
     axios
       .get(`http://127.0.0.1:8000/api/machines/${id}/`)
       .then((res) => {
+        console.log("Fetched machine data:", res.data);
         setMachine(res.data);
         setLoading(false);
       })
@@ -85,6 +87,7 @@ const MachineDetailsPage = () => {
                   boxShadow: "0 12px 30px rgba(0,0,0,0.1)",
                 },
               }}
+              onClick={() => navigate(`/machine/${machine.name}/variant/${variant.name}`)}
             >
               {/* Top image */}
               <Box

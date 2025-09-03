@@ -29,6 +29,7 @@ import { isAuthenticated, isPrivilegedUser } from "./utils/auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import { MachineSelectionProvider } from "./MachineSelectionContext";
+import VariantGallary from "./pages/VariantGallary";
 
 function TokenWatcherWrapper() {
   const navigate = useNavigate();
@@ -78,6 +79,7 @@ function App() {
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/machine/:id" element={<MachineDetailsPage />} />
           <Route path="/machine/:machineName" element={<MachineGallery />} />
+          <Route path="/machine/:machineName/variant/:variantName" element={<VariantGallary />} />
           <Route path="/folder-structure" element={<FolderTree />} />
 
           {/* dev settings page */}
@@ -164,27 +166,29 @@ async function attemptRefresh(navigate) {
     const refreshToken = localStorage.getItem("refresh_token");
     if (!refreshToken) throw new Error("No refresh token found");
 
-    const res = await fetch("/api/auth/refresh", {
+    const res = await fetch("http://127.0.0.1:8000/api/token/refresh/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      body: JSON.stringify({ refresh: refreshToken }), // ✅ Correct key
     });
 
     if (!res.ok) throw new Error("Refresh request failed");
 
     const data = await res.json();
 
-    if (data.access_token) {
-      localStorage.setItem("access_token", data.access_token);
+    if (data.access) {
+      localStorage.setItem("access_token", data.access); // ✅ Correct field
       console.log("🟢 Token refreshed successfully");
-      // ✅ No need to reload page
+      // No page reload needed
+      return true;
     } else {
-      throw new Error("No access_token in response");
+      throw new Error("No access token in response");
     }
   } catch (err) {
     console.error("🔴 Token refresh failed:", err);
     alert("Session expired. Please log in again.");
     localStorage.clear();
     navigate("/");
+    return false;
   }
 }

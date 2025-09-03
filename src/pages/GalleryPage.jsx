@@ -93,8 +93,9 @@ const GalleryPage = () => {
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
               gap: 4,
+              justifyContent: "center",
             }}
           >
             {machines.map((machine, idx) => (
