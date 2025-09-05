@@ -174,10 +174,12 @@ export default function Dashboard() {
       }
 
       // Date filter
-      if (timeFilter === "Custom" && dateRange.start && dateRange.end) {
-        params.start_time = dateRange.start.toISOString();
-        params.end_time = dateRange.end.toISOString();
-      } else if (timeFilter === "7d") {
+      console.log(timeFilter)
+      console.log(dateRange)
+      if (timeFilter === "Custom" && dateRange[0] && dateRange[1]) {
+        params.start_time = dayjs(dateRange[0]).startOf("day").toISOString();
+        params.end_time = dayjs(dateRange[1]).endOf("day").toISOString();
+      }else if (timeFilter === "7d") {
         params.start_time = dayjs().subtract(7, "day").toISOString();
         params.end_time = dayjs().toISOString();
       } else if (timeFilter === "30d") {
@@ -194,6 +196,7 @@ export default function Dashboard() {
         "http://127.0.0.1:8000/api/machinerunlogs/dashboard_summary/",
         { params }
       );
+      console.log("params:", params)
       console.log("Performace State Recived:", res)
 
       const stats = res.data.frame_statistics || {};
