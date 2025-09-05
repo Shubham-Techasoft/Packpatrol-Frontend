@@ -126,11 +126,13 @@ export default function Dashboard() {
   const [isStarting, setIsStarting] = React.useState(false);
   const [isStopping, setIsStopping] = React.useState(false);
 
+  //TOP CARDS
   const [machineStatus, setMachineStatus] = React.useState({
     active: 0,
     total: 0,
     liveFeed: "Stopped",
   });
+
   const [allMachines, setAllMachines] = React.useState([]);
   const [controlLoading, setControlLoading] = React.useState(false);
   const [controlText, setControlText] = React.useState("");
@@ -161,6 +163,50 @@ export default function Dashboard() {
   const [minStackLength, setMinStackLength] = useState("");
   const [maxStackLength, setMaxStackLength] = useState("");
   const [isLoadingVariants, setIsLoadingVariants] = useState(false);
+
+  const fetchPerformanceStats = async () => {
+    try {
+      const params = {};
+
+      // Machine filter
+      if (selectedMachineId !== "all") {
+        params.machine_id = selectedMachineId;
+      }
+
+      // Date filter
+      if (timeFilter === "Custom" && dateRange.start && dateRange.end) {
+        params.start_time = dateRange.start.toISOString();
+        params.end_time = dateRange.end.toISOString();
+      } else if (timeFilter === "7d") {
+        params.start_time = dayjs().subtract(7, "day").toISOString();
+        params.end_time = dayjs().toISOString();
+      } else if (timeFilter === "30d") {
+        params.start_time = dayjs().subtract(30, "day").toISOString();
+        params.end_time = dayjs().toISOString();
+      } else if (timeFilter === "24h") {
+        params.start_time = dayjs().subtract(1, "day").toISOString();
+        params.end_time = dayjs().toISOString();
+      }else{
+        params.start_time = dayjs().subtract(100, "year").toISOString();
+        params.end_time = dayjs().toISOString();
+      }
+      const res = await axios.get(
+        "http://127.0.0.1:8000/api/machinerunlogs/dashboard_summary/",
+        { params }
+      );
+      console.log("Performace State Recived:", res)
+
+      const stats = res.data.frame_statistics || {};
+      setPerformanceStats({
+        total_frames: stats.total_frames_processed || 0,
+        rejected_frames: stats.total_frames_rejected || 0,
+        rejection_rate_percent: stats.overall_rejection_rate || 0,
+      });
+    } catch (err) {
+      console.error("❌ Failed to fetch performance stats:", err);
+      setPerformanceStats(null);
+    }
+  };
 
   // production-time graph
   React.useEffect(() => {
@@ -252,15 +298,8 @@ export default function Dashboard() {
       });
 
     // 📊 Fetch performance stats separately
-    fetch("http://127.0.0.1:8000/api/streamframelogs/performance_analysis/")
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("Performance Stats:", data);
-        setPerformanceStats(data);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch performance stats:", err);
-      });
+    fetchPerformanceStats()
+
   }, [timeFilter, restricted, selectedMachineId, dateRange, selectedMachine]);
 
   // fetch variants when machine changes
