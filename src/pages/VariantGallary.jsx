@@ -86,14 +86,7 @@ const VariantGallary = () => {
         const validImages = allImages.filter((_, i) => results[i]);
 
         // ✅ Only update state if filenames differ
-        setImagesList((prev) => {
-          const prevNames = prev.map((i) => i.id).join(",");
-          const newNames = validImages.map((i) => i.id).join(",");
-          if (prevNames === newNames) {
-            return prev; // no changes → no blinking
-          }
-          return validImages;
-        });
+        setImagesList(validImages);
 
       } catch (e) {
         console.error("Error fetching images:", e);

@@ -174,8 +174,8 @@ export default function Dashboard() {
       }
 
       // Date filter
-      console.log(timeFilter)
-      console.log(dateRange)
+      //console.log(timeFilter)
+      //console.log(dateRange)
       if (timeFilter === "Custom" && dateRange[0] && dateRange[1]) {
         params.start_time = dayjs(dateRange[0]).startOf("day").toISOString();
         params.end_time = dayjs(dateRange[1]).endOf("day").toISOString();
@@ -188,16 +188,17 @@ export default function Dashboard() {
       } else if (timeFilter === "24h") {
         params.start_time = dayjs().subtract(1, "day").toISOString();
         params.end_time = dayjs().toISOString();
-      }else{
+      }else if (timeFilter === "all"){
         params.start_time = dayjs().subtract(100, "year").toISOString();
         params.end_time = dayjs().toISOString();
       }
+
       const res = await axios.get(
         "http://127.0.0.1:8000/api/machinerunlogs/dashboard_summary/",
         { params }
       );
-      console.log("params:", params)
-      console.log("Performace State Recived:", res)
+      //console.log("params:", params)
+      //console.log("Performace State Recived:", res)
 
       const stats = res.data.frame_statistics || {};
       setPerformanceStats({
@@ -224,8 +225,8 @@ export default function Dashboard() {
       fetch("http://127.0.0.1:8000/api/machines/").then((res) => res.json()),
     ])
       .then(([logs, machines]) => {
-        console.log("Raw API Data:", logs);
-        console.log("Machines List:", machines);
+        //console.log("Raw API Data:", logs);
+        //console.log("Machines List:", machines);
 
         // 🔎 Apply time filtering
         const filteredByTime = logs.filter((item) => {
@@ -256,8 +257,8 @@ export default function Dashboard() {
               )
             : filteredByTime;
 
-        console.log("Active Time Filter:", restricted ? "24h (restricted)" : timeFilter);
-        console.log("Filtered Logs (with machine):", filtered);
+        //console.log("Active Time Filter:", restricted ? "24h (restricted)" : timeFilter);
+        //console.log("Filtered Logs (with machine):", filtered);
 
         // 🧮 Group production per hour
         // Group by hour including date, consistent format "YYYY-MM-DD HH:mm"
@@ -327,7 +328,7 @@ export default function Dashboard() {
         // Prefer explicit active flag, then backend's active_variant id, then fallback
         const activeByFlag = list.find((v) => v.is_active === true);
         const fromActiveObj = data.active_variant?.id ?? null;
-        console.log("Variant Selected:", activeByFlag);
+        //console.log("Variant Selected:", activeByFlag);
 
         if (activeByFlag) {
           setSelectedVariant(activeByFlag.id); // pick variant with is_active true
@@ -422,7 +423,7 @@ export default function Dashboard() {
         })
       );
 
-      console.log("✅ Enriched machines:", enrichedMachines);
+      //console.log("✅ Enriched machines:", enrichedMachines);
       setAllMachines(enrichedMachines);
 
       const activeCount = enrichedMachines.filter((m) => m.is_running).length;
@@ -484,7 +485,7 @@ export default function Dashboard() {
     setControlText("starting");
     setIsStarting(true);
     setControlLoading(true);
-    console.log("🟢 Sending start command to all machines ...");
+    //console.log("🟢 Sending start command to all machines ...");
 
     let successCount = 0;
 
@@ -525,7 +526,7 @@ export default function Dashboard() {
           continue;
         }
 
-        console.log(`▶️ Starting "${machine.name}"`);
+        //console.log(`▶️ Starting "${machine.name}"`);
 
         const response = await fetch(
           `http://127.0.0.1:8000/api/machines/${machine.id}/start_run/`,
@@ -564,7 +565,7 @@ export default function Dashboard() {
         }
       }
 
-      console.log("✅ Start command completed.");
+      //console.log("✅ Start command completed.");
 
       await fetchMachinesWithRunLogInfo();
       await fetchRecentActivityLogs();
@@ -612,7 +613,7 @@ export default function Dashboard() {
     setControlText("stopping");
     setIsStopping(true);
     setControlLoading(true);
-    console.log("🔴 Sending stop command to all machines...");
+    //console.log("🔴 Sending stop command to all machines...");
 
     let successCount = 0;
 
@@ -634,7 +635,7 @@ export default function Dashboard() {
           continue;
         }
 
-        console.log(`⛔ Stopping "${machine.name}"`);
+        //console.log(`⛔ Stopping "${machine.name}"`);
 
         const response = await fetch(
           `http://127.0.0.1:8000/api/machines/${machine.id}/stop_run/`,
@@ -673,7 +674,7 @@ export default function Dashboard() {
         }
       }
 
-      console.log("✅ Stop command completed.");
+      //console.log("✅ Stop command completed.");
 
       await fetchMachinesWithRunLogInfo();
       await fetchRecentActivityLogs();
@@ -715,7 +716,7 @@ export default function Dashboard() {
       setControlLoading(false);
     }
   };
-  console.log("🔄 Loading State:", controlLoading, controlText);
+  //console.log("🔄 Loading State:", controlLoading, controlText);
 
   return (
     <Box

@@ -1,22 +1,17 @@
-import { StrictMode } from "react";
+import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter as Router } from "react-router-dom";
-import App from "./App.jsx";
+import Loading from "./components/Loading.jsx";
+
+// Lazy load App
+const App = lazy(() => import("./App.jsx"));
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <Router>
-      <App />
+      <Suspense fallback={<Loading/>}>
+        <App />
+      </Suspense>
     </Router>
   </StrictMode>
 );
-
-// import { StrictMode } from 'react'
-// import { createRoot } from 'react-dom/client'
-// import App from './App.jsx'
-
-// createRoot(document.getElementById('root')).render(
-//   <StrictMode>
-//     <App />
-//   </StrictMode>,
-// )
