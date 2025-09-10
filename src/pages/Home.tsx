@@ -477,8 +477,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       return;
     }
 
-  const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
-  console.log("📡 Connecting to SSE:", sseUrl);
+    const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
+    console.log("📡 Connecting to SSE:", sseUrl);
 
     // Reset data when machine changes
     latestDataRef.current = {
@@ -494,17 +494,18 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
     messageCountRef.current = 0;
 
     console.log("latestDataRef reset:", latestDataRef.current);
+
     // Initialize state
     setRealtimeData({ ...latestDataRef.current });
 
     const eventSource = new EventSource(sseUrl);
     let lastSseTime = Date.now();
 
-  const fallbackLogTimer = setInterval(() => {
-    if (Date.now() - lastSseTime > 5000) {
-      console.warn("⚠️ No SSE data received for 5+ seconds.");
-    }
-  }, 5000);
+    const fallbackLogTimer = setInterval(() => {
+      if (Date.now() - lastSseTime > 5000) {
+        console.warn("⚠️ No SSE data received for 5+ seconds.");
+      }
+    }, 5000);
 
     eventSource.onmessage = (event) => {
       lastSseTime = Date.now();
@@ -512,6 +513,20 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       try {
         const data = JSON.parse(event.data);
         console.log(`📨 SSE message #${messageCountRef.current}:`, data);
+        
+        // --- Cleaning image path ---
+        let cleanImagePath = "";
+        if (data.image_path) {
+          // remove query params pr extras after -> ? this
+          let basePath = data.image_path.split("?")[0];
+          // extract from /public onwards
+          const idx = basePath.indexOf("/public/");
+          if (idx !== -1) {
+            cleanImagePath = basePath.substring(idx);
+          } else {
+            cleanImagePath = basePath; // fallback: keep original
+          }
+        }
 
         // ✅ IMMEDIATELY update the ref with latest data (no re-render)
         latestDataRef.current = {
@@ -527,9 +542,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
             data.total_rejected ??
             latestDataRef.current.total_frame_rejected,  
 
-          image_path: data.image_path
-            ? `/ssc_images${data.image_path.split("?")[0]}?t=${Date.now()}`
-            : latestDataRef.current.image_path,
+          image_path: cleanImagePath || latestDataRef.current.image_path,
 
           timestamp: data.timestamp ?? latestDataRef.current.timestamp,
           // total_frame_processed:
@@ -541,16 +554,11 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         };
 
         // sse image
-        if (data.image_path) {
-          const cleanPath = data.image_path.startsWith("/ssc_images")
-            ? data.image_path
-            : `/ssc_images${data.image_path}`;
-          const cacheBustedUrl = `${cleanPath}?t=${Date.now()}`;
-
+        if (cleanImagePath) {
           setImageUrls((prev) =>
-            prev[0] === cacheBustedUrl ? prev : [cacheBustedUrl]
+            prev[0] === cleanImagePath ? prev : [cleanImagePath]
           );
-          latestDataRef.current.image_path = cacheBustedUrl;
+          latestDataRef.current.image_path = cleanImagePath;
         }
 
         // ✅ DEBOUNCED state updates - only update UI every 100ms
