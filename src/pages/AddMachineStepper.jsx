@@ -1465,14 +1465,14 @@ const AddMachineStepper = ({
       <Dialog open={skipDialogOpen} onClose={() => setSkipDialogOpen(false)}>
         <DialogTitle>
           {hasExistingModelOrVariants
-            ? "Remove Existing ML Model & Variants?"
+            ? "Discard Changes?"
             : "Skip ML Model & Variant Creation?"}
         </DialogTitle>
 
         <DialogContent>
           <Typography>
             {hasExistingModelOrVariants
-              ? "⚠️ Skipping will remove the existing ML model and variants from this machine. Do you want to continue?"
+              ? "Skipping this will discard your changes to the variant. Do you want to continue?"
               : "Are you sure you want to skip ML model and variant creation? You can add them later."}
           </Typography>
         </DialogContent>
