@@ -5,8 +5,17 @@ function LiveImageFeed({ imageArray }) {
   const [currentImage, setCurrentImage] = useState(null);
 
   useEffect(() => {
-      setCurrentImage(imageArray)
+    if (!imageArray) return;
+
+    // Preload image
+    const img = new Image();
+    img.src = imageArray;
+
+    img.onload = () => {
+      setCurrentImage(imageArray); // Only set when loaded
+    };
   }, [imageArray]);
+
 
   return (
     <Box
