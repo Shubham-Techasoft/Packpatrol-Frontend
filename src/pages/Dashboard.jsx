@@ -59,6 +59,33 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   backgroundColor: "#ffffff",
 }));
 
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload || !payload.length) return null;
+
+  const count = payload?.value ?? 0;
+  const when = dayjs(label).format("YYYY-MM-DD HH:mm:ss"); // epoch ms -> formatted
+
+  return (
+    <Paper
+      elevation={3}
+      sx={{
+        p: 1.5,
+        borderRadius: 1.5,
+        bgcolor: "#fff",
+        border: "1px solid #e0e0e0",
+        minWidth: 200,
+      }}
+    >
+      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+        {when}
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        Produced: {count.toLocaleString()} biscuits
+      </Typography>
+    </Paper>
+  );
+};
+
 // info cards
 const InfoCard = ({ icon, title, value, color }) => {
   const gradients = {
@@ -225,7 +252,7 @@ export default function Dashboard() {
       fetch("http://127.0.0.1:8000/api/machines/").then((res) => res.json()),
     ])
       .then(([logs, machines]) => {
-        //console.log("Raw API Data:", logs);
+        console.log("Raw API Data:", logs);
         //console.log("Machines List:", machines);
 
         // 🔎 Apply time filtering
@@ -258,30 +285,37 @@ export default function Dashboard() {
             : filteredByTime;
 
         //console.log("Active Time Filter:", restricted ? "24h (restricted)" : timeFilter);
-        //console.log("Filtered Logs (with machine):", filtered);
+        console.log(`Filtered Logs (with ${selectedMachine?.name}):`, filtered);
+        // after computing filtered
+        const rangeIsCustom = timeFilter === "Custom" && dateRange[0] && dateRange[1];
 
-        // 🧮 Group production per hour
-        // Group by hour including date, consistent format "YYYY-MM-DD HH:mm"
+        const customDurationMs = rangeIsCustom
+          ? dayjs(dateRange[1]).endOf("day").valueOf() -
+            dayjs(dateRange[0]).startOf("day").valueOf()
+          : null;
+
+        const shortCustom =
+          rangeIsCustom && (customDurationMs) <= 2 * 24 * 60 * 60 * 1000;
         const grouped = {};
         filtered.forEach((item) => {
-          const hourKey = dayjs(item.start_time).startOf("hour").format("YYYY-MM-DD HH:mm");
-          const production = item.total_frames_processed || 0;
-          grouped[hourKey] = (grouped[hourKey] || 0) + production;
+          const ts = dayjs(item.start_time);
+
+          const key = (restricted || timeFilter === "24h" || shortCustom)
+            ? ts.format("YYYY-MM-DD HH:mm:ss")
+            : ts.startOf("day").format("YYYY-MM-DD");
+
+          grouped[key] = (grouped[key] || 0) + (item.total_frames_processed || 0);
         });
 
-        const chart = Object.entries(grouped).map(([ts, production]) => ({
-          name: ts,        // same format used above
-          production,
-        }));
+        // build numeric X
+        const chart = Object.entries(grouped).map(([k, production]) => {
+          const t = (restricted || timeFilter === "24h" || shortCustom)
+            ? dayjs(k, "YYYY-MM-DD HH:mm:ss").valueOf()
+            : dayjs(k, "YYYY-MM-DD").valueOf();
+          return { t, production };
+        });
 
-        // Sort using same parse format "YYYY-MM-DD HH:mm"
-        const sortedChart = chart.sort(
-          (a, b) =>
-            dayjs(a.name, "YYYY-MM-DD HH:mm").valueOf() -
-            dayjs(b.name, "YYYY-MM-DD HH:mm").valueOf()
-        );
-
-        setChartData(sortedChart);
+        setChartData(chart.sort((a, b) => a.t - b.t));
         setLoading(false);
 
         // 🟢 Machine stats
@@ -915,16 +949,30 @@ export default function Dashboard() {
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
                   <XAxis
-                    dataKey="name"
+                    dataKey="t"
+                    type="number"
+                    domain={['auto','auto']}
                     tick={{ fontSize: 12 }}
+                    tickFormatter={(unixMs) => {
+                      const isShort =
+                        restricted ||
+                        timeFilter === "24h" ||
+                        (timeFilter === "Custom" && dateRange[0] && dateRange[1] &&
+                        dayjs(dateRange[1]).endOf("day").diff(
+                          dayjs(dateRange[0]).startOf("day"), 'day', true
+                        ) <= 2);
+
+                      return isShort ? dayjs(unixMs).format("YYYY-MM-DD HH:mm")
+                                    : dayjs(unixMs).format("YYYY-MM-DD");
+                    }}
                     label={{
                       value: "Time",
                       position: "insideBottom",
                       offset: -5,
                       fontSize: 12,
                     }}
-                    tickFormatter={(v) => dayjs(v, "YYYY-MM-DD HH:mm").format("MMM D, HH:mm")}
                   />
+
                   <YAxis
                     label={{
                       value: "Units Produced",
@@ -934,7 +982,8 @@ export default function Dashboard() {
                     }}
                   />
                   <Tooltip
-                    formatter={(value) => [`${value} biscuits`, "Produced"]}
+                    content={<CustomTooltip />}
+                    cursor={{ strokeDasharray: "3 3" }}
                     labelStyle={{ fontWeight: "bold" }}
                   />
                   <Line
