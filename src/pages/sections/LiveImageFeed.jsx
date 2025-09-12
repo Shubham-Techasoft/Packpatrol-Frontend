@@ -31,10 +31,10 @@ function LiveImageFeed({ imageArray }) {
         paddingX: 0.5,
       }}
     >
-      {currentImage ? (
+      {imageArray ? (
         <img
-          key={currentImage}
-          src={currentImage}
+          key={imageArray}
+          src={imageArray}
           alt="Live Feed"
           style={{
             width: "100%",

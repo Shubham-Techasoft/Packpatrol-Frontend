@@ -295,7 +295,7 @@ export default function Dashboard() {
           : null;
 
         const shortCustom =
-          rangeIsCustom && (customDurationMs) <= 2 * 24 * 60 * 60 * 1000;
+          rangeIsCustom && (customDurationMs) <= 3 * 24 * 60 * 60 * 1000;
         const grouped = {};
         filtered.forEach((item) => {
           const ts = dayjs(item.start_time);
@@ -960,7 +960,7 @@ export default function Dashboard() {
                         (timeFilter === "Custom" && dateRange[0] && dateRange[1] &&
                         dayjs(dateRange[1]).endOf("day").diff(
                           dayjs(dateRange[0]).startOf("day"), 'day', true
-                        ) <= 2);
+                        ) <= 3);
 
                       return isShort ? dayjs(unixMs).format("YYYY-MM-DD HH:mm")
                                     : dayjs(unixMs).format("YYYY-MM-DD");
