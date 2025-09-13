@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box } from "@mui/material";
 
 function LiveImageFeed({ imageArray }) {
@@ -19,26 +19,40 @@ function LiveImageFeed({ imageArray }) {
   // }, [imageArray]);
 
   // ----------- new experimental code---------------------
+  console.log("Current Process image path:", imageArray)
   const [currentImage, setCurrentImage] = useState(null);
-  const [nextImage, setNextImage] = useState(null);
 
+  // Queue for loaded images
+  const queueRef = useRef({});
+  const nextFrameId = useRef(0);
+  const frameCounter = useRef(0);
+
+  // Preload whenever new path arrives
   useEffect(() => {
     if (!imageArray) return;
 
+    const id = frameCounter.current++;
     const img = new Image();
-    img.src = imageArray;
+    img.src = `${imageArray}?ts=${Date.now()}`; // cache-bust
 
     img.onload = () => {
-      setNextImage(imageArray);
+      queueRef.current[id] = img.src; // store by frame id
     };
   }, [imageArray]);
 
+  // Playback loop: shows frames in order
   useEffect(() => {
-    if (nextImage) {
-      setCurrentImage(nextImage); // swap only when ready
-      setNextImage(null);
-    }
-  }, [nextImage]);
+    const player = setInterval(() => {
+      const id = nextFrameId.current;
+      if (queueRef.current[id]) {
+        setCurrentImage(queueRef.current[id]);
+        delete queueRef.current[id];
+        nextFrameId.current++;
+      }
+    }, 100); // ~10fps
+
+    return () => clearInterval(player);
+  }, []);
 
   return (
     <Box

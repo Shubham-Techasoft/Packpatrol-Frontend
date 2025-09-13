@@ -66,7 +66,7 @@ type Variant = {
 
 export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, clearAppliedLog }) {
   // const [imageUrls, setImageUrls] = React.useState([]);
-  const [imageUrls, setImageUrls] = React.useState<string[]>([]);
+  const [imageUrls, setImageUrls] = React.useState<string>("");
   const [messages, setMessages] = React.useState(logMessages);
   const { selectedMachineId, setSelectedMachineId } = useMachineSelection();
   const [selectedMachine, setSelectedMachine] = React.useState("");
@@ -556,7 +556,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         // sse image
         if (cleanImagePath) {
           setImageUrls((prev) =>
-            prev[0] === cleanImagePath ? prev : [cleanImagePath]
+            prev === cleanImagePath ? prev : cleanImagePath
           );
           latestDataRef.current.image_path = cleanImagePath;
         }
