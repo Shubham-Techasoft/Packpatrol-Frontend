@@ -21,6 +21,7 @@ function LiveImageFeed({ imageArray }) {
   // ----------- new experimental code---------------------
   console.log("Current Process image path:", imageArray)
   const [currentImage, setCurrentImage] = useState(null);
+  console.log("current Processed image path:")
 
   // Queue for loaded images
   const queueRef = useRef({});

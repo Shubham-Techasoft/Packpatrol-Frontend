@@ -516,17 +516,24 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         
         // --- Cleaning image path ---
         let cleanImagePath = "";
+
         if (data.image_path) {
-          // remove query params pr extras after -> ? this
+          // remove query params/extras after ?
           let basePath = data.image_path.split("?")[0];
-          // extract from /public onwards
+
+          // normalize backslashes to forward slashes
+          basePath = basePath.replace(/\\/g, "/");
+
+          // find and strip "public/"
           const idx = basePath.indexOf("/public/");
           if (idx !== -1) {
-            cleanImagePath = basePath.substring(idx);
+            cleanImagePath = basePath.substring(idx + 7); // after "/public"
           } else {
-            cleanImagePath = basePath; // fallback: keep original
+            // if no /public, just strip any leading slash for consistency
+            cleanImagePath = basePath.replace(/^\/+/, "");
           }
         }
+        console.log("CleanedPath: ", cleanImagePath)
 
         // ✅ IMMEDIATELY update the ref with latest data (no re-render)
         latestDataRef.current = {
