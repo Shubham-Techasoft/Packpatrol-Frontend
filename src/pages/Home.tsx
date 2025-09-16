@@ -35,6 +35,29 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   boxShadow: theme.shadows[3],
 }));
 
+// const sampleImagesUrl= [
+//     "/Pune-Line-1-Machine6/Goodday/dummy_1.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_2.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_3.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_4.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_5.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_6.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_7.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_8.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_9.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_10.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_11.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_12.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_13.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_14.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_15.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_16.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_17.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_18.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_19.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_20.bmp"
+// ]
+
 // live updates messages
 const logMessages = [
   "Batch #101 started: Stack size set to 45mm, targeting 200 stacks.",
@@ -568,6 +591,17 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           latestDataRef.current.image_path = cleanImagePath;
         }
 
+        // // Image Refresh dummy setup-------------------------------------- rEMOVE IN PRODUCTION
+        // if (sampleImagesUrl.length > 0) {
+        //   console.log(sampleImagesUrl.length)
+        //   const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
+        //   const randomImage = sampleImagesUrl[randomIndex];
+
+        //   setImageUrls((prev) => (prev === randomImage ? prev : randomImage));
+        //   latestDataRef.current.image_path = randomImage;
+        // }
+        // // ----------------------------------------------------------------
+
         // ✅ DEBOUNCED state updates - only update UI every 100ms
         if (updateTimeoutRef.current) {
           clearTimeout(updateTimeoutRef.current);
@@ -580,7 +614,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           );
           setRealtimeData({ ...latestDataRef.current });
           updateTimeoutRef.current = null;
-        }, 100);
+        }, 50);
       } catch (err) {
         console.error("🚫 SSE JSON parse error:", err);
       }

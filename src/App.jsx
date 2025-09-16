@@ -30,6 +30,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 import { MachineSelectionProvider } from "./MachineSelectionContext";
 import VariantGallary from "./pages/VariantGallary";
+import VariantGallaryView from "./pages/VariantGallaryView";
 
 function TokenWatcherWrapper() {
   const navigate = useNavigate();
@@ -79,7 +80,8 @@ function App() {
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/machine/:id" element={<MachineDetailsPage />} />
           <Route path="/machine/:machineName" element={<MachineGallery />} />
-          <Route path="/machine/:machineName/variant/:variantName" element={<VariantGallary />} />
+          {/* <Route path="/machine/:machineName/variant/:variantName" element={<VariantGallary />} /> */}
+          <Route path="/machine/:machineId/variant/:variantId" element={<VariantGallaryView />} />
           <Route path="/folder-structure" element={<FolderTree />} />
 
           {/* dev settings page */}

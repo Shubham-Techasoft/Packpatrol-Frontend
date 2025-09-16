@@ -87,7 +87,7 @@ const MachineDetailsPage = () => {
                   boxShadow: "0 12px 30px rgba(0,0,0,0.1)",
                 },
               }}
-              onClick={() => navigate(`/machine/${machine.name}/variant/${variant.name}`)}
+              onClick={() => navigate(`/machine/${machine.id}/variant/${variant.id}`)}
             >
               {/* Top image */}
               <Box

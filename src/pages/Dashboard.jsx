@@ -51,6 +51,30 @@ import { isAuthenticated } from "../utils/auth";
 import ScrollToTopButton from "./sections/about/ScrollToTop";
 
 import { useMachineSelection } from "../MachineSelectionContext";
+import LiveImageFeed from "./sections/LiveImageFeed";
+
+// const sampleImagesUrl= [
+//     "/Pune-Line-1-Machine6/Goodday/dummy_1.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_2.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_3.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_4.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_5.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_6.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_7.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_8.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_9.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_10.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_11.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_12.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_13.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_14.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_15.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_16.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_17.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_18.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_19.bmp",
+//     "/Pune-Line-1-Machine6/Goodday/dummy_20.bmp"
+// ]
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -152,6 +176,7 @@ export default function Dashboard() {
   const [performanceStats, setPerformanceStats] = React.useState(null);
   const [isStarting, setIsStarting] = React.useState(false);
   const [isStopping, setIsStopping] = React.useState(false);
+  const [imageUrl, setImageUrl] = React.useState("");
 
   //TOP CARDS
   const [machineStatus, setMachineStatus] = React.useState({
@@ -238,6 +263,52 @@ export default function Dashboard() {
       setPerformanceStats(null);
     }
   };
+
+  React.useEffect(() => {
+    if (!selectedMachineId || selectedMachineId === "all") return;
+
+    const sseUrl = `http://localhost:8000/api/machines/${selectedMachineId}/sse/`;
+    console.log("📡 Connecting SSE for dashboard:", sseUrl);
+
+    const eventSource = new EventSource(sseUrl);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.image_path) {
+          let basePath = data.image_path.split("?")[0];
+          basePath = basePath.replace(/\\/g, "/");
+          const idx = basePath.indexOf("/public/");
+          const cleanPath = idx !== -1 ? basePath.substring(idx + 7) : basePath.replace(/^\/+/, "");
+
+          //FOR REAL IMAGE CHANGES
+          setImageUrl(cleanPath);
+
+          // //FOR DUMMY IMAGES
+          // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
+          // const randomImage = sampleImagesUrl[randomIndex];
+
+          // setImageUrl((prev) => (prev === randomImage ? prev : randomImage));
+          // latestDataRef.current.image_path = randomImage;
+          // //----------- DUMMY ENDS
+
+        }
+      } catch (err) {
+        console.error("🚫 Dashboard SSE parse error:", err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error("❌ Dashboard SSE error:", err);
+      eventSource.close();
+    };
+
+    return () => {
+      console.log("🛑 Closing dashboard SSE");
+      eventSource.close();
+    };
+  }, [selectedMachineId]);
 
   // production-time graph
   React.useEffect(() => {
@@ -1010,12 +1081,7 @@ export default function Dashboard() {
             <Typography variant="h6" gutterBottom>
               Live Camera Feed
             </Typography>
-            <Box
-              component="img"
-              src="http://localhost:5000/live.jpg"
-              alt="Live Feed"
-              sx={{ width: "100%", borderRadius: 2 }}
-            />
+            <LiveImageFeed imageArray={imageUrl}/>
           </StyledPaper>
         </Grid>
       </Grid>

@@ -18,26 +18,46 @@ function LiveImageFeed({ imageArray }) {
   //   };
   // }, [imageArray]);
 
-  // ----------- new experimental code---------------------
-  console.log("Current Process image path:", imageArray)
+  // ----------- new experimental code--------------------- with queue
+  // const [currentImage, setCurrentImage] = useState(null);
+
+  // console.log("Current Processing image path:", imageArray)
+  // console.log("current Processed image path:", currentImage)
+
+  // // Queue for loaded images
+  // const queueRef = useRef({});
+  // const nextFrameId = useRef(0);
+  // const frameCounter = useRef(0);
+
+  // // Preload whenever new path arrives
+  // useEffect(() => {
+  //   if (!imageArray) return;
+
+  //   const id = frameCounter.current++;
+  //   const img = new Image();
+  //   img.src = `${imageArray}?ts=${Date.now()}`; // cache-bust
+
+  //   img.onload = () => {
+  //     queueRef.current[id] = img.src; // store by frame id
+  //   };
+  // }, [imageArray]);
+
+  // ----------- new experimental code--------------------- without queue
   const [currentImage, setCurrentImage] = useState(null);
-  console.log("current Processed image path:")
 
-  // Queue for loaded images
-  const queueRef = useRef({});
-  const nextFrameId = useRef(0);
-  const frameCounter = useRef(0);
-
-  // Preload whenever new path arrives
   useEffect(() => {
     if (!imageArray) return;
 
-    const id = frameCounter.current++;
+    // Preload image to avoid flicker
     const img = new Image();
-    img.src = `${imageArray}?ts=${Date.now()}`; // cache-bust
+    img.src = `${imageArray}?ts=${Date.now()}`; // cache-bust each frame
 
     img.onload = () => {
-      queueRef.current[id] = img.src; // store by frame id
+      setCurrentImage(img.src); // set immediately when loaded
+    };
+
+    return () => {
+      img.onload = null; // cleanup
     };
   }, [imageArray]);
 
@@ -50,7 +70,7 @@ function LiveImageFeed({ imageArray }) {
         delete queueRef.current[id];
         nextFrameId.current++;
       }
-    }, 100); // ~10fps
+    }, 50); // ~10fps
 
     return () => clearInterval(player);
   }, []);
