@@ -70,7 +70,7 @@ function LiveImageFeed({ imageArray }) {
         delete queueRef.current[id];
         nextFrameId.current++;
       }
-    }, 50); // ~10fps
+    }, 500); // ~10fps
 
     return () => clearInterval(player);
   }, []);

@@ -96,14 +96,29 @@ const VariantGallaryView = () => {
           throw new Error("Manifest is not an array");
         }
 
+        const allImages = filenames.map((fullPath) => {
+          let cleanPath = fullPath;
+
+          const idx = fullPath.indexOf("/public/");
+          if (idx !== -1) {
+            cleanPath = fullPath.substring(idx + 7); // skip "/public"
+          }
+
+          return {
+            id: cleanPath,
+            url: cleanPath,   // ✅ relative path works in React since served from /public
+            label: cleanPath.split("/").pop(),
+          };
+        });
+
         // Build full image objects
-        const allImages = filenames.map((filename) => ({
-          id: filename,
-          url: `/${encodeURIComponent(machineInfo.machineName)}/${encodeURIComponent(
-            machineInfo.variantName
-          )}/${encodeURIComponent(filename)}`,
-          label: filename,
-        }));
+        // const allImages = filenames.map((filename) => ({
+        //   id: filename,
+        //   url: `/${encodeURIComponent(machineInfo.machineName)}/${encodeURIComponent(
+        //     machineInfo.variantName
+        //   )}/${encodeURIComponent(filename)}`,
+        //   label: filename,
+        // }));
 
         // ✅ Validate images
         const validateImage = (url) =>

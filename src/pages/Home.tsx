@@ -614,7 +614,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           );
           setRealtimeData({ ...latestDataRef.current });
           updateTimeoutRef.current = null;
-        }, 50);
+        }, 500);
       } catch (err) {
         console.error("🚫 SSE JSON parse error:", err);
       }
