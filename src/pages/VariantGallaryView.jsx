@@ -9,131 +9,101 @@ import {
   CardMedia,
   CardContent,
   IconButton,
-  Zoom,
-  useMediaQuery,
-  useTheme,
-  Dialog,
-  DialogContent,
   CircularProgress,
   Alert,
+  Snackbar,   // ✅ add Snackbar
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useNavigate, useParams } from "react-router-dom";
 
 const VariantGallaryView = () => {
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const { machineId, variantId } = useParams();
 
   const [imagesList, setImagesList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
   const [open, setOpen] = useState(false);
   const [currentImage, setCurrentImage] = useState(null);
 
-  const [ machineInfo, setMachineInfo] = useState({machineName: "", variantName: ""}); //{machineName, variantName}
+  const [machineInfo, setMachineInfo] = useState({ machineName: "", variantName: "" });
 
-  const handleOpen = (img) => {
-    setCurrentImage(img);
-    setOpen(true);
-  };
+  // ✅ Snackbar state
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
 
-  const handleClose = () => {
-    setOpen(false);
-    setCurrentImage(null);
-  };
+  const handleToastClose = () => setToastOpen(false);
 
   useEffect(() => {
     const fetchNames = async () => {
       try {
+        setToastMessage("Fetching machine and variant details...");
+        setToastOpen(true);
+
         const [machineRes, variantRes] = await Promise.all([
           fetch(`http://127.0.0.1:8000/api/machines/${machineId}/`),
           fetch(`http://127.0.0.1:8000/api/machinevariants/${variantId}/`),
         ]);
- 
+
         if (!machineRes.ok || !variantRes.ok) {
           throw new Error("Failed to fetch machine/variant details");
         }
-        // console.log(machineRes,variantRes)
+
         const machineData = await machineRes.json();
         const variantData = await variantRes.json();
 
-        // console.log(machineData,variantData)
- 
         setMachineInfo({
           machineName: machineData.name || machineData.machine_name,
           variantName: variantData.name || variantData.variant_name,
         });
+
+        setToastMessage("Machine and variant details loaded ✅");
       } catch (err) {
         console.error("Error fetching machine/variant info:", err);
         setError("Failed to load machine/variant info.");
+        setToastMessage("❌ Failed to load machine/variant info.");
+      } finally {
+        setToastOpen(false); // close toast after process
       }
     };
- 
+
     fetchNames();
   }, [machineId, variantId]);
-
 
   useEffect(() => {
     const fetchImages = async () => {
       try {
         setError(null);
+        setToastMessage("Fetching images...");
+        setToastOpen(true);
 
         if (!machineInfo.machineName || !machineInfo.variantName) return;
- 
+
         const manifestUrl = `/${encodeURIComponent(machineInfo.machineName)}/${encodeURIComponent(machineInfo.variantName)}/manifest.json`;
 
-        console.log("URL:", manifestUrl)
         const response = await fetch(manifestUrl);
         const rawText = await response.text();
-        console.log("Raw manifest response:", rawText);
 
         let filenames;
         try {
           filenames = JSON.parse(rawText);
-          console.log("Parsed filenames:", filenames);
         } catch (err) {
           console.error("Manifest JSON parse error:", err);
         }
 
-
-        // const response = await fetch(manifestUrl);
-        // if (!response.ok) {
-        //   throw new Error(`Failed to load manifest. Status: ${response.status}`);
-        // }
-
-        // const filenames = await response.json();
-        // console.log(filenames)
-        // if (!Array.isArray(filenames)) {
-        //   throw new Error("Manifest is not an array");
-        // }
-
         const allImages = filenames.map((fullPath) => {
           let cleanPath = fullPath;
-
           const idx = fullPath.indexOf("/public/");
-          if (idx !== -1) {
-            cleanPath = fullPath.substring(idx + 7); // skip "/public"
-          }
+          if (idx !== -1) cleanPath = fullPath.substring(idx + 7);
 
           return {
             id: cleanPath,
-            url: cleanPath,   // ✅ relative path works in React since served from /public
+            url: cleanPath,
             label: cleanPath.split("/").pop(),
           };
         });
 
-        // Build full image objects
-        // const allImages = filenames.map((filename) => ({
-        //   id: filename,
-        //   url: `/${encodeURIComponent(machineInfo.machineName)}/${encodeURIComponent(
-        //     machineInfo.variantName
-        //   )}/${encodeURIComponent(filename)}`,
-        //   label: filename,
-        // }));
-
-        // ✅ Validate images
         const validateImage = (url) =>
           new Promise((resolve) => {
             const img = new Image();
@@ -142,26 +112,22 @@ const VariantGallaryView = () => {
             img.onerror = () => resolve(false);
           });
 
-        const results = await Promise.all(
-          allImages.map((img) => validateImage(img.url))
-        );
-
+        const results = await Promise.all(allImages.map((img) => validateImage(img.url)));
         const validImages = allImages.filter((_, i) => results[i]);
 
-        // ✅ Only update state if filenames differ
         setImagesList(validImages);
-
+        setToastMessage("Images loaded ✅");
       } catch (e) {
         console.error("Error fetching images:", e);
         setError("Failed to load images. Please check the network or the folder path.");
+        setToastMessage("❌ Failed to load images.");
       } finally {
         setLoading(false);
+        setToastOpen(false); // close toast when finished
       }
     };
 
     fetchImages();
-    // const intervalId = setInterval(fetchImages, 500);
-    // return () => clearInterval(intervalId);
   }, [machineInfo.machineName, machineInfo.variantName]);
 
   return (
@@ -266,6 +232,20 @@ const VariantGallaryView = () => {
           )}
         </DialogContent>
       </Dialog>
+      <Snackbar
+        open={toastOpen}
+        autoHideDuration={3000}
+        onClose={handleToastClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleToastClose}
+          severity={error ? "error" : "info"}
+          sx={{ width: "100%" }}
+        >
+          {toastMessage}
+        </Alert>
+      </Snackbar>
     </>
   );
 };
