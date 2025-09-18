@@ -36,26 +36,26 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
 }));
 
 // const sampleImagesUrl= [
-//     "/Pune-Line-1-Machine6/Goodday/dummy_1.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_2.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_3.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_4.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_5.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_6.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_7.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_8.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_9.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_10.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_11.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_12.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_13.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_14.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_15.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_16.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_17.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_18.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_19.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_20.bmp"
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_1.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_2.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_3.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_4.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_5.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_6.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_7.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_8.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_9.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_10.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_11.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_12.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_13.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_14.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_15.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_16.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_17.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_18.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_19.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_20.bmp"
 // ]
 
 // live updates messages
@@ -539,9 +539,17 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         
         // --- Cleaning image path ---
         let cleanImagePath = "";
-
+        
         if (data.image_path) {
           // remove query params/extras after ?
+          console.log("Raw Path:",data.image_path)
+          
+          // code for random sample iamge test on my pc-----------------------------
+          // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
+          // const randomImage = sampleImagesUrl[randomIndex];
+          // let basePath = randomImage.split("?")[0];
+          //-------------------------------------------------------------------------
+
           let basePath = data.image_path.split("?")[0];
 
           // normalize backslashes to forward slashes
@@ -553,7 +561,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
             cleanImagePath = basePath.substring(idx + 7); // after "/public"
           } else {
             // if no /public, just strip any leading slash for consistency
-            cleanImagePath = basePath.replace(/^\/+/, "");
+            cleanImagePath = basePath.replace(/^\/+/, "/");
           }
         }
         console.log("CleanedPath: ", cleanImagePath)
@@ -590,17 +598,6 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           );
           latestDataRef.current.image_path = cleanImagePath;
         }
-
-        // // Image Refresh dummy setup-------------------------------------- rEMOVE IN PRODUCTION
-        // if (sampleImagesUrl.length > 0) {
-        //   console.log(sampleImagesUrl.length)
-        //   const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
-        //   const randomImage = sampleImagesUrl[randomIndex];
-
-        //   setImageUrls((prev) => (prev === randomImage ? prev : randomImage));
-        //   latestDataRef.current.image_path = randomImage;
-        // }
-        // // ----------------------------------------------------------------
 
         // ✅ DEBOUNCED state updates - only update UI every 100ms
         if (updateTimeoutRef.current) {
@@ -645,9 +642,9 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   }, [selectedMachine]);
 
   // Optional: Add this useEffect to monitor state changes (for debugging)
-  React.useEffect(() => {
-    console.log("🎯 RealtimeData state updated:", realtimeData);
-  }, [realtimeData]);
+  // React.useEffect(() => {
+  //   console.log("🎯 RealtimeData state updated:", realtimeData);
+  // }, [realtimeData]);
 
   // handle submit
   const handleSubmit = async (actionType) => {

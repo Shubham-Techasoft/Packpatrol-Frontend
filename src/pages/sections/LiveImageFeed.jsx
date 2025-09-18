@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Box } from "@mui/material";
 
 function LiveImageFeed({ imageArray }) {
+  console.log("imagePathRecieved:", imageArray)
 
   // //Working but slow refresh
   // const [currentImage, setCurrentImage] = useState(null);
@@ -18,7 +19,9 @@ function LiveImageFeed({ imageArray }) {
   //   };
   // }, [imageArray]);
 
-  // ----------- new experimental code--------------------- with queue
+
+
+  // ----------- new experimental code--------------------- with queue [delay to live video issue]
   // const [currentImage, setCurrentImage] = useState(null);
 
   // console.log("Current Processing image path:", imageArray)
@@ -41,27 +44,65 @@ function LiveImageFeed({ imageArray }) {
   //     queueRef.current[id] = img.src; // store by frame id
   //   };
   // }, [imageArray]);
+  
+  // // Playback loop: shows frames in order
+  // useEffect(() => {
+  //   const player = setInterval(() => {
+  //     const id = nextFrameId.current;
+  //     if (queueRef.current[id]) {
+  //       setCurrentImage(queueRef.current[id]);
+  //       delete queueRef.current[id];
+  //       nextFrameId.current++;
+  //     }
+  //   }, 500); // ~10fps
 
+  //   return () => clearInterval(player);
+  // }, []);
+  
+  
   // ----------- new experimental code--------------------- without queue
-  const [currentImage, setCurrentImage] = useState(null);
+  // const [currentImage, setCurrentImage] = useState(null);
 
+  // useEffect(() => {
+  //   if (!imageArray) return;
+
+  //   // Preload image to avoid flicker
+  //   const img = new Image();
+  //   img.src = `${imageArray}?ts=${Date.now()}`; // cache-bust each frame
+
+  //   img.onload = () => {
+  //     setCurrentImage(img.src); // set immediately when loaded
+  //   };
+
+  //   return () => {
+  //     img.onload = null; // cleanup
+  //   };
+  // }, [imageArray]);
+
+
+
+  // latest updated with queue with no delay
+  const [currentImage, setCurrentImage] = useState(null);
+  console.log("currentImage Path:", currentImage)
+
+  const queueRef = useRef({});
+  const nextFrameId = useRef(0);
+  const frameCounter = useRef(0);
+
+  // Preload whenever new path arrives
   useEffect(() => {
     if (!imageArray) return;
 
-    // Preload image to avoid flicker
+    const id = frameCounter.current++;
     const img = new Image();
-    img.src = `${imageArray}?ts=${Date.now()}`; // cache-bust each frame
+    img.src = `${imageArray}?ts=${Date.now()}`; // cache-bust
 
     img.onload = () => {
-      setCurrentImage(img.src); // set immediately when loaded
-    };
-
-    return () => {
-      img.onload = null; // cleanup
+      queueRef.current[id] = img.src;
     };
   }, [imageArray]);
 
-  // Playback loop: shows frames in order
+  // Playback loop
   useEffect(() => {
     const player = setInterval(() => {
       const id = nextFrameId.current;
@@ -70,10 +111,36 @@ function LiveImageFeed({ imageArray }) {
         delete queueRef.current[id];
         nextFrameId.current++;
       }
-    }, 500); // ~10fps
+    }, 100);
 
     return () => clearInterval(player);
   }, []);
+
+  // Handle tab visibility / focus
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        // Tab became active again
+        const allIds = Object.keys(queueRef.current).map(Number);
+        if (allIds.length > 2) {
+          const latestId = Math.max(...allIds);
+          // Keep only latest frame
+          const latestFrame = queueRef.current[latestId];
+          queueRef.current = { [latestId]: latestFrame };
+          nextFrameId.current = latestId;
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleVisibility);
+    };
+  }, []);
+
 
   return (
     <Box
