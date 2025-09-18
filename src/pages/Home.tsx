@@ -107,6 +107,10 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   const [baseDirPath, setBaseDirPath] = React.useState("");
   const [skipMachineEffect, setSkipMachineEffect] = React.useState(false);
 
+  // 1) Add state/refs near other state
+  const frameQueueRef = React.useRef<string[]>([]); // holds fully-loaded frame srcs
+  const [displaySrc, setDisplaySrc] = React.useState<string | null>(null); // current frame shown
+
   // IMPORTANT DON'T REMOVE
   React.useEffect(() => {
     console.log("🔄 Syncing selectedMachineId from context:", selectedMachineId);
@@ -169,6 +173,35 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
     null
   );
   const [isLoadingVariants, setIsLoadingVariants] = React.useState(false);
+
+  const enqueuePreload = React.useCallback((relativePath: string) => {
+    if (!relativePath) return;
+    const src = `${relativePath.startsWith("/") ? "" : "/"}${relativePath}?ts=${Date.now()}`;
+    const img = new Image();
+    img.decoding = "async";
+    img.loading = "eager";
+    img.onload = () => {
+      frameQueueRef.current.push(src);
+    };
+    img.onerror = () => {
+      // skip bad frame
+    };
+    img.src = src;
+  }, []);
+
+  // Simple player loop
+  React.useEffect(() => {
+    const id = setInterval(() => {
+      const q = frameQueueRef.current;
+      if (q.length > 3) {
+        // drop backlog to avoid lag
+        frameQueueRef.current = q.slice(-1);
+      }
+      const next = frameQueueRef.current.shift();
+      if (next) setDisplaySrc(next);
+    }, 100);
+    return () => clearInterval(id);
+  }, []);
 
   React.useEffect(() => {
     if (appliedLog && machines.length > 0) {
@@ -593,9 +626,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
         // sse image
         if (cleanImagePath) {
-          setImageUrls((prev) =>
-            prev === cleanImagePath ? prev : cleanImagePath
-          );
+          enqueuePreload(cleanImagePath);
           latestDataRef.current.image_path = cleanImagePath;
         }
 
@@ -946,7 +977,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
             {/* Image section */}
 
-            <LiveImageFeed imageArray={imageUrls} />
+            <LiveImageFeed imageArray={displaySrc} />
             
           </StyledPaper>
         </Grid>
