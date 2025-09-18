@@ -310,6 +310,7 @@ export default function Dashboard() {
         const data = JSON.parse(event.data);
 
         if (data.image_path) {
+          console.log("path: ", data.image_path)
           let basePath = data.image_path.split("?")[0];
           basePath = basePath.replace(/\\/g, "/");
           const idx = basePath.indexOf("/public/");

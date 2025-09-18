@@ -55,11 +55,11 @@ const VariantGallaryView = () => {
         if (!machineRes.ok || !variantRes.ok) {
           throw new Error("Failed to fetch machine/variant details");
         }
-        console.log(machineRes,variantRes)
+        // console.log(machineRes,variantRes)
         const machineData = await machineRes.json();
         const variantData = await variantRes.json();
 
-        console.log(machineData,variantData)
+        // console.log(machineData,variantData)
  
         setMachineInfo({
           machineName: machineData.name || machineData.machine_name,
@@ -85,16 +85,29 @@ const VariantGallaryView = () => {
         const manifestUrl = `/${encodeURIComponent(machineInfo.machineName)}/${encodeURIComponent(machineInfo.variantName)}/manifest.json`;
 
         console.log("URL:", manifestUrl)
-
         const response = await fetch(manifestUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to load manifest. Status: ${response.status}`);
+        const rawText = await response.text();
+        console.log("Raw manifest response:", rawText);
+
+        let filenames;
+        try {
+          filenames = JSON.parse(rawText);
+          console.log("Parsed filenames:", filenames);
+        } catch (err) {
+          console.error("Manifest JSON parse error:", err);
         }
 
-        const filenames = await response.json();
-        if (!Array.isArray(filenames)) {
-          throw new Error("Manifest is not an array");
-        }
+
+        // const response = await fetch(manifestUrl);
+        // if (!response.ok) {
+        //   throw new Error(`Failed to load manifest. Status: ${response.status}`);
+        // }
+
+        // const filenames = await response.json();
+        // console.log(filenames)
+        // if (!Array.isArray(filenames)) {
+        //   throw new Error("Manifest is not an array");
+        // }
 
         const allImages = filenames.map((fullPath) => {
           let cleanPath = fullPath;
@@ -147,8 +160,8 @@ const VariantGallaryView = () => {
     };
 
     fetchImages();
-    const intervalId = setInterval(fetchImages, 500);
-    return () => clearInterval(intervalId);
+    // const intervalId = setInterval(fetchImages, 500);
+    // return () => clearInterval(intervalId);
   }, [machineInfo.machineName, machineInfo.variantName]);
 
   return (
