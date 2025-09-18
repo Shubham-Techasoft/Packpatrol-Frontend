@@ -197,11 +197,15 @@ function LiveImageFeed({ imageArray }) {
     <Box
       sx={{
         width: "100%",
-        height: 360,
+        // maxWidth: 850,
+        margin: "auto",
+        borderRadius: 7,
+        // boxShadow: currentImage ? 1 : "none",
+        overflow: "hidden",
+        // overflow: "scroll",
         display: "flex",
-        alignItems: "center",
         justifyContent: "center",
-        bgcolor: "#000",
+        alignItems:"center"
       }}
     >
       {imageArray ? (
@@ -209,15 +213,24 @@ function LiveImageFeed({ imageArray }) {
           component="img"
           src={imageArray}
           alt="Live frame"
-          sx={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+          sx={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", height:"50vh" }}
         />
       ) : (
-        <Box sx={{ color: "#aaa", fontSize: 14 }}>
+         <p
+          style={{
+            textAlign: "center",
+            boxShadow: "none !important",
+            fontSize: "1.2rem",
+            fontFamily: "Arial, sans-serif",
+            letterSpacing: "0.1em",
+            wordSpacing: "0.2em",
+          }}
+        >
           There is no live updates yet.......
-        </Box>
+        </p>
       )}
     </Box>
-  );
+   );
 }
 
 export default LiveImageFeed;
