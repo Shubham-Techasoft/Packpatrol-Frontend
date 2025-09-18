@@ -91,7 +91,7 @@ const VariantGallaryView = () => {
     fetchNames();
   }, [machineId, variantId]);
 
-  // Fetch manifest + images
+  // Progressive manifest parsing
   useEffect(() => {
     const fetchImages = async () => {
       try {
@@ -105,49 +105,65 @@ const VariantGallaryView = () => {
         )}/${encodeURIComponent(machineInfo.variantName)}/manifest.json`;
 
         const response = await fetch(manifestUrl);
-        const rawText = await response.text();
+        if (!response.body) throw new Error("No stream in response");
 
-        let filenames;
-        try {
-          filenames = JSON.parse(rawText);
-        } catch (err) {
-          console.error("Manifest JSON parse error:", err);
-          throw new Error("Manifest JSON invalid");
-        }
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
+        let parsedCount = 0;
 
-        const allImages = filenames.map((fullPath) => {
-          let cleanPath = fullPath;
-          const idx = fullPath.indexOf("/public/");
-          if (idx !== -1) {
-            cleanPath = fullPath.substring(idx + 7);
+        // Read manifest stream progressively
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          // Try to parse chunks (rudimentary JSON array parsing)
+          const parts = buffer.split("\n");
+          for (let line of parts.slice(0, -1)) {
+            try {
+              const clean = line.trim().replace(/,$/, "");
+              if (!clean || clean === "[" || clean === "]") continue;
+              const url = JSON.parse(clean); // each line should be a string path
+
+              let cleanPath = url;
+              const idx = url.indexOf("/public/");
+              if (idx !== -1) cleanPath = url.substring(idx + 7);
+
+              // ✅ Check if image actually exists before adding
+              const img = new Image();
+              img.src = cleanPath;
+              img.onload = () => {
+                setImagesList((prev) => [
+                  ...prev,
+                  {
+                    id: cleanPath,
+                    url: cleanPath,
+                    label: cleanPath.split("/").pop(),
+                  },
+                ]);
+              };
+              img.onerror = () => {
+                console.warn("Skipping invalid image path:", cleanPath);
+              };
+
+              parsedCount++;
+              if (parsedCount % 500 === 0) {
+                showSnackbar(`${parsedCount} image paths processed…`, "info");
+              }
+            } catch {
+              // ignore parse errors until complete chunk
+            }
           }
-          return {
-            id: cleanPath,
-            url: cleanPath,
-            label: cleanPath.split("/").pop(),
-          };
-        });
-
-        // Validate image URLs
-        const validateImage = (url) =>
-          new Promise((resolve) => {
-            const img = new Image();
-            img.src = url;
-            img.onload = () => resolve(true);
-            img.onerror = () => resolve(false);
-          });
-
-        const results = await Promise.all(
-          allImages.map((img) => validateImage(img.url))
-        );
-
-        const validImages = allImages.filter((_, i) => results[i]);
-        setImagesList(validImages);
+          buffer = parts[parts.length - 1];
+        }
 
         showSnackbar("Images loaded successfully!", "success");
       } catch (e) {
         console.error("Error fetching images:", e);
-        setError("Failed to load images. Please check the network or the folder path.");
+        setError(
+          "Failed to load images. Please check the network or the folder path."
+        );
         showSnackbar("Failed to load images.", "error");
       } finally {
         setLoading(false);
@@ -157,9 +173,16 @@ const VariantGallaryView = () => {
     fetchImages();
   }, [machineInfo.machineName, machineInfo.variantName]);
 
+
   return (
     <>
-      <AppBar sx={{ background: "linear-gradient(to right, #4b6cb7, #182848)", height:'fit-content' }} position="static" >
+      <AppBar
+        sx={{
+          background: "linear-gradient(to right, #4b6cb7, #182848)",
+          height: "fit-content",
+        }}
+        position="static"
+      >
         <Toolbar sx={{ minHeight: "fit-content !important", padding: "4px 16px" }}>
           <IconButton color="inherit" onClick={() => navigate(-1)}>
             <ArrowBackIcon />
@@ -196,42 +219,49 @@ const VariantGallaryView = () => {
           </Typography>
         )}
 
-        <Grid container spacing={4} maxWidth="xl" sx={{ width: "100%", justifyContent: "start" }}>
+        <Grid
+          container
+          spacing={4}
+          maxWidth="xl"
+          sx={{ width: "100%", justifyContent: "start" }}
+        >
           {!loading &&
             !error &&
             imagesList.map((img) => (
               <Grid item xs={12} sm={6} md={4} lg={3} key={img.id}>
-                  <Card
-                    sx={{
-                      borderRadius: 4,
-                      boxShadow: theme.shadows[2],
-                      transition: "transform 0.2s, box-shadow 0.2s",
-                      cursor: "pointer",
-                      "&:hover": {
-                        transform: "scale(1.05)",
-                        boxShadow: theme.shadows[8],
-                      },
-                    }}
-                    onClick={() => handleOpen(img)}
+                <Card
+                  sx={{
+                    borderRadius: 4,
+                    boxShadow: theme.shadows[2],
+                    transition: "transform 0.2s, box-shadow 0.2s",
+                    cursor: "pointer",
+                    "&:hover": {
+                      transform: "scale(1.05)",
+                      boxShadow: theme.shadows[8],
+                    },
+                  }}
+                  onClick={() => handleOpen(img)}
+                >
+                  <CardMedia
+                    component="img"
+                    height={isSmallScreen ? "150" : "220"}
+                    image={img.url}
+                    alt={img.label}
+                    sx={{ borderTopLeftRadius: 4, borderTopRightRadius: 4 }}
+                  />
+                  <CardContent
+                    sx={{ padding: theme.spacing(2), textAlign: "center" }}
                   >
-                    <CardMedia
-                      component="img"
-                      height={isSmallScreen ? "150" : "220"}
-                      image={img.url}
-                      alt={img.label}
-                      sx={{ borderTopLeftRadius: 4, borderTopRightRadius: 4 }}
-                    />
-                    <CardContent sx={{ padding: theme.spacing(2), textAlign: "center" }}>
-                      <Typography
-                        variant="subtitle1"
-                        fontWeight="bold"
-                        color="textSecondary"
-                        gutterBottom
-                      >
-                        {img.label}
-                      </Typography>
-                    </CardContent>
-                  </Card>
+                    <Typography
+                      variant="subtitle1"
+                      fontWeight="bold"
+                      color="textSecondary"
+                      gutterBottom
+                    >
+                      {img.label}
+                    </Typography>
+                  </CardContent>
+                </Card>
               </Grid>
             ))}
         </Grid>
@@ -265,7 +295,11 @@ const VariantGallaryView = () => {
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: "100%" }}>
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>
