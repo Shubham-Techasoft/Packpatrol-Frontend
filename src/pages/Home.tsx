@@ -35,28 +35,28 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   boxShadow: theme.shadows[3],
 }));
 
-const sampleImagesUrl= [
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_1.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_2.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_3.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_4.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_5.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_6.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_7.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_8.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_9.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_10.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_11.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_12.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_13.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_14.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_15.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_16.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_17.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_18.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_19.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_20.bmp"
-]
+// const sampleImagesUrl= [
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_1.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_2.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_3.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_4.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_5.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_6.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_7.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_8.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_9.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_10.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_11.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_12.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_13.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_14.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_15.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_16.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_17.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_18.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_19.bmp",
+//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_20.bmp"
+// ]
 
 // live updates messages
 const logMessages = [
@@ -576,14 +576,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         if (data.image_path) {
           // remove query params/extras after ?
           console.log("Raw Path:",data.image_path)
-          
-          // code for random sample iamge test on my pc-----------------------------
-          const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
-          const randomImage = sampleImagesUrl[randomIndex];
-          let basePath = randomImage.split("?")[0];
-          //-------------------------------------------------------------------------
 
-          // let basePath = data.image_path.split("?")[0];
+          let basePath = data.image_path.split("?")[0];
 
           // normalize backslashes to forward slashes
           basePath = basePath.replace(/\\/g, "/");

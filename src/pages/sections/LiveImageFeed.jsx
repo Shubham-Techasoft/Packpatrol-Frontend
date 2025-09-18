@@ -193,6 +193,7 @@
 import { Box } from "@mui/material";
 
 function LiveImageFeed({ imageArray }) {
+  console.log(imageArray)
   return (
     <Box
       sx={{

@@ -53,28 +53,28 @@ import ScrollToTopButton from "./sections/about/ScrollToTop";
 import { useMachineSelection } from "../MachineSelectionContext";
 import LiveImageFeed from "./sections/LiveImageFeed";
 
-// const sampleImagesUrl= [
-//     "/Pune-Line-1-Machine6/Goodday/dummy_1.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_2.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_3.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_4.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_5.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_6.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_7.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_8.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_9.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_10.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_11.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_12.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_13.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_14.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_15.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_16.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_17.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_18.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_19.bmp",
-//     "/Pune-Line-1-Machine6/Goodday/dummy_20.bmp"
-// ]
+const sampleImagesUrl= [
+    "/Pune-Line-1-Machine6/Goodday/dummy_1.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_2.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_3.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_4.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_5.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_6.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_7.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_8.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_9.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_10.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_11.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_12.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_13.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_14.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_15.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_16.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_17.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_18.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_19.bmp",
+    "/Pune-Line-1-Machine6/Goodday/dummy_20.bmp"
+]
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -177,6 +177,10 @@ export default function Dashboard() {
   const [isStarting, setIsStarting] = React.useState(false);
   const [isStopping, setIsStopping] = React.useState(false);
   const [imageUrl, setImageUrl] = React.useState("");
+  
+  // 1) Add state/refs near other state
+  const frameQueueRef = React.useRef([]); // holds fully-loaded frame srcs
+  const [displaySrc, setDisplaySrc] = React.useState(null); // current frame shown
 
   //TOP CARDS
   const [machineStatus, setMachineStatus] = React.useState({
@@ -264,6 +268,35 @@ export default function Dashboard() {
     }
   };
 
+  const enqueuePreload = React.useCallback((relativePath) => {
+    if (!relativePath) return;
+    const src = `${relativePath.startsWith("/") ? "" : "/"}${relativePath}?ts=${Date.now()}`;
+    const img = new Image();
+    img.decoding = "async";
+    img.loading = "eager";
+    img.onload = () => {
+      frameQueueRef.current.push(src);
+    };
+    img.onerror = () => {
+      // skip bad frame
+    };
+    img.src = src;
+  }, []);
+
+  // Simple player loop
+  React.useEffect(() => {
+    const id = setInterval(() => {
+      const q = frameQueueRef.current;
+      if (q.length > 3) {
+        // drop backlog to avoid lag
+        frameQueueRef.current = q.slice(-1);
+      }
+      const next = frameQueueRef.current.shift();
+      if (next) setDisplaySrc(next);
+    }, 100);
+    return () => clearInterval(id);
+  }, []);
+
   React.useEffect(() => {
     if (!selectedMachineId || selectedMachineId === "all") return;
 
@@ -280,18 +313,10 @@ export default function Dashboard() {
           let basePath = data.image_path.split("?")[0];
           basePath = basePath.replace(/\\/g, "/");
           const idx = basePath.indexOf("/public/");
-          const cleanPath = idx !== -1 ? basePath.substring(idx + 7) : basePath.replace(/^\/+/, "");
+          const cleanPath = idx !== -1 ? basePath.substring(idx + 7) : "";
 
           //FOR REAL IMAGE CHANGES
-          setImageUrl(cleanPath);
-
-          // //FOR DUMMY IMAGES
-          // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
-          // const randomImage = sampleImagesUrl[randomIndex];
-
-          // setImageUrl((prev) => (prev === randomImage ? prev : randomImage));
-          // latestDataRef.current.image_path = randomImage;
-          // //----------- DUMMY ENDS
+          enqueuePreload(cleanPath);
 
         }
       } catch (err) {
@@ -1081,7 +1106,7 @@ export default function Dashboard() {
             <Typography variant="h6" gutterBottom>
               Live Camera Feed
             </Typography>
-            <LiveImageFeed imageArray={imageUrl}/>
+            <LiveImageFeed imageArray={displaySrc}/>
           </StyledPaper>
         </Grid>
       </Grid>
