@@ -9,38 +9,63 @@ import {
   CardMedia,
   CardContent,
   IconButton,
+  useMediaQuery,
+  useTheme,
+  Dialog,
+  DialogContent,
   CircularProgress,
   Alert,
-  Snackbar,   // ✅ add Snackbar
+  Snackbar,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useNavigate, useParams } from "react-router-dom";
 
 const VariantGallaryView = () => {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const { machineId, variantId } = useParams();
 
   const [imagesList, setImagesList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   const [open, setOpen] = useState(false);
   const [currentImage, setCurrentImage] = useState(null);
 
-  const [machineInfo, setMachineInfo] = useState({ machineName: "", variantName: "" });
+  const [machineInfo, setMachineInfo] = useState({
+    machineName: "",
+    variantName: "",
+  });
 
-  // ✅ Snackbar state
-  const [toastOpen, setToastOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
+  // Snackbar states
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "info",
+  });
 
-  const handleToastClose = () => setToastOpen(false);
+  const showSnackbar = (message, severity = "info") => {
+    setSnackbar({ open: true, message, severity });
+  };
 
+  const handleCloseSnackbar = () => {
+    setSnackbar((prev) => ({ ...prev, open: false }));
+  };
+
+  const handleOpen = (img) => {
+    setCurrentImage(img);
+    setOpen(true);
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    setCurrentImage(null);
+  };
+
+  // Fetch machine + variant names
   useEffect(() => {
     const fetchNames = async () => {
       try {
-        setToastMessage("Fetching machine and variant details...");
-        setToastOpen(true);
-
         const [machineRes, variantRes] = await Promise.all([
           fetch(`http://127.0.0.1:8000/api/machines/${machineId}/`),
           fetch(`http://127.0.0.1:8000/api/machinevariants/${variantId}/`),
@@ -57,30 +82,27 @@ const VariantGallaryView = () => {
           machineName: machineData.name || machineData.machine_name,
           variantName: variantData.name || variantData.variant_name,
         });
-
-        setToastMessage("Machine and variant details loaded ✅");
       } catch (err) {
         console.error("Error fetching machine/variant info:", err);
         setError("Failed to load machine/variant info.");
-        setToastMessage("❌ Failed to load machine/variant info.");
-      } finally {
-        setToastOpen(false); // close toast after process
       }
     };
 
     fetchNames();
   }, [machineId, variantId]);
 
+  // Fetch manifest + images
   useEffect(() => {
     const fetchImages = async () => {
       try {
         setError(null);
-        setToastMessage("Fetching images...");
-        setToastOpen(true);
-
         if (!machineInfo.machineName || !machineInfo.variantName) return;
 
-        const manifestUrl = `/${encodeURIComponent(machineInfo.machineName)}/${encodeURIComponent(machineInfo.variantName)}/manifest.json`;
+        showSnackbar("Fetching images, please wait…", "info");
+
+        const manifestUrl = `/${encodeURIComponent(
+          machineInfo.machineName
+        )}/${encodeURIComponent(machineInfo.variantName)}/manifest.json`;
 
         const response = await fetch(manifestUrl);
         const rawText = await response.text();
@@ -90,13 +112,15 @@ const VariantGallaryView = () => {
           filenames = JSON.parse(rawText);
         } catch (err) {
           console.error("Manifest JSON parse error:", err);
+          throw new Error("Manifest JSON invalid");
         }
 
         const allImages = filenames.map((fullPath) => {
           let cleanPath = fullPath;
           const idx = fullPath.indexOf("/public/");
-          if (idx !== -1) cleanPath = fullPath.substring(idx + 7);
-
+          if (idx !== -1) {
+            cleanPath = fullPath.substring(idx + 7);
+          }
           return {
             id: cleanPath,
             url: cleanPath,
@@ -104,6 +128,7 @@ const VariantGallaryView = () => {
           };
         });
 
+        // Validate image URLs
         const validateImage = (url) =>
           new Promise((resolve) => {
             const img = new Image();
@@ -112,18 +137,20 @@ const VariantGallaryView = () => {
             img.onerror = () => resolve(false);
           });
 
-        const results = await Promise.all(allImages.map((img) => validateImage(img.url)));
-        const validImages = allImages.filter((_, i) => results[i]);
+        const results = await Promise.all(
+          allImages.map((img) => validateImage(img.url))
+        );
 
+        const validImages = allImages.filter((_, i) => results[i]);
         setImagesList(validImages);
-        setToastMessage("Images loaded ✅");
+
+        showSnackbar("Images loaded successfully!", "success");
       } catch (e) {
         console.error("Error fetching images:", e);
         setError("Failed to load images. Please check the network or the folder path.");
-        setToastMessage("❌ Failed to load images.");
+        showSnackbar("Failed to load images.", "error");
       } finally {
         setLoading(false);
-        setToastOpen(false); // close toast when finished
       }
     };
 
@@ -233,17 +260,13 @@ const VariantGallaryView = () => {
         </DialogContent>
       </Dialog>
       <Snackbar
-        open={toastOpen}
+        open={snackbar.open}
         autoHideDuration={3000}
-        onClose={handleToastClose}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
-        <Alert
-          onClose={handleToastClose}
-          severity={error ? "error" : "info"}
-          sx={{ width: "100%" }}
-        >
-          {toastMessage}
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: "100%" }}>
+          {snackbar.message}
         </Alert>
       </Snackbar>
     </>
