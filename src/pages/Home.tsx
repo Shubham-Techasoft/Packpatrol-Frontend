@@ -176,32 +176,51 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
   const enqueuePreload = React.useCallback((relativePath: string) => {
     if (!relativePath) return;
-    const src = `${relativePath.startsWith("/") ? "" : "/"}${relativePath}?ts=${Date.now()}`;
+    
+    const src = `${relativePath.startsWith("/") ? "" : "/"}${relativePath}`;
     const img = new Image();
-    img.decoding = "async";
-    img.loading = "eager";
+    
     img.onload = () => {
       frameQueueRef.current.push(src);
+      // Clean up the Image object reference
+      img.onload = null;
+      img.onerror = null;
     };
+    
     img.onerror = () => {
-      // skip bad frame
+      // Clean up on error too
+      img.onload = null;
+      img.onerror = null;
     };
+    
     img.src = src;
   }, []);
+
 
   // Simple player loop
   React.useEffect(() => {
     const id = setInterval(() => {
       const q = frameQueueRef.current;
-      if (q.length > 3) {
-        // drop backlog to avoid lag
-        frameQueueRef.current = q.slice(-1);
+      
+      // More aggressive cleanup - keep only latest frame
+      if (q.length > 1) {
+        frameQueueRef.current = [q[q.length - 1]];
       }
+      
       const next = frameQueueRef.current.shift();
       if (next) setDisplaySrc(next);
     }, 100);
+    
     return () => clearInterval(id);
   }, []);
+  // NEW: unmount cleanup
+  React.useEffect(() => {
+    return () => {
+      frameQueueRef.current = [];
+      setDisplaySrc(null);
+    };
+  }, []);
+
 
   React.useEffect(() => {
     if (appliedLog && machines.length > 0) {
