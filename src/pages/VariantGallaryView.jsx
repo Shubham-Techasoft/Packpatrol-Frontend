@@ -16,9 +16,12 @@ import {
   CircularProgress,
   Alert,
   Snackbar,
+  Pagination, // <-- Add Pagination
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useNavigate, useParams } from "react-router-dom";
+
+const IMAGES_PER_PAGE = 20;
 
 const VariantGallaryView = () => {
   const navigate = useNavigate();
@@ -36,6 +39,9 @@ const VariantGallaryView = () => {
     machineName: "",
     variantName: "",
   });
+
+  // Pagination state
+  const [page, setPage] = useState(1);
 
   // Snackbar states
   const [snackbar, setSnackbar] = useState({
@@ -91,11 +97,13 @@ const VariantGallaryView = () => {
     fetchNames();
   }, [machineId, variantId]);
 
-  // Progressive manifest parsing
+  // Progressive manifest parsing with batch loading and no global error on image fail
   useEffect(() => {
     const fetchImages = async () => {
       try {
         setError(null);
+        setImagesList([]); // Clear previous images only on new manifest load
+        setPage(1);
         if (!machineInfo.machineName || !machineInfo.variantName) return;
 
         showSnackbar("Fetching images, please wait…", "info");
@@ -111,6 +119,7 @@ const VariantGallaryView = () => {
         const decoder = new TextDecoder("utf-8");
         let buffer = "";
         let parsedCount = 0;
+        let batch = [];
 
         // Read manifest stream progressively
         while (true) {
@@ -130,32 +139,60 @@ const VariantGallaryView = () => {
               const idx = url.indexOf("/public/");
               if (idx !== -1) cleanPath = url.substring(idx + 7);
 
-              // ✅ Check if image actually exists before adding
-              const img = new Image();
-              img.src = cleanPath;
-              img.onload = () => {
-                setImagesList((prev) => [
-                  ...prev,
-                  {
-                    id: cleanPath,
-                    url: cleanPath,
-                    label: cleanPath.split("/").pop(),
-                  },
-                ]);
-              };
-              img.onerror = () => {
-                console.warn("Skipping invalid image path:", cleanPath);
-              };
+              // Batch images for pagination
+              batch.push({
+                id: cleanPath,
+                url: cleanPath,
+                label: cleanPath.split("/").pop(),
+              });
 
               parsedCount++;
               if (parsedCount % 500 === 0) {
                 showSnackbar(`${parsedCount} image paths processed…`, "info");
+              }
+
+              // When batch reaches IMAGES_PER_PAGE, check existence and add valid ones
+              if (batch.length === IMAGES_PER_PAGE) {
+                await Promise.all(
+                  batch.map(
+                    (img) =>
+                      new Promise((resolve) => {
+                        const testImg = new window.Image();
+                        testImg.src = img.url;
+                        testImg.onload = () => resolve(img);
+                        testImg.onerror = () => resolve(null);
+                      })
+                  )
+                ).then((results) => {
+                  setImagesList((prev) => [
+                    ...prev,
+                    ...results.filter(Boolean),
+                  ]);
+                });
+                batch = [];
               }
             } catch {
               // ignore parse errors until complete chunk
             }
           }
           buffer = parts[parts.length - 1];
+        }
+
+        // Process any remaining images in the last batch
+        if (batch.length > 0) {
+          await Promise.all(
+            batch.map(
+              (img) =>
+                new Promise((resolve) => {
+                  const testImg = new window.Image();
+                  testImg.src = img.url;
+                  testImg.onload = () => resolve(img);
+                  testImg.onerror = () => resolve(null);
+                })
+            )
+          ).then((results) => {
+            setImagesList((prev) => [...prev, ...results.filter(Boolean)]);
+          });
         }
 
         showSnackbar("Images loaded successfully!", "success");
@@ -173,6 +210,12 @@ const VariantGallaryView = () => {
     fetchImages();
   }, [machineInfo.machineName, machineInfo.variantName]);
 
+  // Pagination logic
+  const pageCount = Math.ceil(imagesList.length / IMAGES_PER_PAGE);
+  const paginatedImages = imagesList.slice(
+    (page - 1) * IMAGES_PER_PAGE,
+    page * IMAGES_PER_PAGE
+  );
 
   return (
     <>
@@ -227,7 +270,7 @@ const VariantGallaryView = () => {
         >
           {!loading &&
             !error &&
-            imagesList.map((img) => (
+            paginatedImages.map((img) => (
               <Grid item xs={12} sm={6} md={4} lg={3} key={img.id}>
                 <Card
                   sx={{
@@ -265,6 +308,20 @@ const VariantGallaryView = () => {
               </Grid>
             ))}
         </Grid>
+        {/* Pagination controls */}
+        {!loading && !error && imagesList.length > IMAGES_PER_PAGE && (
+          <Box sx={{ mt: 4 }}>
+            <Pagination
+              count={pageCount}
+              page={page}
+              onChange={(_, value) => setPage(value)}
+              color="primary"
+              shape="rounded"
+              showFirstButton
+              showLastButton
+            />
+          </Box>
+        )}
       </Box>
 
       <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
