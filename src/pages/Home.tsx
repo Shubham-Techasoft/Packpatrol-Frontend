@@ -642,9 +642,9 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           basePath = data.image_path.split("?")[0];
           
           // // code for random sample iamge test on my pc-----------------------------
-          const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
-          const randomImage = sampleImagesUrl[randomIndex];
-          basePath = randomImage.split("?")[0];
+          // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
+          // const randomImage = sampleImagesUrl[randomIndex];
+          // basePath = randomImage.split("?")[0];
           // //-------------------------------------------------------------------------
 
           // normalize backslashes to forward slashes
