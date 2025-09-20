@@ -7,9 +7,10 @@ export default defineConfig({
   assetsInclude: ['**/*.PNG', '**/*.png', '**/*.jpg', '**/*.jpeg', '**/*.bmp', '**/*.json'],
   server: {
     watch: {
-      // chokidar’s "ignored" glob(s)
       ignored: [
-        '**/public/**.jpeg','**/public/**.jpg','**/public/**.png'
+        '**/public/**/*.jpeg',
+        '**/public/**/*.jpg',
+        '**/public/**/*.png'
       ],
     },
     fs: {
