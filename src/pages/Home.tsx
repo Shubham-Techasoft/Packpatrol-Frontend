@@ -35,28 +35,28 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   boxShadow: theme.shadows[3],
 }));
 
-// const sampleImagesUrl= [
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_1.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_2.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_3.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_4.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_5.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_6.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_7.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_8.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_9.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_10.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_11.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_12.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_13.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_14.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_15.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_16.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_17.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_18.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_19.bmp",
-//     "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_20.bmp"
-// ]
+const sampleImagesUrl= [
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_1.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_2.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_3.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_4.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_5.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_6.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_7.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_8.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_9.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_10.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_11.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_12.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_13.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_14.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_15.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_16.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_17.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_18.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_19.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_20.bmp"
+]
 
 // live updates messages
 const logMessages = [
@@ -174,26 +174,66 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   );
   const [isLoadingVariants, setIsLoadingVariants] = React.useState(false);
 
+  // Limit concurrent loads
+  const MAX_CONCURRENT_LOADS = 3;
+  const inFlightCountRef = React.useRef(0);
+
   const enqueuePreload = React.useCallback((relativePath: string) => {
     if (!relativePath) return;
-    
-    const src = `${relativePath.startsWith("/") ? "" : "/"}${relativePath}`;
-    const img = new Image();
-    
-    img.onload = () => {
-      frameQueueRef.current.push(src);
-      // Clean up the Image object reference
-      img.onload = null;
-      img.onerror = null;
+
+    const src = relativePath.startsWith("/") ? relativePath : `/${relativePath}`;
+    const cacheBusted = `${src}?t=${Date.now()}`; // avoid caching
+
+    // If too many requests already in-flight, skip this one
+    if (inFlightCountRef.current >= MAX_CONCURRENT_LOADS) {
+      console.warn("⚠️ Skipping frame: too many images loading in parallel");
+      return;
+    }
+
+    inFlightCountRef.current++;
+
+    const loadImage = (url: string) => {
+      return new Promise<string>((resolve, reject) => {
+        const img = new Image();
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+        const cleanup = () => {
+          if (timeoutId) clearTimeout(timeoutId);
+          img.onload = null;
+          img.onerror = null;
+        };
+
+        img.onload = () => {
+          cleanup();
+          resolve(url);
+        };
+
+        img.onerror = () => {
+          cleanup();
+          reject(new Error("Image failed to load"));
+        };
+
+        img.src = url;
+
+        // Timeout guard
+        timeoutId = setTimeout(() => {
+          cleanup();
+          reject(new Error("Image load timeout (5s)"));
+        }, 5000);
+      });
     };
-    
-    img.onerror = () => {
-      // Clean up on error too
-      img.onload = null;
-      img.onerror = null;
-    };
-    
-    img.src = src;
+
+    loadImage(cacheBusted)
+      .then((loadedUrl) => {
+        frameQueueRef.current.push(loadedUrl);
+      })
+      .catch((err) => {
+        console.warn("⚠️ Dropping frame:", cacheBusted, err.message);
+      })
+      .finally(() => {
+        inFlightCountRef.current--;
+      });
+
   }, []);
 
 
@@ -522,7 +562,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           // Normalize slashes for URL use
           const normalizedPath = data.base_dir_path.replace(/\\/g, "/");
           setBaseDirPath(normalizedPath);
-        }``
+        }
       })
       .catch((err) => console.error("❌ Error fetching base dir path:", err));
   }, [selectedMachine]);
@@ -589,6 +629,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         const data = JSON.parse(event.data);
         console.log(`📨 SSE message #${messageCountRef.current}:`, data);
         
+        
         // --- Cleaning image path ---
         let cleanImagePath = "";
         
@@ -596,7 +637,15 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           // remove query params/extras after ?
           console.log("Raw Path:",data.image_path)
 
-          let basePath = data.image_path.split("?")[0];
+          let basePath = "";
+          
+          basePath = data.image_path.split("?")[0];
+          
+          // // code for random sample iamge test on my pc-----------------------------
+          const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
+          const randomImage = sampleImagesUrl[randomIndex];
+          basePath = randomImage.split("?")[0];
+          // //-------------------------------------------------------------------------
 
           // normalize backslashes to forward slashes
           basePath = basePath.replace(/\\/g, "/");
