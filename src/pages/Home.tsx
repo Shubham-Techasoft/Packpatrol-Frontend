@@ -174,68 +174,6 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   );
   const [isLoadingVariants, setIsLoadingVariants] = React.useState(false);
 
-  // Limit concurrent loads
-  const MAX_CONCURRENT_LOADS = 3;
-  const inFlightCountRef = React.useRef(0);
-
-  const enqueuePreload = React.useCallback((relativePath: string) => {
-    if (!relativePath) return;
-
-    const src = relativePath.startsWith("/") ? relativePath : `/${relativePath}`;
-    const cacheBusted = `${src}?t=${Date.now()}`; // avoid caching
-
-    // If too many requests already in-flight, skip this one
-    if (inFlightCountRef.current >= MAX_CONCURRENT_LOADS) {
-      console.warn("⚠️ Skipping frame: too many images loading in parallel");
-      return;
-    }
-
-    inFlightCountRef.current++;
-
-    const loadImage = (url: string) => {
-      return new Promise<string>((resolve, reject) => {
-        const img = new Image();
-        let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-        const cleanup = () => {
-          if (timeoutId) clearTimeout(timeoutId);
-          img.onload = null;
-          img.onerror = null;
-        };
-
-        img.onload = () => {
-          cleanup();
-          resolve(url);
-        };
-
-        img.onerror = () => {
-          cleanup();
-          reject(new Error("Image failed to load"));
-        };
-
-        img.src = url;
-
-        // Timeout guard
-        timeoutId = setTimeout(() => {
-          cleanup();
-          reject(new Error("Image load timeout (5s)"));
-        }, 5000);
-      });
-    };
-
-    loadImage(cacheBusted)
-      .then((loadedUrl) => {
-        frameQueueRef.current.push(loadedUrl);
-      })
-      .catch((err) => {
-        console.warn("⚠️ Dropping frame:", cacheBusted, err.message);
-      })
-      .finally(() => {
-        inFlightCountRef.current--;
-      });
-
-  }, []);
-
 
   // Simple player loop
   React.useEffect(() => {
@@ -645,7 +583,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
           // const randomImage = sampleImagesUrl[randomIndex];
           // basePath = randomImage.split("?")[0];
-          // //-------------------------------------------------------------------------
+          //-------------------------------------------------------------------------
 
           // normalize backslashes to forward slashes
           basePath = basePath.replace(/\\/g, "/");
@@ -656,7 +594,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
             cleanImagePath = basePath.substring(idx + 7); // after "/public"
           } else {
             // if no /public, just strip any leading slash for consistency
-            cleanImagePath = "";
+            cleanImagePath = basePath;
           }
         }
         console.log("CleanedPath: ", cleanImagePath)
@@ -688,7 +626,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
         // sse image
         if (cleanImagePath) {
-          enqueuePreload(cleanImagePath);
+          // enqueuePreload(cleanImagePath);
+          setDisplaySrc(cleanImagePath)
           latestDataRef.current.image_path = cleanImagePath;
         }
 
@@ -1039,7 +978,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
             {/* Image section */}
 
-            <LiveImageFeed imageArray={displaySrc} />
+            <LiveImageFeed imagePath={displaySrc} />
             
           </StyledPaper>
         </Grid>

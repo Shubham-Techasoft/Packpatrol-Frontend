@@ -1,149 +1,8 @@
-// import { useEffect, useRef, useState } from "react";
+
 // import { Box } from "@mui/material";
 
-// function LiveImageFeed({ imageArray }) {
-//   console.log("imagePathRecieved:", imageArray)
-
-//   // //Working but slow refresh
-//   // const [currentImage, setCurrentImage] = useState(null);
-
-//   // useEffect(() => {
-//   //   if (!imageArray) return;
-
-//   //   // Preload image
-//   //   const img = new Image();
-//   //   img.src = imageArray;
-
-//   //   img.onload = () => {
-//   //     setCurrentImage(imageArray); // Only set when loaded
-//   //   };
-//   // }, [imageArray]);
-
-
-
-//   // ----------- new experimental code--------------------- with queue [delay to live video issue]
-//   // const [currentImage, setCurrentImage] = useState(null);
-
-//   // console.log("Current Processing image path:", imageArray)
-//   // console.log("current Processed image path:", currentImage)
-
-//   // // Queue for loaded images
-//   // const queueRef = useRef({});
-//   // const nextFrameId = useRef(0);
-//   // const frameCounter = useRef(0);
-
-//   // // Preload whenever new path arrives
-//   // useEffect(() => {
-//   //   if (!imageArray) return;
-
-//   //   const id = frameCounter.current++;
-//   //   const img = new Image();
-//   //   img.src = `${imageArray}?ts=${Date.now()}`; // cache-bust
-
-//   //   img.onload = () => {
-//   //     queueRef.current[id] = img.src; // store by frame id
-//   //   };
-//   // }, [imageArray]);
-  
-//   // // Playback loop: shows frames in order
-//   // useEffect(() => {
-//   //   const player = setInterval(() => {
-//   //     const id = nextFrameId.current;
-//   //     if (queueRef.current[id]) {
-//   //       setCurrentImage(queueRef.current[id]);
-//   //       delete queueRef.current[id];
-//   //       nextFrameId.current++;
-//   //     }
-//   //   }, 500); // ~10fps
-
-//   //   return () => clearInterval(player);
-//   // }, []);
-  
-  
-//   // ----------- new experimental code--------------------- without queue
-//   // const [currentImage, setCurrentImage] = useState(null);
-
-//   // useEffect(() => {
-//   //   if (!imageArray) return;
-
-//   //   // Preload image to avoid flicker
-//   //   const img = new Image();
-//   //   img.src = `${imageArray}?ts=${Date.now()}`; // cache-bust each frame
-
-//   //   img.onload = () => {
-//   //     setCurrentImage(img.src); // set immediately when loaded
-//   //   };
-
-//   //   return () => {
-//   //     img.onload = null; // cleanup
-//   //   };
-//   // }, [imageArray]);
-
-
-
-//   // latest updated with queue with no delay
-//   const [currentImage, setCurrentImage] = useState(null);
-//   console.log("currentImage Path:", currentImage)
-
-//   const queueRef = useRef({});
-//   const nextFrameId = useRef(0);
-//   const frameCounter = useRef(0);
-
-//   // Preload whenever new path arrives
-//   useEffect(() => {
-//     if (!imageArray) return;
-
-//     const id = frameCounter.current++;
-//     const img = new Image();
-//     img.src = `${imageArray}?ts=${Date.now()}`; // cache-bust
-
-//     img.onload = () => {
-//       queueRef.current[id] = img.src;
-//       setCurrentImage(img.src);
-//     };
-//   }, [imageArray]);
-
-//   // Playback loop
-//   useEffect(() => {
-//     const player = setInterval(() => {
-//       const id = nextFrameId.current;
-//       if (queueRef.current[id]) {
-//         console.log("adding image to current:", queueRef.current[id])
-//         setCurrentImage(queueRef.current[id]);
-//         delete queueRef.current[id];
-//         nextFrameId.current++;
-//       }
-//     }, 100);
-
-//     return () => clearInterval(player);
-//   }, []);
-
-//   // Handle tab visibility / focus
-//   useEffect(() => {
-//     const handleVisibility = () => {
-//       if (!document.hidden) {
-//         // Tab became active again
-//         const allIds = Object.keys(queueRef.current).map(Number);
-//         if (allIds.length > 2) {
-//           const latestId = Math.max(...allIds);
-//           // Keep only latest frame
-//           const latestFrame = queueRef.current[latestId];
-//           queueRef.current = { [latestId]: latestFrame };
-//           nextFrameId.current = latestId;
-//         }
-//       }
-//     };
-
-//     document.addEventListener("visibilitychange", handleVisibility);
-//     window.addEventListener("focus", handleVisibility);
-
-//     return () => {
-//       document.removeEventListener("visibilitychange", handleVisibility);
-//       window.removeEventListener("focus", handleVisibility);
-//     };
-//   }, []);
-
-
+// function LiveImageFeed({ imagePath }) {
+//   console.log(imagePath)
 //   return (
 //     <Box
 //       sx={{
@@ -154,24 +13,20 @@
 //         // boxShadow: currentImage ? 1 : "none",
 //         overflow: "hidden",
 //         // overflow: "scroll",
-//         paddingY: 0.9,
-//         paddingX: 0.5,
+//         display: "flex",
+//         justifyContent: "center",
+//         alignItems:"center"
 //       }}
 //     >
-//       {currentImage !== null ? (
-//         <img
-//           key={currentImage}
-//           src={currentImage}
-//           alt="Live Feed"
-//           style={{
-//             width: "100%",
-//             height: "100%",
-//             objectFit: "cover",
-//             display: "block",
-//           }}
+//       {imagePath ? (
+//         <Box
+//           component="img"
+//           src={imagePath}
+//           alt="Live frame"
+//           sx={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", height:"50vh" }}
 //         />
 //       ) : (
-//         <p
+//          <p
 //           style={{
 //             textAlign: "center",
 //             boxShadow: "none !important",
@@ -185,53 +40,124 @@
 //         </p>
 //       )}
 //     </Box>
-//   );
+//    );
 // }
 
 // export default LiveImageFeed;
 
+import { useEffect, useRef, useState } from "react";
 import { Box } from "@mui/material";
 
-function LiveImageFeed({ imageArray }) {
-  console.log(imageArray)
+function LiveImageFeed({ imagePath }) {
+  const [currentImage, setCurrentImage] = useState(null);
+  const queueRef = useRef([]);
+  const inFlightCountRef = useRef(0);
+  const MAX_CONCURRENT_LOADS = 3;
+
+  // Parallel image preloader (like enqueuePreload)
+  const preloadImage = (url) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      let timeoutId = null;
+
+      const cleanup = () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        img.onload = null;
+        img.onerror = null;
+      };
+
+      img.onload = () => {
+        cleanup();
+        resolve(url);
+      };
+      img.onerror = () => {
+        cleanup();
+        reject(new Error("Image failed to load"));
+      };
+
+      img.src = `${url}?t=${Date.now()}`; // cache-bust
+      timeoutId = setTimeout(() => {
+        cleanup();
+        reject(new Error("Image load timeout (5s)"));
+      }, 5000);
+    });
+  };
+
+  // Whenever new path arrives, enqueue it
+  useEffect(() => {
+    if (!imagePath) return;
+
+    if (inFlightCountRef.current >= MAX_CONCURRENT_LOADS) {
+      console.warn("⚠️ Too many parallel loads, skipping frame:", imagePath);
+      return;
+    }
+
+    inFlightCountRef.current++;
+
+    preloadImage(imagePath)
+      .then((loadedUrl) => {
+        queueRef.current.push(loadedUrl);
+      })
+      .catch((err) => {
+        console.warn("⚠️ Dropping frame:", imagePath, err.message);
+      })
+      .finally(() => {
+        inFlightCountRef.current--;
+      });
+  }, [imagePath]);
+
+  // Playback loop
+  useEffect(() => {
+    const id = setInterval(() => {
+      const q = queueRef.current;
+
+      // Only keep the latest frame if multiple are waiting
+      if (q.length > 1) {
+        queueRef.current = [q[q.length - 1]];
+      }
+
+      const next = queueRef.current.shift();
+      if (next) setCurrentImage(next);
+    }, 100);
+
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <Box
       sx={{
         width: "100%",
-        // maxWidth: 850,
         margin: "auto",
         borderRadius: 7,
-        // boxShadow: currentImage ? 1 : "none",
         overflow: "hidden",
-        // overflow: "scroll",
         display: "flex",
         justifyContent: "center",
-        alignItems:"center"
+        alignItems: "center",
+        height: "50vh",
       }}
     >
-      {imageArray ? (
+      {currentImage ? (
         <Box
           component="img"
-          src={imageArray}
+          src={currentImage}
           alt="Live frame"
-          sx={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", height:"50vh" }}
+          sx={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
         />
       ) : (
-         <p
+        <p
           style={{
             textAlign: "center",
-            boxShadow: "none !important",
             fontSize: "1.2rem",
             fontFamily: "Arial, sans-serif",
             letterSpacing: "0.1em",
             wordSpacing: "0.2em",
           }}
         >
-          There is no live updates yet.......
+          There is no live updates yet...
         </p>
       )}
     </Box>
-   );
+  );
 }
 
 export default LiveImageFeed;
