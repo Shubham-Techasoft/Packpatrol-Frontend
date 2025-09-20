@@ -49,6 +49,7 @@ import { useEffect, useRef, useState } from "react";
 import { Box } from "@mui/material";
 
 function LiveImageFeed({ imagePath }) {
+  console.log("Path Received in playback:", imagePath);
   const [currentImage, setCurrentImage] = useState(null);
   const queueRef = useRef([]);
   const inFlightCountRef = useRef(0);
@@ -141,7 +142,7 @@ function LiveImageFeed({ imagePath }) {
           component="img"
           src={currentImage}
           alt="Live frame"
-          sx={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+          sx={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", height:"100%"}}
         />
       ) : (
         <p
