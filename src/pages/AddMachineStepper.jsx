@@ -366,10 +366,20 @@ const AddMachineStepper = ({
       });
 
       if (!camRes.ok) {
-        const errText = await camRes.text();
-        console.error("❌ Camera creation failed. Response:", errText);
-        alert("❌ Camera creation failed: " + errText);
-        return;
+          // Log the response object before the body is read
+          console.log(camRes);
+          const errText = await camRes.text();
+          try {
+              // Attempt to parse the text as JSON
+              const errObj = JSON.parse(errText);
+              console.error("❌ Camera creation failed. Response:", errObj.serial_number[0]);
+              alert("❌ Camera creation failed: " + JSON.stringify(errObj.serial_number[0], null, 2)); // Use stringify for a readable alert
+          } catch (e) {
+              // If parsing fails, it's not a valid JSON string. Log the raw text.
+              console.error("❌ Camera creation failed. Response (not JSON):", errText);
+              alert("❌ Camera creation failed: " + errText);
+          }
+          return;
       }
 
       const camData = await camRes.json();

@@ -176,12 +176,7 @@ export default function Dashboard() {
   const [performanceStats, setPerformanceStats] = React.useState(null);
   const [isStarting, setIsStarting] = React.useState(false);
   const [isStopping, setIsStopping] = React.useState(false);
-  const [imageUrl, setImageUrl] = React.useState("");
   const [realtimeData, setRealtimeData] = useState(null);
-  
-  // 1) Add state/refs near other state
-  const frameQueueRef = React.useRef([]); // holds fully-loaded frame srcs
-  const [displaySrc, setDisplaySrc] = React.useState(null); // current frame shown
 
   //TOP CARDS
   const [machineStatus, setMachineStatus] = React.useState({
@@ -269,34 +264,6 @@ export default function Dashboard() {
     }
   };
 
-  const enqueuePreload = React.useCallback((relativePath) => {
-    if (!relativePath) return;
-    const src = `${relativePath.startsWith("/") ? "" : "/"}${relativePath}?ts=${Date.now()}`;
-    const img = new Image();
-    img.decoding = "async";
-    img.loading = "eager";
-    img.onload = () => {
-      frameQueueRef.current.push(src);
-    };
-    img.onerror = () => {
-      // skip bad frame
-    };
-    img.src = src;
-  }, []);
-
-  // Simple player loop
-  React.useEffect(() => {
-    const id = setInterval(() => {
-      const q = frameQueueRef.current;
-      if (q.length > 3) {
-        // drop backlog to avoid lag
-        frameQueueRef.current = q.slice(-1);
-      }
-      const next = frameQueueRef.current.shift();
-      if (next) setDisplaySrc(next);
-    }, 100);
-    return () => clearInterval(id);
-  }, []);
 
   React.useEffect(() => {
     if (!selectedMachineId || selectedMachineId === "all") return;
