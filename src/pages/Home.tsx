@@ -590,14 +590,14 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
               console.log("🖼️ Raw image path from SSE:", data.image_path);
               let basePath = data.image_path.split("?")[0];
               // // code for random sample iamge test on my pc-----------------------------
-              // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
-              // const randomImage = sampleImagesUrl[randomIndex];
-              // basePath = randomImage.split("?")[0];
+              const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
+              const randomImage = sampleImagesUrl[randomIndex];
+              basePath = randomImage.split("?")[0];
               //-------------------------------------------------------------------------
               basePath = basePath.replace(/\\/g, "/");
               const idx = basePath.indexOf("/public/");
               if (idx !== -1) {
-                cleanImagePath = basePath.substring(idx + 7);
+                cleanImagePath = basePath.substring(idx);
               } else {
                 cleanImagePath = basePath;
               }

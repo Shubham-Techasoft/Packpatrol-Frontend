@@ -323,7 +323,7 @@ export default function Dashboard() {
               const idx = basePath.indexOf("/public/");
               let cleanImagePath = "";
               if (idx !== -1) {
-                cleanImagePath = basePath.substring(idx + 7);
+                cleanImagePath = basePath.substring(idx);
               } else {
                 cleanImagePath = basePath;
               }

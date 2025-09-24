@@ -137,7 +137,7 @@ const VariantGallaryView = () => {
 
               let cleanPath = url;
               const idx = url.indexOf("/public/");
-              if (idx !== -1) cleanPath = url.substring(idx + 7);
+              if (idx !== -1) cleanPath = url.substring(idx);
 
               // Batch images for pagination
               batch.push({
