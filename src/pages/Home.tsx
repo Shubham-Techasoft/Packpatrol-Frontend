@@ -111,6 +111,11 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   const frameQueueRef = React.useRef<string[]>([]); // holds fully-loaded frame srcs
   const [displaySrc, setDisplaySrc] = React.useState<string | null>(null); // current frame shown
 
+  // SSE connection states
+  const [sseConnection, setSseConnection] = React.useState(null);
+  const [isSseConnected, setIsSseConnected] = React.useState(false);
+  const [sseError, setSseError] = React.useState(null);
+
   // IMPORTANT DON'T REMOVE
   React.useEffect(() => {
     console.log("🔄 Syncing selectedMachineId from context:", selectedMachineId);
@@ -527,150 +532,151 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   React.useEffect(() => {
     if (!selectedMachine) {
       console.warn("⚠️ No machine selected. SSE connection skipped.");
+      // Clean up any existing connection
+      if (sseConnection) {
+        console.log("🛑 Cleaning up SSE connection - no machine selected");
+        sseConnection.close();
+        setSseConnection(null);
+        setIsSseConnected(false);
+      }
+      // Reset data when no machine selected
+      latestDataRef.current = {
+        estimated_stack_length: 0,
+        estimated_stack_count: 0,
+        total_frame_processed: 0,
+        total_frame_rejected: 0,
+        total_passed: 0,
+        image_path: "",
+        timestamp: "",
+      };
+      setRealtimeData({ ...latestDataRef.current });
       return;
     }
 
     const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
     console.log("📡 Connecting to SSE:", sseUrl);
 
-    // Reset data when machine changes
-    latestDataRef.current = {
-      estimated_stack_length: 0,
-      estimated_stack_count: 0,
-      total_frame_processed: 0,
-      total_frame_rejected: 0,
-      total_passed: 0,
-      image_path: "",
-      timestamp: "",
-    };
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 3;
+    const reconnectDelay = 5000;
+    let eventSource = null;
 
-    messageCountRef.current = 0;
-
-    console.log("latestDataRef reset:", latestDataRef.current);
-
-    // Initialize state
-    setRealtimeData({ ...latestDataRef.current });
-
-    const eventSource = new EventSource(sseUrl);
-    let lastSseTime = Date.now();
-
-    const fallbackLogTimer = setInterval(() => {
-      if (Date.now() - lastSseTime > 5000) {
-        console.warn("⚠️ No SSE data received for 5+ seconds.");
-      }
-    }, 5000);
-
-    eventSource.onmessage = (event) => {
-      lastSseTime = Date.now();
-      messageCountRef.current++;
+    const connectSSE = () => {
       try {
-        const data = JSON.parse(event.data);
-        console.log(`📨 SSE message #${messageCountRef.current}:`, data);
-        
-        
-        // --- Cleaning image path ---
-        let cleanImagePath = "";
-        
-        if (data.image_path) {
-          // remove query params/extras after ?
-          console.log("Raw Path:",data.image_path)
-
-          let basePath = "";
-          
-          basePath = data.image_path.split("?")[0];
-          
-          // // code for random sample iamge test on my pc-----------------------------
-          // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
-          // const randomImage = sampleImagesUrl[randomIndex];
-          // basePath = randomImage.split("?")[0];
-          //-------------------------------------------------------------------------
-
-          // normalize backslashes to forward slashes
-          basePath = basePath.replace(/\\/g, "/");
-
-          // find and strip "public/"
-          const idx = basePath.indexOf("/public/");
-          if (idx !== -1) {
-            cleanImagePath = basePath.substring(idx + 7); // after "/public"
-          } else {
-            // if no /public, just strip any leading slash for consistency
-            cleanImagePath = basePath;
-          }
+        // Close existing connection if any
+        if (eventSource) {
+          eventSource.close();
         }
-        console.log("CleanedPath: ", cleanImagePath)
 
-        // ✅ IMMEDIATELY update the ref with latest data (no re-render)
-        latestDataRef.current = {
-          estimated_stack_length:
-            data.estimated_stack_length ??
-            latestDataRef.current.estimated_stack_length,
-          estimated_stack_count:
-            data.estimated_stack_count ??
-            latestDataRef.current.estimated_stack_count,
-          total_passed: data.total_passed ?? latestDataRef.current.total_passed,
-          total_frame_rejected:
-            data.total_frame_rejected ??
-            data.total_rejected ??
-            latestDataRef.current.total_frame_rejected,  
+        eventSource = new EventSource(sseUrl);
+        setSseConnection(eventSource);
+        setSseError(null);
 
-          image_path: cleanImagePath || latestDataRef.current.image_path,
-
-          timestamp: data.timestamp ?? latestDataRef.current.timestamp,
-          // total_frame_processed:
-          //   (data.total_passed ?? 0) + (data.total_rejected ?? 0),
-          total_frame_processed:
-            (data.total_passed ?? latestDataRef.current.total_passed) +
-            (data.total_frame_rejected ??
-              latestDataRef.current.total_frame_rejected),
+        eventSource.onopen = (event) => {
+          console.log("✅ SSE connection opened:", event);
+          setIsSseConnected(true);
+          reconnectAttempts = 0;
         };
 
-        // sse image
-        if (cleanImagePath) {
-          // enqueuePreload(cleanImagePath);
-          setDisplaySrc(cleanImagePath)
-          latestDataRef.current.image_path = cleanImagePath;
-        }
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            messageCountRef.current++;
 
-        // ✅ DEBOUNCED state updates - only update UI every 100ms
-        if (updateTimeoutRef.current) {
-          clearTimeout(updateTimeoutRef.current);
-        }
+            // --- Cleaning image path ---
+            let cleanImagePath = "";
+            if (data.image_path) {
+              console.log("🖼️ Raw image path from SSE:", data.image_path);
+              let basePath = data.image_path.split("?")[0];
+              // // code for random sample iamge test on my pc-----------------------------
+              // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
+              // const randomImage = sampleImagesUrl[randomIndex];
+              // basePath = randomImage.split("?")[0];
+              //-------------------------------------------------------------------------
+              basePath = basePath.replace(/\\/g, "/");
+              const idx = basePath.indexOf("/public/");
+              if (idx !== -1) {
+                cleanImagePath = basePath.substring(idx + 7);
+              } else {
+                cleanImagePath = basePath;
+              }
+            }
 
-        updateTimeoutRef.current = setTimeout(() => {
-          console.log(
-            "🎯 Updating UI state with latest data:",
-            latestDataRef.current
-          );
-          setRealtimeData({ ...latestDataRef.current });
-          updateTimeoutRef.current = null;
-        }, 500);
-      } catch (err) {
-        console.error("🚫 SSE JSON parse error:", err);
+            latestDataRef.current = {
+              estimated_stack_length: data.estimated_stack_length ?? latestDataRef.current.estimated_stack_length,
+              estimated_stack_count: data.estimated_stack_count ?? latestDataRef.current.estimated_stack_count,
+              total_passed: data.total_passed ?? latestDataRef.current.total_passed,
+              total_frame_rejected: data.total_frame_rejected ?? data.total_rejected ?? latestDataRef.current.total_frame_rejected,
+              image_path: cleanImagePath || latestDataRef.current.image_path,
+              timestamp: data.timestamp ?? latestDataRef.current.timestamp,
+              total_frame_processed: (data.total_passed ?? latestDataRef.current.total_passed) +
+                                    (data.total_frame_rejected ?? latestDataRef.current.total_frame_rejected),
+            };
+
+            if (cleanImagePath) {
+              setDisplaySrc(cleanImagePath);
+              latestDataRef.current.image_path = cleanImagePath;
+            }
+
+            if (updateTimeoutRef.current) {
+              clearTimeout(updateTimeoutRef.current);
+            }
+
+            updateTimeoutRef.current = setTimeout(() => {
+              setRealtimeData({ ...latestDataRef.current });
+              updateTimeoutRef.current = null;
+            }, 250);
+
+          } catch (err) {
+            console.error("🚫 SSE JSON parse error:", err);
+          }
+        };
+
+        eventSource.onerror = (error) => {
+          console.error("❌ SSE connection error:", error);
+          setIsSseConnected(false);
+          setSseError(error);
+
+          if (eventSource.readyState === EventSource.CLOSED) {
+            console.warn("🔌 SSE connection closed by server.");
+          } else if (eventSource.readyState === EventSource.CONNECTING) {
+            console.warn("🔄 SSE reconnecting...");
+          }
+
+          // Attempt to reconnect on error
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            console.log(`🔄 Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts}) in ${reconnectDelay}ms...`);
+            setTimeout(connectSSE, reconnectDelay);
+          } else {
+            console.error("❌ Max reconnection attempts reached");
+          }
+        };
+
+      } catch (error) {
+        console.error("❌ Failed to create SSE connection:", error);
+        setSseError(error);
+        setIsSseConnected(false);
       }
     };
 
-    eventSource.onopen = (event) => {
-      console.log("✅ SSE connection opened:", event);
-    };
+    connectSSE();
 
-    eventSource.onerror = (error) => {
-      console.error("❌ SSE connection error:", error);
-      if (eventSource.readyState === EventSource.CLOSED) {
-        console.warn("🔌 SSE connection closed by server.");
-      } else if (eventSource.readyState === EventSource.CONNECTING) {
-        console.warn("🔄 SSE reconnecting...");
-      }
-    };
-
+    // Cleanup function
     return () => {
       console.log("🛑 Cleaning up SSE connection");
       if (updateTimeoutRef.current) {
         clearTimeout(updateTimeoutRef.current);
         updateTimeoutRef.current = null;
       }
-      clearInterval(fallbackLogTimer);
-      eventSource.close();
+      if (eventSource) {
+        eventSource.close();
+        setSseConnection(null);
+      }
+      setIsSseConnected(false);
+      setSseError(null);
     };
+    // eslint-disable-next-line
   }, [selectedMachine]);
 
   // Optional: Add this useEffect to monitor state changes (for debugging)

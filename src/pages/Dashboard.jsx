@@ -177,6 +177,9 @@ export default function Dashboard() {
   const [isStarting, setIsStarting] = React.useState(false);
   const [isStopping, setIsStopping] = React.useState(false);
   const [realtimeData, setRealtimeData] = useState(null);
+  const [sseConnection, setSseConnection] = React.useState(null);
+  const [isSseConnected, setIsSseConnected] = React.useState(false);
+  const [sseError, setSseError] = React.useState(null);
 
   //TOP CARDS
   const [machineStatus, setMachineStatus] = React.useState({
@@ -265,48 +268,108 @@ export default function Dashboard() {
   };
 
 
+  // Enhanced SSE connection management for Dashboard
   React.useEffect(() => {
-    if (!selectedMachineId || selectedMachineId === "all") return;
+    if (!selectedMachineId || selectedMachineId === "all") {
+      // Clean up any existing connection
+      if (sseConnection) {
+        console.log("🛑 Cleaning up SSE connection - no machine selected");
+        sseConnection.close();
+        setSseConnection(null);
+        setIsSseConnected(false);
+      }
+      return;
+    }
 
     const sseUrl = `http://localhost:8000/api/machines/${selectedMachineId}/sse/`;
     console.log("📡 Connecting SSE for dashboard:", sseUrl);
 
-    let cleanImagePath=""
-    const eventSource = new EventSource(sseUrl);
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 3;
+    const reconnectDelay = 5000; // 5 seconds
+    let eventSource = null;
 
-    eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-
-      if (data.image_path) {
-        console.log("Raw Path:",data.image_path)
-        let basePath=""
-        basePath = data.image_path.split("?")[0];
-          
-        // // code for random sample iamge test on my pc-----------------------------
-        // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
-        // const randomImage = sampleImagesUrl[randomIndex];
-        // basePath = randomImage.split("?")[0];
-        //-------------------------------------------------------------------------
-
-        // normalize backslashes to forward slashes
-        basePath = basePath.replace(/\\/g, "/");
-
-        // find and strip "public/"
-        const idx = basePath.indexOf("/public/");
-        if (idx !== -1) {
-          cleanImagePath = basePath.substring(idx + 7); // after "/public"
-        } else {
-          // if no /public, just strip any leading slash for consistency
-          cleanImagePath = basePath;
+    const connectSSE = () => {
+      try {
+        // Close existing connection if any
+        if (eventSource) {
+          eventSource.close();
         }
-        data.image_path = cleanImagePath;
-      }
 
-      setRealtimeData(data);
+        eventSource = new EventSource(sseUrl);
+        setSseConnection(eventSource);
+        setSseError(null);
+
+        eventSource.onopen = () => {
+          console.log("✅ SSE connection opened successfully");
+          setIsSseConnected(true);
+          reconnectAttempts = 0; // Reset on successful connection
+        };
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+
+            if (data.image_path) {
+              let basePath = data.image_path.split("?")[0];
+              // sample image path --------------------------------------------------
+              // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
+              // const randomImage = sampleImagesUrl[randomIndex];
+              // basePath = randomImage.split("?")[0];
+              // --------------------------------------------------------------------
+              basePath = basePath.replace(/\\/g, "/");
+              const idx = basePath.indexOf("/public/");
+              let cleanImagePath = "";
+              if (idx !== -1) {
+                cleanImagePath = basePath.substring(idx + 7);
+              } else {
+                cleanImagePath = basePath;
+              }
+              data.image_path = cleanImagePath;
+            }
+
+            setRealtimeData(data);
+          } catch (parseError) {
+            console.error("❌ Error parsing SSE data:", parseError);
+          }
+        };
+
+        eventSource.onerror = (error) => {
+          console.error("❌ SSE connection error:", error);
+          setIsSseConnected(false);
+          setSseError(error);
+
+          // Attempt to reconnect on error
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            console.log(`🔄 Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts}) in ${reconnectDelay}ms...`);
+            setTimeout(connectSSE, reconnectDelay);
+          } else {
+            console.error("❌ Max reconnection attempts reached");
+          }
+        };
+
+      } catch (error) {
+        console.error("❌ Failed to create SSE connection:", error);
+        setSseError(error);
+        setIsSseConnected(false);
+      }
     };
 
-    return () => eventSource.close();
-  }, [selectedMachine]);
+    connectSSE();
+
+    // Cleanup function
+    return () => {
+      console.log("🛑 Cleaning up SSE connection");
+      if (eventSource) {
+        eventSource.close();
+        setSseConnection(null);
+      }
+      setIsSseConnected(false);
+      setSseError(null);
+    };
+    // eslint-disable-next-line
+  }, [selectedMachineId]);
 
 
   // production-time graph

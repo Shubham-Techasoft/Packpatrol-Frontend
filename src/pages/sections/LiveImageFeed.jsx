@@ -45,84 +45,154 @@
 
 // export default LiveImageFeed;
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Box } from "@mui/material";
 
+const MAX_QUEUE_SIZE = 5;
+const MAX_CONCURRENT_LOADS = 3;
+const CLEANUP_INTERVAL = 30000;
+
 function LiveImageFeed({ imagePath }) {
-  console.log("Path Received in playback:", imagePath);
   const [currentImage, setCurrentImage] = useState(null);
   const queueRef = useRef([]);
   const inFlightCountRef = useRef(0);
-  const MAX_CONCURRENT_LOADS = 3;
+  const abortControllerRef = useRef(null);
+  const intervalRef = useRef(null);
 
-  // Parallel image preloader (like enqueuePreload)
-  const preloadImage = (url) => {
+  // All hooks and callbacks must be inside the component!
+  const cleanup = useCallback(() => {
+    queueRef.current = [];
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    inFlightCountRef.current = 0;
+    setCurrentImage(null);
+    console.log("🧹 Memory cleanup completed");
+  }, []);
+
+  const monitorMemory = useCallback(() => {
+    if (queueRef.current.length > MAX_QUEUE_SIZE) {
+      console.warn(`⚠️ Queue size (${queueRef.current.length}) exceeds limit (${MAX_QUEUE_SIZE}), clearing queue`);
+      cleanup();
+    }
+    if (window.gc) {
+      window.gc();
+    }
+  }, [cleanup]);
+
+  const preloadImage = useCallback((url) => {
     return new Promise((resolve, reject) => {
+      if (abortControllerRef.current?.signal.aborted) {
+        reject(new Error("Request cancelled"));
+        return;
+      }
       const img = new Image();
       let timeoutId = null;
-
-      const cleanup = () => {
+      let hasResolved = false;
+      const cleanupImg = () => {
         if (timeoutId) clearTimeout(timeoutId);
         img.onload = null;
         img.onerror = null;
+        img.src = '';
       };
-
-      img.onload = () => {
-        cleanup();
-        resolve(url);
+      const resolveOnce = (value) => {
+        if (!hasResolved) {
+          hasResolved = true;
+          cleanupImg();
+          resolve(value);
+        }
       };
-      img.onerror = () => {
-        cleanup();
-        reject(new Error("Image failed to load"));
+      const rejectOnce = (error) => {
+        if (!hasResolved) {
+          hasResolved = true;
+          cleanupImg();
+          reject(error);
+        }
       };
-
-      img.src = `${url}?t=${Date.now()}`; // cache-bust
+      img.onload = () => resolveOnce(url);
+      img.onerror = () => rejectOnce(new Error("Image failed to load"));
+      img.src = `${url}?t=${Date.now()}`;
       timeoutId = setTimeout(() => {
-        cleanup();
-        reject(new Error("Image load timeout (5s)"));
-      }, 5000);
+        rejectOnce(new Error("Image load timeout (3s)"));
+      }, 3000);
+      abortControllerRef.current?.signal.addEventListener('abort', () => {
+        rejectOnce(new Error("Request cancelled"));
+      });
     });
-  };
+  }, []);
 
-  // Whenever new path arrives, enqueue it
   useEffect(() => {
     if (!imagePath) return;
-
     if (inFlightCountRef.current >= MAX_CONCURRENT_LOADS) {
       console.warn("⚠️ Too many parallel loads, skipping frame:", imagePath);
       return;
     }
-
+    if (queueRef.current.length >= MAX_QUEUE_SIZE) {
+      console.warn("⚠️ Queue full, dropping oldest frame");
+      queueRef.current.shift();
+    }
+    if (!abortControllerRef.current) {
+      abortControllerRef.current = new AbortController();
+    }
     inFlightCountRef.current++;
-
     preloadImage(imagePath)
       .then((loadedUrl) => {
-        queueRef.current.push(loadedUrl);
+        if (queueRef.current.length < MAX_QUEUE_SIZE) {
+          queueRef.current.push(loadedUrl);
+          console.log(`✅ Image loaded and queued: ${loadedUrl}`);
+        } else {
+          console.warn("⚠️ Queue full after load, discarding:", loadedUrl);
+        }
       })
       .catch((err) => {
-        console.warn("⚠️ Dropping frame:", imagePath, err.message);
+        if (err.message !== "Request cancelled") {
+          console.warn("⚠️ Failed to load frame:", imagePath, err.message);
+        }
       })
       .finally(() => {
         inFlightCountRef.current--;
       });
-  }, [imagePath]);
+  }, [imagePath, preloadImage]);
 
-  // Playback loop
   useEffect(() => {
-    const id = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       const q = queueRef.current;
-
-      // Only keep the latest frame if multiple are waiting
+      monitorMemory();
       if (q.length > 1) {
-        queueRef.current = [q[q.length - 1]];
+        const latest = q[q.length - 1];
+        queueRef.current = [latest];
+        console.log("🗑️ Cleared old frames, keeping latest");
       }
-
       const next = queueRef.current.shift();
-      if (next) setCurrentImage(next);
-    }, 100);
+      if (next) {
+        setCurrentImage(next);
+      }
+    }, 200);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [monitorMemory]);
 
-    return () => clearInterval(id);
-  }, []);
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      monitorMemory();
+    }, CLEANUP_INTERVAL);
+    return () => clearInterval(cleanupInterval);
+  }, [monitorMemory]);
+
+  useEffect(() => {
+    return () => {
+      console.log("🛑 Component unmounting, cleaning up...");
+      cleanup();
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [cleanup]);
 
   return (
     <Box
@@ -142,7 +212,16 @@ function LiveImageFeed({ imagePath }) {
           component="img"
           src={currentImage}
           alt="Live frame"
-          sx={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", height:"100%"}}
+          sx={{
+            maxWidth: "100%",
+            maxHeight: "100%",
+            objectFit: "contain",
+            height: "100%"
+          }}
+          onError={(e) => {
+            console.warn("❌ Image display error:", e);
+            setCurrentImage(null);
+          }}
         />
       ) : (
         <p
