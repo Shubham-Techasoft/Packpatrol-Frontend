@@ -219,6 +219,8 @@ export default function Dashboard() {
   const [maxStackLength, setMaxStackLength] = useState("");
   const [isLoadingVariants, setIsLoadingVariants] = useState(false);
 
+  const [displaySrc, setDisplaySrc] = useState(null)
+
   const fetchPerformanceStats = async () => {
     try {
       const params = {};
@@ -329,6 +331,7 @@ export default function Dashboard() {
             }
 
             setRealtimeData(data);
+            setDisplaySrc(data.image_path || null)
           } catch (parseError) {
             console.error("❌ Error parsing SSE data:", parseError);
           }
@@ -363,6 +366,7 @@ export default function Dashboard() {
       console.log("🛑 Cleaning up SSE connection");
       if (eventSource) {
         eventSource.close();
+        setDisplaySrc(null);
         setSseConnection(null);
       }
       setIsSseConnected(false);
@@ -1143,7 +1147,7 @@ export default function Dashboard() {
             <Typography variant="h6" gutterBottom>
               Live Camera Feed
             </Typography>
-            <LiveImageFeed imagePath={realtimeData?.image_path} />
+            <LiveImageFeed imagePath={displaySrc} />
           </StyledPaper>
         </Grid>
       </Grid>

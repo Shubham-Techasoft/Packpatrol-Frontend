@@ -53,11 +53,18 @@ const MAX_CONCURRENT_LOADS = 3;
 const CLEANUP_INTERVAL = 30000;
 
 function LiveImageFeed({ imagePath }) {
+  console.log("Image path:",imagePath)
   const [currentImage, setCurrentImage] = useState(null);
   const queueRef = useRef([]);
   const inFlightCountRef = useRef(0);
   const abortControllerRef = useRef(null);
   const intervalRef = useRef(null);
+
+  useEffect(() => {
+    if (imagePath === null) {
+      setCurrentImage(null);
+    }
+  }, [imagePath]);
 
   // All hooks and callbacks must be inside the component!
   const cleanup = useCallback(() => {

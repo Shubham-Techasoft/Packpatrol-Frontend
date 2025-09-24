@@ -531,6 +531,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   // REPLACE your existing useEffect with this enhanced version:
   React.useEffect(() => {
     if (!selectedMachine) {
+      setDisplaySrc(null);
       console.warn("⚠️ No machine selected. SSE connection skipped.");
       // Clean up any existing connection
       if (sseConnection) {
@@ -589,9 +590,9 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
               console.log("🖼️ Raw image path from SSE:", data.image_path);
               let basePath = data.image_path.split("?")[0];
               // // code for random sample iamge test on my pc-----------------------------
-              // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
-              // const randomImage = sampleImagesUrl[randomIndex];
-              // basePath = randomImage.split("?")[0];
+              const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
+              const randomImage = sampleImagesUrl[randomIndex];
+              basePath = randomImage.split("?")[0];
               //-------------------------------------------------------------------------
               basePath = basePath.replace(/\\/g, "/");
               const idx = basePath.indexOf("/public/");
@@ -639,6 +640,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
           if (eventSource.readyState === EventSource.CLOSED) {
             console.warn("🔌 SSE connection closed by server.");
+            setDisplaySrc(null);
           } else if (eventSource.readyState === EventSource.CONNECTING) {
             console.warn("🔄 SSE reconnecting...");
           }
