@@ -55,6 +55,7 @@ const CLEANUP_INTERVAL = 30000;
 function LiveImageFeed({ imagePath }) {
   console.log("Image path:",imagePath)
   const [currentImage, setCurrentImage] = useState(null);
+  console.log("currentImage:", currentImage)
   const queueRef = useRef([]);
   const inFlightCountRef = useRef(0);
   const abortControllerRef = useRef(null);
