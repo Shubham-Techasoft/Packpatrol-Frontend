@@ -1,15 +1,28 @@
 // start.js
-import { exec } from "child_process";
+import { spawn } from "child_process";
 import os from "os";
 
 const isLinux = os.platform() === "linux";
 
-const command = isLinux
-  ? "NODE_OPTIONS='--max-old-space-size=4096' CHOKIDAR_USEPOLLING=true CHOKIDAR_INTERVAL=500 vite"
-  : "vite";
+// Build the base command
+const baseCommand = "vite";
 
-const child = exec(command);
+// Add platform-specific env vars
+const env = { ...process.env };
+if (isLinux) {
+  env.NODE_OPTIONS = "--max-old-space-size=4096";
+  env.CHOKIDAR_USEPOLLING = "true";
+  env.CHOKIDAR_INTERVAL = "500";
+}
 
-child.stdout.on("data", (data) => process.stdout.write(data));
-child.stderr.on("data", (data) => process.stderr.write(data));
-child.on("close", (code) => console.log(`Process exited with code ${code}`));
+// Spawn the process
+const child = spawn(baseCommand, process.argv.slice(2), {
+  env,
+  stdio: "inherit", // directly pipe logs to terminal
+  shell: true,      // allow inline env vars on Windows too
+});
+
+// Handle exit
+child.on("close", (code) => {
+  console.log(`\n🛑 Vite process exited with code ${code}`);
+});

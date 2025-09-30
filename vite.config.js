@@ -1,20 +1,26 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+// vite.config.js
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  assetsInclude: ['**/*.PNG', '**/*.png', '**/*.jpg', '**/*.jpeg', '**/*.bmp', '**/*.json'],
+  
+  // Explicitly include these as importable assets
+  assetsInclude: [
+    "**/*.png", "**/*.PNG",
+    "**/*.jpg", "**/*.jpeg",
+    "**/*.bmp",
+    "**/*.json"
+  ],
+
   server: {
     watch: {
-      ignored: [
-        '**/public/**/*.jpeg',
-        '**/public/**/*.jpg',
-        '**/public/**/*.png'
-      ],
+      // 🚫 Ignore everything inside /public (so Vite doesn’t watch thousands of files)
+      ignored: ["**/public/**"],
     },
     fs: {
-      strict: false,
+      strict: false, // allow serving files outside root if needed
     },
-  }
+  },
 });

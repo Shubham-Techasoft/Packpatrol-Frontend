@@ -1,44 +1,11 @@
 import React, { useState, useEffect } from "react";
-import {
-  Box,
-  Typography,
-  Grid,
-  Paper,
-  Button,
-  Divider,
-  Card,
-  CardContent,
-  CircularProgress,
-  Snackbar,
-  Alert,
-  Chip,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-} from "@mui/material";
-import {
-  Assessment,
-  LiveTv,
-  Engineering,
-  WarningAmber,
-  PlayArrow,
-  Stop,
-  RestartAlt,
-} from "@mui/icons-material";
+import { Box, Typography, Grid, Paper, Button, Divider, Card, CardContent, CircularProgress, Snackbar, Alert, Chip, FormControl, InputLabel, Select, MenuItem,FormGroup, FormControlLabel, Checkbox, } from "@mui/material";
+import { Assessment, LiveTv, Engineering, WarningAmber, PlayArrow, Stop, RestartAlt, } from "@mui/icons-material";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import TextField from "@mui/material/TextField";
-import {
-  LineChart,
-  Line,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { styled } from "@mui/material/styles";
 import dayjs from "dayjs";
 import advancedFormat from "dayjs/plugin/advancedFormat";
@@ -86,29 +53,20 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload || !payload.length) return null;
 
-  const count = payload?.value ?? 0;
-  const when = dayjs(label).format("YYYY-MM-DD HH:mm:ss"); // epoch ms -> formatted
-
+  const when = dayjs(label).format('YYYY-MM-DD HH:mm:ss');
   return (
-    <Paper
-      elevation={3}
-      sx={{
-        p: 1.5,
-        borderRadius: 1.5,
-        bgcolor: "#fff",
-        border: "1px solid #e0e0e0",
-        minWidth: 200,
-      }}
-    >
-      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-        {when}
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        Produced: {count.toLocaleString()} biscuits
-      </Typography>
+    <Paper elevation={3} sx={{ p: 1.5, borderRadius: 1.5, bgcolor: '#fff', border: '1px solid #e0e0e0', minWidth: 220 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{when}</Typography>
+      {payload.map((p) => (
+        <Box key={p.dataKey} display="flex" justifyContent="space-between">
+          <Typography variant="body2" color="text.secondary">{p.name}</Typography>
+          <Typography variant="body2">{(p.value ?? 0).toLocaleString()}</Typography>
+        </Box>
+      ))}
     </Paper>
   );
 };
+
 
 // info cards
 const InfoCard = ({ icon, title, value, color }) => {
@@ -166,6 +124,22 @@ const InfoCard = ({ icon, title, value, color }) => {
   );
 };
 
+const getStart = (it) => it.start_time ?? it.starttime ?? it.startTime ?? null;
+const getStop  = (it) => it.stop_time  ?? it.stoptime  ?? it.stopTime  ?? null;
+
+const getMachineId   = (it) => it.machine_id   ?? it.machineid   ?? it.machineId   ?? null;
+const getMachineName = (it) => it.machine_name ?? it.machinename ?? it.machineName ?? it.machine?.name ?? null;
+
+const getProcessed = (it) =>
+  it.total_frames_processed ?? it.totalframesprocessed ?? it.totalFramesProcessed ?? it.total_processed ?? 0;
+
+const getRejected = (it) =>
+  it.total_frames_rejected ?? it.totalframesrejected ?? it.totalFramesRejected ?? it.total_rejected ?? 0;
+
+const getAccepted = (it) =>
+  it.total_frames_accepted ?? it.totalframesaccepted ?? it.totalFramesAccepted ?? it.total_passed ?? 0;
+
+
 export default function Dashboard() {
   const [restricted, setRestricted] = React.useState(false);
   // const [designation, setDesignation] = React.useState("");
@@ -221,7 +195,15 @@ export default function Dashboard() {
 
   const [displaySrc, setDisplaySrc] = useState(null)
 
-  const fetchPerformanceStats = async () => {
+  const [seriesSelection, setSeriesSelection] = React.useState({
+    processed: true,
+    rejected: false,
+    accepted: false,
+  });
+
+
+  const fetchDashboardSummary = async () => {
+    setLoading(true);
     try {
       const params = {};
 
@@ -231,12 +213,10 @@ export default function Dashboard() {
       }
 
       // Date filter
-      //console.log(timeFilter)
-      //console.log(dateRange)
       if (timeFilter === "Custom" && dateRange[0] && dateRange[1]) {
         params.start_time = dayjs(dateRange[0]).startOf("day").toISOString();
         params.end_time = dayjs(dateRange[1]).endOf("day").toISOString();
-      }else if (timeFilter === "7d") {
+      } else if (timeFilter === "7d") {
         params.start_time = dayjs().subtract(7, "day").toISOString();
         params.end_time = dayjs().toISOString();
       } else if (timeFilter === "30d") {
@@ -245,7 +225,7 @@ export default function Dashboard() {
       } else if (timeFilter === "24h") {
         params.start_time = dayjs().subtract(1, "day").toISOString();
         params.end_time = dayjs().toISOString();
-      }else if (timeFilter === "all"){
+      } else if (timeFilter === "all") {
         params.start_time = dayjs().subtract(100, "year").toISOString();
         params.end_time = dayjs().toISOString();
       }
@@ -254,8 +234,6 @@ export default function Dashboard() {
         "http://127.0.0.1:8000/api/machinerunlogs/dashboard_summary/",
         { params }
       );
-      //console.log("params:", params)
-      //console.log("Performace State Recived:", res)
 
       const stats = res.data.frame_statistics || {};
       setPerformanceStats({
@@ -263,9 +241,14 @@ export default function Dashboard() {
         rejected_frames: stats.total_frames_rejected || 0,
         rejection_rate_percent: stats.overall_rejection_rate || 0,
       });
+
+      setLogs(res.data.recent_runs || []);
     } catch (err) {
-      console.error("❌ Failed to fetch performance stats:", err);
+      console.error("❌ Failed to fetch dashboard summary:", err);
       setPerformanceStats(null);
+      setLogs([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -313,6 +296,7 @@ export default function Dashboard() {
             const data = JSON.parse(event.data);
 
             if (data.image_path) {
+              console.log("🖼️ Raw image path from SSE:", data.image_path);
               let basePath = data.image_path.split("?")[0];
               // sample image path --------------------------------------------------
               // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
@@ -382,6 +366,8 @@ export default function Dashboard() {
     setRestricted(!auth);
     setLoading(true);
 
+    fetchDashboardSummary();
+
     const now = dayjs();
 
     Promise.all([
@@ -393,66 +379,78 @@ export default function Dashboard() {
         //console.log("Machines List:", machines);
 
         // 🔎 Apply time filtering
-        const filteredByTime = logs.filter((item) => {
-          const itemTime = dayjs(item.start_time);
-          if (restricted) return now.diff(itemTime, "hour") <= 24;
-          if (timeFilter === "24h") return now.diff(itemTime, "hour") <= 24;
-          if (timeFilter === "7d") return now.diff(itemTime, "day") <= 7;
-          if (timeFilter === "30d") return now.diff(itemTime, "day") <= 30;
-          if (timeFilter === "Custom") {
-            const [start, end] = dateRange;
-            if (!start || !end) return false;
-            const ts = itemTime.valueOf();
-            return (
-              ts >= dayjs(start).startOf("day").valueOf() &&
-              ts <= dayjs(end).endOf("day").valueOf()
-            );
-          }
-          return true;
-        });
+        const filteredByTime = logs.filter((it) => {
+        const startIso = getStart(it);
+        if (!startIso) return false;
+        const itemTime = dayjs(startIso);
 
-        // 🔎 Apply machine filtering
-        const filtered =
-          selectedMachineId !== "all"
-            ? filteredByTime.filter(
-                (it) =>
-                  String(it.machine_id ?? "") === String(selectedMachineId) ||
-                  it.machine_name === (selectedMachine?.name ?? "")
-              )
-            : filteredByTime;
+        if (restricted || timeFilter === '24h') {
+          return dayjs().diff(itemTime, 'hour') <= 24;
+        }
+        if (timeFilter === '7d')  return dayjs().diff(itemTime, 'day') <= 7;
+        if (timeFilter === '30d') return dayjs().diff(itemTime, 'day') <= 30;
+        if (timeFilter === 'Custom') {
+          const [d0, d1] = dateRange || [];
+          if (!d0 || !d1) return false;
+          const ts = itemTime.valueOf();
+          return ts >= dayjs(d0).startOf('day').valueOf() && ts <= dayjs(d1).endOf('day').valueOf();
+        }
+        // 'all'
+        return true;
+      });
 
-        //console.log("Active Time Filter:", restricted ? "24h (restricted)" : timeFilter);
-        console.log(`Filtered Logs (with ${selectedMachine?.name}):`, filtered);
-        // after computing filtered
-        const rangeIsCustom = timeFilter === "Custom" && dateRange[0] && dateRange[1];
+      // Machine filter: match by ID first, then by name with fallbacks
+      const filtered = selectedMachineId !== 'all'
+        ? filteredByTime.filter((it) => {
+            const itId   = String(getMachineId(it) ?? '');
+            const itName = getMachineName(it);
+            const selId  = String(selectedMachineId);
+            const selName = selectedMachine?.name ?? null;
+            return itId === selId || (selName && itName === selName);
+          })
+        : filteredByTime;
 
+      // When logging, avoid "undefined"
+      console.log('Filtered Logs (with ' + (selectedMachine?.name || 'All') + '):', filtered);
+
+        const rangeIsCustom = timeFilter === 'Custom' && dateRange?.[0] && dateRange?.[1];
         const customDurationMs = rangeIsCustom
-          ? dayjs(dateRange[1]).endOf("day").valueOf() -
-            dayjs(dateRange[0]).startOf("day").valueOf()
+          ? dayjs(dateRange[1]).endOf('day').valueOf() - dayjs(dateRange[0]).startOf('day').valueOf()
           : null;
+        const shortCustom = rangeIsCustom && customDurationMs < 3 * 24 * 60 * 60 * 1000;
 
-        const shortCustom =
-          rangeIsCustom && (customDurationMs) <= 3 * 24 * 60 * 60 * 1000;
         const grouped = {};
-        filtered.forEach((item) => {
-          const ts = dayjs(item.start_time);
+        filtered.forEach((it) => {
+//           console.log(`📦 Processing log{${it + 1}}:\ntotal processed: ${getProcessed(it)}\ntotal rejected: ${getRejected(it)}\ntotal accepted: ${getProcessed(it)- getRejected(it)}`);
+          const ts = dayjs(getStart(it));
+          const key = (restricted || timeFilter === '24h' || shortCustom)
+            ? ts.format('YYYY-MM-DD HH:mm:ss')
+            : ts.startOf('day').format('YYYY-MM-DD');
 
-          const key = (restricted || timeFilter === "24h" || shortCustom)
-            ? ts.format("YYYY-MM-DD HH:mm:ss")
-            : ts.startOf("day").format("YYYY-MM-DD");
+          // const r = getRejected(it) || 0;
+          // const a = getAccepted(it) || 0;
+          // const p = a+r;
 
-          grouped[key] = (grouped[key] || 0) + (item.total_frames_processed || 0);
+          const p = getProcessed(it);
+          const r = getRejected(it);
+          const a = Math.max(0, p - r);
+
+          if (!grouped[key]) grouped[key] = { processed: 0, rejected: 0, accepted: 0 };
+          grouped[key].processed += p;
+          grouped[key].rejected  += r;
+          grouped[key].accepted  += a;
         });
 
-        // build numeric X
-        const chart = Object.entries(grouped).map(([k, production]) => {
-          const t = (restricted || timeFilter === "24h" || shortCustom)
-            ? dayjs(k, "YYYY-MM-DD HH:mm:ss").valueOf()
-            : dayjs(k, "YYYY-MM-DD").valueOf();
-          return { t, production };
+        const chart = Object.entries(grouped).map(([k, v]) => {
+          const t = (restricted || timeFilter === '24h' || shortCustom)
+            ? dayjs(k, 'YYYY-MM-DD HH:mm:ss').valueOf()
+            : dayjs(k, 'YYYY-MM-DD').valueOf();
+          return { t, ...v };
         });
 
         setChartData(chart.sort((a, b) => a.t - b.t));
+
+
         setLoading(false);
 
         // 🟢 Machine stats
@@ -471,10 +469,6 @@ export default function Dashboard() {
         console.error("Failed to load dashboard data:", err);
         setLoading(false);
       });
-
-    // 📊 Fetch performance stats separately
-    fetchPerformanceStats()
-
   }, [timeFilter, restricted, selectedMachineId, dateRange, selectedMachine]);
 
   // fetch variants when machine changes
@@ -524,40 +518,6 @@ export default function Dashboard() {
       })
       .finally(() => setIsLoadingVariants(false));
   }, [selectedMachineId]);
-
-  // dashbaord summary real time update
-  const fetchRecentActivityLogs = async () => {
-    const startTime = dayjs().subtract(24, "hour").toISOString();
-    const endTime = dayjs().toISOString();
-
-    try {
-      const res = await axios.get(
-        "http://127.0.0.1:8000/api/machinerunlogs/dashboard_summary/",
-        {
-          params: {
-            start_time: startTime,
-            end_time: endTime,
-          },
-        }
-      );
-
-      setLogs(res.data.recent_runs || []);
-    } catch (error) {
-      console.error("❌ Error fetching dashboard summary logs:", error);
-      console.error("Response data:", error?.response?.data);
-      console.error("Status:", error?.response?.status);
-      console.error("Request URL:", error?.config?.url);
-      console.error("Start Time:", startTime);
-      console.error("End Time:", endTime);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // dashboard summary
-  React.useEffect(() => {
-    fetchRecentActivityLogs();
-  }, []);
 
   // machine details
   const fetchMachinesWithRunLogInfo = async () => {
@@ -617,28 +577,7 @@ export default function Dashboard() {
   // handle date filter for summary
   const handleDateFilter = () => {
     if (!dateRange[0] || !dateRange[1]) return;
-
-    const startTime = dayjs(dateRange[0]).startOf("day").toISOString();
-    const endTime = dayjs(dateRange[1]).endOf("day").toISOString();
-
-    setLoading(true);
-
-    axios
-      .get("http://127.0.0.1:8000/api/machinerunlogs/dashboard_summary/", {
-        params: {
-          start_time: startTime,
-          end_time: endTime,
-        },
-      })
-      .then((res) => {
-        setLogs(res.data.recent_runs || []);
-      })
-      .catch((error) => {
-        console.error("❌ Error fetching filtered logs:", error);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    fetchDashboardSummary();
   };
 
   //  groupedLogs
@@ -1078,66 +1017,124 @@ export default function Dashboard() {
               <Box display="flex" justifyContent="center" mt={4}>
                 <CircularProgress color="primary" />
               </Box>
-            ) : chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart
-                  data={chartData}
-                  margin={{ top: 20, right: 30, left: 0, bottom: 20 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
-                  <XAxis
-                    dataKey="t"
-                    type="number"
-                    domain={['auto','auto']}
-                    tick={{ fontSize: 12 }}
-                    tickFormatter={(unixMs) => {
-                      const isShort =
-                        restricted ||
-                        timeFilter === "24h" ||
-                        (timeFilter === "Custom" && dateRange[0] && dateRange[1] &&
-                        dayjs(dateRange[1]).endOf("day").diff(
-                          dayjs(dateRange[0]).startOf("day"), 'day', true
-                        ) <= 3);
+            ) : chartData.length > 0 ?
+              (
+                [<ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+                    <XAxis
+                      dataKey="t"
+                      type="number"
+                      domain={['auto', 'auto']}
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(unixMs) => {
+                        const isShort =
+                          restricted ||
+                          timeFilter === '24h' ||
+                          (timeFilter === 'Custom' && dateRange[0] && dateRange[1] &&
+                          dayjs(dateRange[1]).endOf('day').diff(dayjs(dateRange[0]).startOf('day'), 'day', true) < 3);
+                        return isShort ? dayjs(unixMs).format('YYYY-MM-DD HH:mm') : dayjs(unixMs).format('YYYY-MM-DD');
+                      }}
+                      label={{ value: 'Time', position: 'insideBottom', offset: -5, fontSize: 12 }}
+                    />
+                    <YAxis
+                      label={{ value: 'Frames', angle: -90, position: 'insideCenter', fontSize: 12 }}
+                      tick={{ fontSize: 12 }}
+                      allowDecimals={false}
+                    />
+                    <Tooltip content={CustomTooltip} cursor={{ strokeDasharray: '3 3' }} />
+                    <Legend wrapperStyle={{ paddingTop: 24 }} />
 
-                      return isShort ? dayjs(unixMs).format("YYYY-MM-DD HH:mm")
-                                    : dayjs(unixMs).format("YYYY-MM-DD");
-                    }}
-                    label={{
-                      value: "Time",
-                      position: "insideBottom",
-                      offset: -5,
-                      fontSize: 12,
-                    }}
-                  />
-
-                  <YAxis
-                    label={{
-                      value: "Units Produced",
-                      angle: -90,
-                      position: "insideCenter",
-                      fontSize: 12,
-                    }}
-                  />
-                  <Tooltip
-                    content={<CustomTooltip />}
-                    cursor={{ strokeDasharray: "3 3" }}
-                    labelStyle={{ fontWeight: "bold" }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="production"
-                    stroke="#1976d2"
-                    strokeWidth={3}
-                    dot={{ r: 5, strokeWidth: 2 }}
-                    activeDot={{ r: 8 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <Typography color="textSecondary" align="center" mt={2}>
-                No production data available for this range.
+                    {seriesSelection.processed && (
+                      <Line
+                        type="monotone"
+                        dataKey="processed"
+                        name="Total Processed"
+                        stroke="#1976d2"
+                        strokeWidth={3}
+                        dot={true}
+                        activeDot={{ r: 6 }}
+                      />
+                    )}
+                    {seriesSelection.rejected && (
+                      <Line
+                        type="monotone"
+                        dataKey="rejected"
+                        name="Total Rejected"
+                        stroke="#d32f2f"
+                        strokeWidth={2.5}
+                        dot={true}
+                        activeDot={{ r: 6 }}
+                      />
+                    )}
+                    {seriesSelection.accepted && (
+                      <Line
+                        type="monotone"
+                        dataKey="accepted"
+                        name="Total Accepted"
+                        stroke="#2e7d32"
+                        strokeWidth={2.5}
+                        dot={true}
+                        activeDot={{ r: 6 }}
+                      />
+                    )}
+                  </LineChart>
+                </ResponsiveContainer>,
+                seriesSelection.accepted==false && seriesSelection.rejected==false && seriesSelection.processed==false &&
+                  (
+                    <Typography color="textPrimary" align="center" mt={2} sx={{ fontWeight: 'bold', color: '#d32f2f' }}>
+                      Please Select minimum one filter below for chart.
+                    </Typography>
+                )]
+              ) : (
+                <Typography color="textSecondary" align="center" mt={2}>
+                  No production data available for this range.
+                </Typography>
+              )
+            }
+            <Box sx={{paddingLeft:3}}>
+              <Typography color="textPrimary" mt={2}>
+                Chart Filters
               </Typography>
-            )}
+              <FormGroup row sx={{paddingLeft:3}}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={seriesSelection.processed}
+                      onChange={(e) =>
+                        setSeriesSelection((s) => ({ ...s, processed: e.target.checked }))
+                      }
+                    />
+                  }
+                  label="Total Processed"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={seriesSelection.rejected}
+                      onChange={(e) =>
+                        setSeriesSelection((s) => ({ ...s, rejected: e.target.checked }))
+                      }
+                    />
+                  }
+                  label="Total Rejected"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={seriesSelection.accepted}
+                      onChange={(e) =>
+                        setSeriesSelection((s) => ({ ...s, accepted: e.target.checked }))
+                      }
+                    />
+                  }
+                  label="Total Accepted"
+                />
+              </FormGroup>
+            </Box>
           </StyledPaper>
         </Grid>
 
@@ -1148,6 +1145,9 @@ export default function Dashboard() {
               Live Camera Feed
             </Typography>
             <LiveImageFeed imagePath={displaySrc} />
+            <Typography variant="body2" color="text.secondary" mt={2}>
+              * Only the running Machine live feed will be shown here!
+            </Typography>
           </StyledPaper>
         </Grid>
       </Grid>

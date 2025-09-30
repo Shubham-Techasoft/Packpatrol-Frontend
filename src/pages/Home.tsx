@@ -178,6 +178,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
     null
   );
   const [isLoadingVariants, setIsLoadingVariants] = React.useState(false);
+  const [machineStop, setMachineStop] = React.useState(false);
 
 
   // Simple player loop
@@ -640,7 +641,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
           if (eventSource.readyState === EventSource.CLOSED) {
             console.warn("🔌 SSE connection closed by server.");
-            setDisplaySrc(null);
+//             setDisplaySrc(null);
           } else if (eventSource.readyState === EventSource.CONNECTING) {
             console.warn("🔄 SSE reconnecting...");
           }
@@ -705,10 +706,13 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         alert("Please fill in all fields before starting the machine.");
         return;
       }
+    } else {
+        setDisplaySrc(null);
+        setMachineStop(true);
     }
 
     const endpoint = `http://127.0.0.1:8000/api/machines/${selectedMachine}/${actionType}_run/`;
-
+    setMachineStop(false);
     try {
       const res = await fetch(endpoint, {
         method: "POST",
@@ -967,7 +971,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                   onChange={handleVariantChange}
                   size="small"
                   disabled={!selectedMachine}
-                
+
                 >
                   <MenuItem value="">Select</MenuItem>
                   {variants.map((variant) => (
@@ -985,8 +989,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
             </Box>
 
             {/* Image section */}
-
-            <LiveImageFeed imagePath={displaySrc} />
+            <LiveImageFeed machineStop = {machineStop} imagePath={machineStop ? null : displaySrc} />
             
           </StyledPaper>
         </Grid>
