@@ -989,7 +989,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
             </Box>
 
             {/* Image section */}
-            <LiveImageFeed machineStop = {machineStop} imagePath={machineStop ? null : displaySrc} />
+            <LiveImageFeed status = {status} imagePath={status === "stopped" ? null : displaySrc} />
             
           </StyledPaper>
         </Grid>

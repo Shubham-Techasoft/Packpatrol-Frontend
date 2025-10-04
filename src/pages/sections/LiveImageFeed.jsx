@@ -52,7 +52,7 @@ const MAX_CONCURRENT_LOADS = 2;
 const CLEANUP_INTERVAL = 30000;
 const MAX_CONSECUTIVE_SKIPS = 4;
 
-function LiveImageFeed({machineStop, imagePath}) {
+function LiveImageFeed({status, imagePath}) {
   const [currentImage, setCurrentImage] = useState(null);
 
   const queueRef = useRef([]);
@@ -245,7 +245,7 @@ function LiveImageFeed({machineStop, imagePath}) {
         height: "50vh",
       }}
     >
-      {currentImage && !machineStop ? (
+      {currentImage && status === "running" ? (
         <Box
           // key={currentImage}
           component="img"
