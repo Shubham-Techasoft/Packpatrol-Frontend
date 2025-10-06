@@ -10,6 +10,7 @@ import {
   ListItemText,
   ListItemAvatar,
   Tooltip,
+  SelectChangeEvent,
   TextField,
   MenuItem,
 } from "@mui/material";
@@ -87,7 +88,23 @@ type Variant = {
   name: string;
 };
 
-export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, clearAppliedLog }) {
+type AppliedLog = {
+  machine_name: string;
+  variant_name: string;
+  min_stack_size: number | string;
+  max_stack_size: number | string;
+  min_stack_length: number | string;
+  max_stack_length: number | string;
+};
+
+type HomeProps = {
+  recentDialogOpen: boolean;
+  closeRecentDialog: () => void;
+  appliedLog: AppliedLog | null;
+  clearAppliedLog: () => void;
+};
+
+export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, clearAppliedLog }: HomeProps) {
   // const [imageUrls, setImageUrls] = React.useState([]);
   const [imageUrls, setImageUrls] = React.useState<string>("");
   const [messages, setMessages] = React.useState(logMessages);
@@ -112,9 +129,9 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   const [displaySrc, setDisplaySrc] = React.useState<string | null>(null); // current frame shown
 
   // SSE connection states
-  const [sseConnection, setSseConnection] = React.useState(null);
+  const [sseConnection, setSseConnection] = React.useState<EventSource | null>(null);
   const [isSseConnected, setIsSseConnected] = React.useState(false);
-  const [sseError, setSseError] = React.useState(null);
+  const [sseError, setSseError] = React.useState<Event | Error | null>(null);
 
   // IMPORTANT DON'T REMOVE
   React.useEffect(() => {
@@ -178,7 +195,6 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
     null
   );
   const [isLoadingVariants, setIsLoadingVariants] = React.useState(false);
-  const [machineStop, setMachineStop] = React.useState(false);
 
 
   // Simple player loop
@@ -291,7 +307,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   }, [selectedMachine]);
 
   // handle active variant
-  const handleVariantChange = async (event) => {
+  const handleVariantChange = async (event: SelectChangeEvent<string>) => {
     const newVariantId = event.target.value;
     setSelectedVariant(newVariantId);
 
@@ -304,7 +320,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       const payload = {
         variant_id: newVariantId,
         camera_id: machineData.camera?.id,
-        variant_ids: machineData.variants.map((v) => v.id),
+        variant_ids: machineData.variants.map((v: Variant) => v.id),
         active_variant_id: newVariantId,
         is_active: machineData.is_active,
         name: machineData.name,
@@ -402,7 +418,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
         // Find matching log
         const matchingLog = data.find(
-          (log) =>
+          (log:any) =>
             log.machine_name === machine.name &&
             log.variant_name === variant.name
         );
@@ -431,7 +447,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   }, [selectedMachine, selectedVariant, machines, variants, skipAutoFetch]);
 
   // apply recent logs
-  const applyRecentLog = async (log) => {
+  const applyRecentLog = async (log: any) => {
     console.log("🟡 APPLY RECENT LOG START:", log);
 
     setSkipAutoFetch(true);
@@ -457,11 +473,11 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       setVariants(allVariants);
       console.log(
         "📦 Variants received:",
-        allVariants.map((v) => v.name)
+        allVariants.map((v: Variant) => v.name)
       );
 
       const matchedVariant = allVariants.find(
-        (v) => v.name === log.variant_name
+        (v: Variant) => v.name === log.variant_name
       );
       if (matchedVariant) {
         setSelectedVariant(matchedVariant.id);
@@ -561,7 +577,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 3;
     const reconnectDelay = 5000;
-    let eventSource = null;
+    let eventSource: EventSource | null = null;
 
     const connectSSE = () => {
       try {
@@ -639,10 +655,10 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           setIsSseConnected(false);
           setSseError(error);
 
-          if (eventSource.readyState === EventSource.CLOSED) {
+          if (eventSource?.readyState === EventSource.CLOSED) {
             console.warn("🔌 SSE connection closed by server.");
 //             setDisplaySrc(null);
-          } else if (eventSource.readyState === EventSource.CONNECTING) {
+          } else if (eventSource?.readyState === EventSource.CONNECTING) {
             console.warn("🔄 SSE reconnecting...");
           }
 
@@ -656,9 +672,13 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           }
         };
 
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("❌ Failed to create SSE connection:", error);
-        setSseError(error);
+        if (error instanceof Error) {
+          setSseError(error);
+        } else {
+          setSseError(new Error('An unknown error occurred during SSE connection'));
+        }
         setIsSseConnected(false);
       }
     };
@@ -688,7 +708,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   // }, [realtimeData]);
 
   // handle submit
-  const handleSubmit = async (actionType) => {
+  const handleSubmit = async (actionType:string) => {
     if (!selectedMachine) {
       alert("Please select a machine.");
       return;
@@ -707,12 +727,36 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         return;
       }
     } else {
-        setDisplaySrc(null);
-        setMachineStop(true);
+        // const endpoint2 = `http://127.0.0.1:8000/api/machines/${selectedMachineId}/stop_run/`;
+        // try {
+        //   const res = await fetch(endpoint2, {
+        //     method: "POST",
+        //     headers: {
+        //       "Content-Type": "application/json",
+        //     },
+        //     body: null, // 'stop' API doesn't need a body
+        //   });
+        //   const data = await res.json();
+        //   if (!res.ok) {
+        //     throw new Error(data.detail || "Something went wrong.");
+        //   }
+        //   console.log("Machine Stop Response:", data);
+        //   setStatus("stopped");
+        //   setIsMachineRunning(false);
+        //   setDisplaySrc(null);
+        // }
+        // catch (err: unknown) {
+        //   console.error("Control Error:", err);
+        //   if (err instanceof Error) {
+        //     alert(err.message || "Failed to control machine.");
+        //   } else {
+        //     alert("An unknown error occurred while controlling the machine.");
+        //   }
+        // }
+        // return;
     }
 
     const endpoint = `http://127.0.0.1:8000/api/machines/${selectedMachine}/${actionType}_run/`;
-    setMachineStop(false);
     try {
       const res = await fetch(endpoint, {
         method: "POST",
@@ -741,9 +785,13 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       console.log("Machine Control Response:", data);
       setStatus(actionType === "start" ? "running" : "stopped");
       setIsMachineRunning(actionType === "start");
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Control Error:", err);
-      alert(err.message || "Failed to control machine.");
+      if (err instanceof Error) {
+        alert(err.message || "Failed to control machine.");
+      } else {
+        alert("An unknown error occurred while controlling the machine.");
+      }
     }
 
     // fetch("http://localhost:8000/machine/control", {
@@ -971,7 +1019,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                   onChange={handleVariantChange}
                   size="small"
                   disabled={!selectedMachine}
-
+                
                 >
                   <MenuItem value="">Select</MenuItem>
                   {variants.map((variant) => (
@@ -1139,7 +1187,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                   fullWidth
                   select
                   label="Variant"
-                  value={selectedVariant}
+                  value={selectedVariant as string}
                   onChange={handleVariantChange}
                   size="small"
                   disabled={!selectedMachine}
