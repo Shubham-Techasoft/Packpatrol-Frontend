@@ -303,8 +303,7 @@ export default function Dashboard() {
               // const randomImage = sampleImagesUrl[randomIndex];
               // basePath = randomImage.split("?")[0];
               // --------------------------------------------------------------------
-              cleanImagePath = basePath.replace(/\\/g, "/");
-              data.image_path = cleanImagePath;
+              data.image_path = basePath.replace(/\\/g, "/");;
             }
 
             setRealtimeData(data);
