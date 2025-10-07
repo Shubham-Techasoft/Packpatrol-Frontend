@@ -1137,7 +1137,7 @@ export default function Dashboard() {
             <Typography variant="h6" gutterBottom>
               Live Camera Feed
             </Typography>
-            <LiveImageFeed imagePath={displaySrc} />
+            <LiveImageFeed imagePath={displaySrc} status={"running"}/>
             <Typography variant="body2" color="text.secondary" mt={2}>
               * Only the running Machine live feed will be shown here!
             </Typography>

@@ -241,7 +241,7 @@ function LiveImageFeed({ status, imagePath }) {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        aspectRatio: "15 / 9",
+        height: "80%",
         backgroundColor: "background.paper",
         minHeight: 300
       }}
