@@ -234,15 +234,15 @@ function LiveImageFeed({ status, imagePath }) {
   return (
     <Box
       sx={{
-        width: "100%",
+//         width: "100%",
         margin: "auto",
         borderRadius: 2,
         overflow: "hidden",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        height: "80%",
-        backgroundColor: "background.paper",
+        height: "100%",
+//         backgroundColor: "background.paper",
         minHeight: 300
       }}
     >
