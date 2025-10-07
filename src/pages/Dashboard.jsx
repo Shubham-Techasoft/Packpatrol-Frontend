@@ -303,14 +303,7 @@ export default function Dashboard() {
               // const randomImage = sampleImagesUrl[randomIndex];
               // basePath = randomImage.split("?")[0];
               // --------------------------------------------------------------------
-              basePath = basePath.replace(/\\/g, "/");
-              const idx = basePath.indexOf("/public/");
-              let cleanImagePath = "";
-              if (idx !== -1) {
-                cleanImagePath = basePath.substring(idx);
-              } else {
-                cleanImagePath = basePath;
-              }
+              cleanImagePath = basePath.replace(/\\/g, "/");
               data.image_path = cleanImagePath;
             }
 

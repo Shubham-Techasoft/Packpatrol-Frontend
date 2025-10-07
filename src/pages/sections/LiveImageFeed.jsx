@@ -1,281 +1,276 @@
-// import { Box } from "@mui/material";
-
-// function LiveImageFeed({ imagePath }) {
-//   console.log(imagePath)
-//   return (
-//     <Box
-//       sx={{
-//         width: "100%",
-//         // maxWidth: 850,
-//         margin: "auto",
-//         borderRadius: 7,
-//         // boxShadow: currentImage ? 1 : "none",
-//         overflow: "hidden",
-//         // overflow: "scroll",
-//         display: "flex",
-//         justifyContent: "center",
-//         alignItems:"center"
-//       }}
-//     >
-//       {imagePath ? (
-//         <Box
-//           component="img"
-//           src={imagePath}
-//           alt="Live frame"
-//           sx={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", height:"50vh" }}
-//         />
-//       ) : (
-//          <p
-//           style={{
-//             textAlign: "center",
-//             boxShadow: "none !important",
-//             fontSize: "1.2rem",
-//             fontFamily: "Arial, sans-serif",
-//             letterSpacing: "0.1em",
-//             wordSpacing: "0.2em",
-//           }}
-//         >
-//           There is no live updates yet.......
-//         </p>
-//       )}
-//     </Box>
-//    );
-// }
-
-// export default LiveImageFeed;
-
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Box } from "@mui/material";
 
-const MAX_QUEUE_SIZE = 5;
-const MAX_CONCURRENT_LOADS = 2;
-const CLEANUP_INTERVAL = 30000;
-const MAX_CONSECUTIVE_SKIPS = 4;
+// Constants
+const MAX_QUEUE_SIZE = 3; // Reduced for better memory
+const MAX_CONCURRENT_LOADS = 1; // Reduced to prevent overload
+const CLEANUP_INTERVAL = 15000; // More frequent cleanup
+const FRAME_DISPLAY_INTERVAL = 150; // Smother display
+const LOAD_TIMEOUT = 2000; // Faster timeout
 
-function LiveImageFeed({status, imagePath}) {
-  console.log("🔴 LiveImageFeed render, status:", status, "imagePath:", imagePath);
+// Memoized path conversion
+const convertToWebPath = (() => {
+  const cache = new Map();
+
+  return (absolutePath) => {
+    if (!absolutePath) return null;
+
+    if (cache.has(absolutePath)) {
+      return cache.get(absolutePath);
+    }
+
+    const webPath = absolutePath.replace('/home/techasoft-testing-pc/PackImages', '/public/packimages');
+    cache.set(absolutePath, webPath);
+
+    // Limit cache size
+    if (cache.size > 100) {
+      const firstKey = cache.keys().next().value;
+      cache.delete(firstKey);
+    }
+
+    return webPath;
+  };
+})();
+
+function LiveImageFeed({ status, imagePath }) {
   const [currentImage, setCurrentImage] = useState(null);
 
-  const queueRef = useRef([]);
-  const inFlightCountRef = useRef(0);
-  const abortControllerRef = useRef(null);
+  // Refs for better performance
+  const stateRef = useRef({
+    queue: [],
+    inFlightCount: 0,
+    skipCounter: 0,
+    lastDisplayTime: 0,
+    abortController: null,
+    isMounted: true
+  });
+
   const intervalRef = useRef(null);
-  const skipCounterRef = useRef(0);
+  const cleanupIntervalRef = useRef(null);
 
-  // Helper to log skipped frames
+  // Stable callbacks
   const logFrameSkip = useCallback((url, reason) => {
-    skipCounterRef.current++;
-    console.warn(`⚠️ Frame skipped: ${url} — Reason: ${reason}`);
-    if (skipCounterRef.current >= MAX_CONSECUTIVE_SKIPS) {
-      console.error("⚠️ Internet speed is too low, multiple frames skipped!");
+    const state = stateRef.current;
+    state.skipCounter++;
+
+    if (state.skipCounter >= 3) {
+      console.warn(`🚨 Multiple frames skipped - ${reason}`);
     }
   }, []);
 
-  // Cleanup function
   const cleanup = useCallback(() => {
-    queueRef.current = [];
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
+    const state = stateRef.current;
+    state.queue = [];
+    state.inFlightCount = 0;
+    state.skipCounter = 0;
+
+    if (state.abortController) {
+      state.abortController.abort();
+      state.abortController = null;
     }
-    inFlightCountRef.current = 0;
-    skipCounterRef.current = 0;
+
     setCurrentImage(null);
-    console.log("🧹 Memory cleanup completed");
   }, []);
 
-  // Monitor memory / queue
-  const monitorMemory = useCallback(() => {
-    if (queueRef.current.length > MAX_QUEUE_SIZE) {
-      console.warn(`⚠️ Queue size (${queueRef.current.length}) exceeds limit (${MAX_QUEUE_SIZE}), clearing queue`);
-      cleanup();
-    }
-    if (window.gc) {
-      window.gc();
-    }
-  }, [cleanup]);
-
-  // Preload image with timeout and abort
+  // Optimized image preloader
   const preloadImage = useCallback((url) => {
     return new Promise((resolve, reject) => {
-      if (abortControllerRef.current?.signal.aborted) {
-        reject(new Error("Request cancelled"));
+      const state = stateRef.current;
+
+      if (!state.isMounted || state.abortController?.signal.aborted) {
+        reject(new Error("Cancelled"));
         return;
       }
+
       const img = new Image();
-      let timeoutId = null;
-      let hasResolved = false;
-
-      const cleanupImg = () => {
-        if (timeoutId) clearTimeout(timeoutId);
-        img.onload = null;
-        img.onerror = null;
+      const timeoutId = setTimeout(() => {
+        img.onload = img.onerror = null;
         img.src = '';
+        reject(new Error("Timeout"));
+      }, LOAD_TIMEOUT);
+
+      img.onload = () => {
+        clearTimeout(timeoutId);
+        resolve(url);
       };
 
-      const resolveOnce = (value) => {
-        if (!hasResolved) {
-          hasResolved = true;
-          cleanupImg();
-          resolve(value);
-        }
+      img.onerror = () => {
+        clearTimeout(timeoutId);
+        reject(new Error("Load failed"));
       };
 
-      const rejectOnce = (error) => {
-        if (!hasResolved) {
-          hasResolved = true;
-          cleanupImg();
-          reject(error);
-        }
-      };
-
-      img.onload = () => resolveOnce(url);
-      img.onerror = () => rejectOnce(new Error("Image failed to load"));
-      img.src = `${url}`;
-
-      timeoutId = setTimeout(() => {
-        rejectOnce(new Error("Image load timeout (3s)"));
-      }, 3000);
-
-      abortControllerRef.current?.signal.addEventListener('abort', () => {
-        rejectOnce(new Error("Request cancelled"));
-      });
+      img.src = url;
     });
   }, []);
 
-  // Handle incoming imagePath
-  useEffect(() => {
-    if (!imagePath) return;
+  // Debounced image processor
+  const processImagePath = useCallback((path) => {
+    const state = stateRef.current;
 
-    if (inFlightCountRef.current >= MAX_CONCURRENT_LOADS) {
-      logFrameSkip(imagePath, "Too many concurrent loads");
+    if (!path || state.inFlightCount >= MAX_CONCURRENT_LOADS) {
       return;
     }
 
-    if (queueRef.current.length >= MAX_QUEUE_SIZE) {
-      queueRef.current.shift(); // drop oldest
-      logFrameSkip(imagePath, "Queue full");
+    const webPath = convertToWebPath(path);
+    if (!webPath) return;
+
+    // Skip if already in queue
+    if (state.queue.includes(webPath)) {
+      return;
     }
 
-    if (!abortControllerRef.current) {
-      abortControllerRef.current = new AbortController();
+    // Manage queue size
+    if (state.queue.length >= MAX_QUEUE_SIZE) {
+      state.queue.shift();
     }
 
-    inFlightCountRef.current++;
-    preloadImage(imagePath)
+    state.inFlightCount++;
+
+    if (!state.abortController) {
+      state.abortController = new AbortController();
+    }
+
+    preloadImage(webPath)
       .then((loadedUrl) => {
-        if (queueRef.current.length < MAX_QUEUE_SIZE) {
-          queueRef.current.push(loadedUrl);
-          console.log(`✅ Image loaded and queued: ${loadedUrl}`);
-          skipCounterRef.current = 0; // reset on successful load
-        } else {
-          logFrameSkip(loadedUrl, "Queue full after load");
+        if (state.isMounted && !state.queue.includes(loadedUrl)) {
+          state.queue.push(loadedUrl);
+          state.skipCounter = 0;
         }
       })
-      .catch((err) => {
-        if (err.message !== "Request cancelled") {
-          logFrameSkip(imagePath, `Load failed: ${err.message}`);
-        }
+      .catch(() => {
+        // Silent fail - no need to log every failed frame
       })
       .finally(() => {
-        inFlightCountRef.current--;
+        if (state.isMounted) {
+          state.inFlightCount = Math.max(0, state.inFlightCount - 1);
+        }
       });
-  }, [imagePath, preloadImage, logFrameSkip]);
+  }, [preloadImage]);
 
-  // Interval to display images
+  // Throttled image display
+  const displayNextImage = useCallback(() => {
+    const state = stateRef.current;
+    const now = Date.now();
+
+    // Throttle display to prevent rapid updates
+    if (now - state.lastDisplayTime < FRAME_DISPLAY_INTERVAL) {
+      return;
+    }
+
+    if (state.queue.length > 0) {
+      const nextImage = state.queue.shift();
+      setCurrentImage(nextImage);
+      state.lastDisplayTime = now;
+
+      // Keep only the latest frame for memory efficiency
+      if (state.queue.length > 1) {
+        state.queue = [state.queue[state.queue.length - 1]];
+      }
+    }
+  }, []);
+
+  // Main effects
   useEffect(() => {
-    intervalRef.current = setInterval(() => {
-      monitorMemory();
-      const q = queueRef.current;
+    processImagePath(imagePath);
+  }, [imagePath, processImagePath]);
 
-      if (q.length > 1) {
-        const latest = q[q.length - 1];
-        queueRef.current = [latest];
-        console.log("🗑️ Cleared old frames, keeping latest");
-      }
-
-      const next = queueRef.current.shift();
-      if (next) {
-        setCurrentImage(next);
-      }
-    }, 200);
+  useEffect(() => {
+    // Smoother display interval
+    intervalRef.current = setInterval(displayNextImage, 50);
 
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
-        intervalRef.current = null;
       }
     };
-  }, [monitorMemory]);
+  }, [displayNextImage]);
 
-  // Cleanup interval memory check
   useEffect(() => {
-    const cleanupInterval = setInterval(() => {
-      monitorMemory();
+    // Memory cleanup
+    cleanupIntervalRef.current = setInterval(() => {
+      const state = stateRef.current;
+
+      if (state.queue.length > MAX_QUEUE_SIZE) {
+        state.queue = state.queue.slice(-1); // Keep only latest
+      }
+
+      if (window.gc) {
+        window.gc();
+      }
     }, CLEANUP_INTERVAL);
-    return () => clearInterval(cleanupInterval);
-  }, [monitorMemory]);
 
-  // Cleanup on unmount
-  useEffect(() => {
     return () => {
-      console.log("🛑 Component unmounting, cleaning up...");
+      if (cleanupIntervalRef.current) {
+        clearInterval(cleanupIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Mount/unmount handling
+  useEffect(() => {
+    const state = stateRef.current;
+    state.isMounted = true;
+
+    return () => {
+      state.isMounted = false;
       cleanup();
-      if (intervalRef.current) clearInterval(intervalRef.current);
+
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      if (cleanupIntervalRef.current) {
+        clearInterval(cleanupIntervalRef.current);
+      }
     };
   }, [cleanup]);
 
-  // Flush queue and clear image when stream stops
+  // Stream stop handler
   useEffect(() => {
-    if (imagePath === null && (currentImage !== null || queueRef.current.length > 0)) {
+    if (imagePath === null) {
       cleanup();
     }
-    // eslint-disable-next-line
-  }, [imagePath]); // do NOT include cleanup in deps, it is stable from useCallback
+  }, [imagePath, cleanup]);
 
   return (
     <Box
       sx={{
         width: "100%",
         margin: "auto",
-        borderRadius: 7,
+        borderRadius: 2,
         overflow: "hidden",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        // height: "50vh",
         aspectRatio: "15 / 9",
+        backgroundColor: "background.paper",
+        minHeight: 300
       }}
     >
       {currentImage && status === "running" ? (
         <Box
-          // key={currentImage}
           component="img"
           src={currentImage}
-          alt="Live frame"
+          alt="Live feed"
           sx={{
-            maxWidth: "100%",
-            maxHeight: "100%",
-            objectFit: "contain",
+            width: "100%",
             height: "100%",
+            objectFit: "contain",
+            display: "block"
           }}
-          onError={(e) => {
-            console.warn("❌ Image display error:", e);
+          onError={() => {
             setCurrentImage(null);
           }}
         />
       ) : (
-        <p
-          style={{
+        <Box
+          sx={{
             textAlign: "center",
-            fontSize: "1.2rem",
-            fontFamily: "Arial, sans-serif",
-            letterSpacing: "0.1em",
-            wordSpacing: "0.2em",
+            color: "text.secondary",
+            p: 3
           }}
         >
-          There is no live updates yet...
-        </p>
+          No live feed available
+        </Box>
       )}
     </Box>
   );
