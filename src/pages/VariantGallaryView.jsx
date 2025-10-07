@@ -23,7 +23,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 const IMAGES_PER_PAGE = 20;
 
-// NEW: Function to convert absolute path to web URL
+// Path conversion function
 const convertToWebPath = (absolutePath) => {
   if (!absolutePath) return null;
   return absolutePath.replace('/home/techasoft-testing-pc/PackImages', '/public/packimages');
@@ -46,10 +46,7 @@ const VariantGallaryView = () => {
     variantName: "",
   });
 
-  // Pagination state
   const [page, setPage] = useState(1);
-
-  // Snackbar states
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -103,9 +100,9 @@ const VariantGallaryView = () => {
     fetchNames();
   }, [machineId, variantId]);
 
-  // NEW: Fetch images from database API
+  // NEW: Fetch manifest from database API
   useEffect(() => {
-    const fetchImagesFromDB = async () => {
+    const fetchManifestFromDB = async () => {
       try {
         setLoading(true);
         setError(null);
@@ -114,45 +111,38 @@ const VariantGallaryView = () => {
 
         if (!machineInfo.machineName || !machineInfo.variantName) return;
 
-        showSnackbar("Fetching images from database...", "info");
+        showSnackbar("Loading images from database...", "info");
 
-        // NEW: Fetch images from your Django API
+        // Fetch the manifest (list of image paths) from database API
         const response = await fetch(
-          `http://127.0.0.1:8000/api/machine-images/?machine_name=${encodeURIComponent(
+          `http://127.0.0.1:8000/api/manifest/${encodeURIComponent(
             machineInfo.machineName
-          )}&variant_name=${encodeURIComponent(machineInfo.variantName)}&limit=1000`
+          )}/${encodeURIComponent(machineInfo.variantName)}/`
         );
 
         if (!response.ok) {
-          throw new Error("Failed to fetch images from database");
+          throw new Error("Failed to fetch image manifest from database");
         }
 
-        const data = await response.json();
+        const imagePaths = await response.json();
         
-        // Convert database records to image objects
-        const images = data.images || data.results || [];
-        
-        const imageObjects = images.map((record, index) => {
-          const webPath = convertToWebPath(record.image_path);
+        // Convert to image objects (same as old manifest processing)
+        const imageObjects = imagePaths.map((absolutePath, index) => {
+          const webPath = convertToWebPath(absolutePath);
           return {
-            id: record.id || record.image_name || `img-${index}`,
+            id: `img-${index}-${Date.now()}`,
             url: webPath,
-            label: record.image_name || "Image",
-            timestamp: record.timestamp,
-            is_rejected: record.is_rejected,
-            originalPath: record.image_path // Keep for reference
+            label: absolutePath.split("/").pop() || "Image",
+            originalPath: absolutePath
           };
         });
-
-        // Sort by timestamp (newest first)
-        imageObjects.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
         setImagesList(imageObjects);
         showSnackbar(`Loaded ${imageObjects.length} images successfully!`, "success");
 
       } catch (err) {
-        console.error("Error fetching images from database:", err);
-        setError("Failed to load images from database. Please try again.");
+        console.error("Error fetching manifest from database:", err);
+        setError("Failed to load images from database. The API endpoint may not be configured.");
         showSnackbar("Failed to load images.", "error");
       } finally {
         setLoading(false);
@@ -160,49 +150,9 @@ const VariantGallaryView = () => {
     };
 
     if (machineInfo.machineName && machineInfo.variantName) {
-      fetchImagesFromDB();
+      fetchManifestFromDB();
     }
   }, [machineInfo.machineName, machineInfo.variantName]);
-
-  // Alternative: If you don't have an API endpoint yet, use this direct SQLite approach
-  const fetchImagesDirectFromDB = async () => {
-    try {
-      showSnackbar("Fetching images directly from database...", "info");
-      
-      // This would require a backend endpoint - create one in Django
-      const response = await fetch('http://127.0.0.1:8000/api/get-variant-images/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          machine_id: machineId,
-          variant_id: variantId,
-          machine_name: machineInfo.machineName,
-          variant_name: machineInfo.variantName
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        const imageObjects = data.images.map(img => ({
-          id: img.id,
-          url: convertToWebPath(img.image_path),
-          label: img.image_name,
-          timestamp: img.timestamp
-        }));
-        
-        setImagesList(imageObjects);
-        showSnackbar(`Loaded ${imageObjects.length} images`, "success");
-      } else {
-        throw new Error(data.error || "Failed to fetch images");
-      }
-    } catch (err) {
-      console.error("Direct DB fetch error:", err);
-      setError("Database connection failed");
-    }
-  };
 
   // Pagination logic
   const pageCount = Math.ceil(imagesList.length / IMAGES_PER_PAGE);
@@ -259,14 +209,14 @@ const VariantGallaryView = () => {
             {error}
             <Box sx={{ mt: 1 }}>
               <Typography variant="body2">
-                Make sure your database API endpoint is running.
+                Make sure the manifest API endpoint is running.
               </Typography>
             </Box>
           </Alert>
         )}
         {!loading && !error && imagesList.length === 0 && (
           <Typography variant="body1" color="textSecondary" sx={{ mt: 5 }}>
-            No images found for this variant in the database.
+            No images found for this variant.
           </Typography>
         )}
 
@@ -290,7 +240,6 @@ const VariantGallaryView = () => {
                       transform: "scale(1.05)",
                       boxShadow: theme.shadows[8],
                     },
-                    border: img.is_rejected ? '2px solid #ff4444' : 'none'
                   }}
                   onClick={() => handleOpen(img)}
                 >
@@ -299,11 +248,7 @@ const VariantGallaryView = () => {
                     height={isSmallScreen ? "150" : "220"}
                     image={img.url}
                     alt={img.label}
-                    sx={{ 
-                      borderTopLeftRadius: 4, 
-                      borderTopRightRadius: 4,
-                      filter: img.is_rejected ? 'grayscale(0.3)' : 'none'
-                    }}
+                    sx={{ borderTopLeftRadius: 4, borderTopRightRadius: 4 }}
                   />
                   <CardContent
                     sx={{ padding: theme.spacing(2), textAlign: "center" }}
@@ -316,20 +261,6 @@ const VariantGallaryView = () => {
                     >
                       {img.label}
                     </Typography>
-                    {img.timestamp && (
-                      <Typography variant="caption" color="textSecondary">
-                        {new Date(img.timestamp).toLocaleString()}
-                      </Typography>
-                    )}
-                    {img.is_rejected && (
-                      <Typography 
-                        variant="caption" 
-                        color="error" 
-                        sx={{ display: 'block', mt: 0.5 }}
-                      >
-                        REJECTED
-                      </Typography>
-                    )}
                   </CardContent>
                 </Card>
               </Grid>
@@ -367,26 +298,15 @@ const VariantGallaryView = () => {
           }}
         >
           {currentImage && (
-            <Box sx={{ textAlign: 'center' }}>
-              <img
-                src={currentImage.url}
-                alt={currentImage.label}
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: "80vh",
-                  objectFit: "contain",
-                }}
-              />
-              {currentImage.is_rejected && (
-                <Typography 
-                  variant="h6" 
-                  color="error" 
-                  sx={{ mt: 2, color: 'white' }}
-                >
-                  ⚠️ REJECTED IMAGE
-                </Typography>
-              )}
-            </Box>
+            <img
+              src={currentImage.url}
+              alt={currentImage.label}
+              style={{
+                maxWidth: "100%",
+                maxHeight: "80vh",
+                objectFit: "contain",
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>
