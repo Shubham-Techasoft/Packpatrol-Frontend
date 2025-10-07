@@ -604,20 +604,17 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
             // --- Cleaning image path ---
             let cleanImagePath = "";
             if (data.image_path) {
+              
               console.log("🖼️ Raw image path from SSE:", data.image_path);
+              ///home/techasoft-testing-pc/PackImages/Pune-Line1-Machine6/Goodday/img_20251007_201002_687937_28.jpeg
+
               let basePath = data.image_path.split("?")[0];
               // // code for random sample iamge test on my pc-----------------------------
               // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
               // const randomImage = sampleImagesUrl[randomIndex];
               // basePath = randomImage.split("?")[0];
               //-------------------------------------------------------------------------
-              basePath = basePath.replace(/\\/g, "/");
-              const idx = basePath.indexOf("/public/");
-              if (idx !== -1) {
-                cleanImagePath = basePath.substring(idx);
-              } else {
-                cleanImagePath = basePath;
-              }
+              cleanImagePath = basePath.replace(/\\/g, "/");
             }
 
             latestDataRef.current = {
@@ -886,9 +883,10 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
     <Box
       sx={{
         flexGrow: 1,
-        height: "80vh",
+        // height: "80vh",
         padding: 2,
         bgcolor: "rgb(209, 233, 237)",
+        marginBottom: {sx: 15, sm: 0}
       }}
     >
       <Grid container spacing={1.5} sx={{ height: "100%" }}>
@@ -916,8 +914,22 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                 alignItems: "center",
                 width: "100%",
                 paddingTop: 0.5,
+                flexDirection: { xs: 'column', sm: 'row' },
               }}
-            >
+              >
+              <Box
+                sx={{
+                  // 2 columns
+                  // 2 rows in small screen
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr 1fr", sm: "1fr 1fr 1fr 1fr" },
+                  gridTemplateRows: { xs: "auto auto", sm: "auto" },
+                  gap: 1,
+                  flex: 3,
+                  paddingX: 1,
+                  paddingY: 0.5,
+                }}
+              >
               {stackData.map((item, index) => (
                 <Tooltip key={index} title={item.tooltip} arrow>
                   <Box
@@ -936,7 +948,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                       textAlign: "center",
                       cursor: "default",
                     }}
-                  >
+                    >
                     <Box
                       sx={{
                         display: "flex",
@@ -954,6 +966,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                   </Box>
                 </Tooltip>
               ))}
+              </Box>
 
               {/* Machine Variant Dropdown */}
               <Box
@@ -972,6 +985,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                   textAlign: "center",
                   // gap: 1,
                   // borderRadius: 2,
+                  width: { xs: "92%", sm: "auto" },
                 }}
               >
                 {/* Machine dropdown */}
@@ -1047,10 +1061,9 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           item
           xs={12}
           md={4}
-          sx={{ height: "100%", display: "flex", flexDirection: "column" }}
+          sx={{ height: "75vh", display: "flex", flexDirection: "column",}}
         >
           {/* Live Updates */}
-
           <StyledPaper sx={{ flex: 7, overflowY: "auto", bgcolor: "#f5f5f5" }}>
             <Box sx={{ mb: -1 }}>
               <Typography variant="h6" component="h4" gutterBottom>
@@ -1094,7 +1107,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
           {/* Machine Control */}
 
-          <StyledPaper sx={{ flex: 3, p: 2, mt: 2, bgcolor: "#f5f5f5" }}>
+          <StyledPaper sx={{ flex: 3, p: 2, mt: 2, bgcolor: "#f5f5f5", mb: {xs: 5, sm: 5, md: 0} }}>
             <Box
               sx={{
                 display: "flex",
@@ -1143,7 +1156,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
             {/* form submit handler */}
             <form onSubmit={(e) => e.preventDefault()}>
-              <Box sx={{ mb: 2, display: "flex", gap: 2 }}>
+              <Box sx={{ mb: 2, display: "flex", gap: 2, flexDirection: { xs: "column", sm: "row" },}}>
                 <TextField
                   fullWidth
                   select
@@ -1169,6 +1182,9 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                   //     },
                   //   },
                   // }}
+                  sx={{
+                  width: "100%",
+                  }}
                 >
                   <MenuItem value="">Select Machine</MenuItem>
                   {machines.map((machine) => (

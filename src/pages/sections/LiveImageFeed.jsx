@@ -53,6 +53,7 @@ const CLEANUP_INTERVAL = 30000;
 const MAX_CONSECUTIVE_SKIPS = 4;
 
 function LiveImageFeed({status, imagePath}) {
+  console.log("🔴 LiveImageFeed render, status:", status, "imagePath:", imagePath);
   const [currentImage, setCurrentImage] = useState(null);
 
   const queueRef = useRef([]);
@@ -242,7 +243,8 @@ function LiveImageFeed({status, imagePath}) {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        height: "50vh",
+        // height: "50vh",
+        aspectRatio: "15 / 9",
       }}
     >
       {currentImage && status === "running" ? (
