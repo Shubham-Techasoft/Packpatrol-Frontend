@@ -570,6 +570,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       setRealtimeData({ ...latestDataRef.current });
       return;
     }
+    if(selectedMachine === "all") return;
 
     const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
     console.log("📡 Connecting to SSE:", sseUrl);

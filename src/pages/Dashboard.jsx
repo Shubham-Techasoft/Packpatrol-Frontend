@@ -265,7 +265,6 @@ export default function Dashboard() {
       }
       return;
     }
-
     const sseUrl = `http://localhost:8000/api/machines/${selectedMachineId}/sse/`;
     console.log("📡 Connecting SSE for dashboard:", sseUrl);
 
