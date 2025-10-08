@@ -3,11 +3,12 @@ import { Box } from "@mui/material";
 import { useMachineSelection } from "../../MachineSelectionContext";
 
 // Constants
-const MAX_QUEUE_SIZE = 3; // Reduced for better memory
-const MAX_CONCURRENT_LOADS = 1; // Reduced to prevent overload
-const CLEANUP_INTERVAL = 15000; // More frequent cleanup
-const FRAME_DISPLAY_INTERVAL = 150; // Smother display
-const LOAD_TIMEOUT = 2000; // Faster timeout
+const MAX_QUEUE_SIZE = 3;
+const MAX_CONCURRENT_LOADS = 1;
+const CLEANUP_INTERVAL = 15000;
+const FRAME_DISPLAY_INTERVAL = 150;
+const LOAD_TIMEOUT = 2000;
+const HEALTH_CHECK_INTERVAL = 30000;
 
 // Memoized path conversion
 const convertToWebPath = (() => {
@@ -35,7 +36,17 @@ const convertToWebPath = (() => {
 
 function LiveImageFeed({ status, imagePath }) {
   const [currentImage, setCurrentImage] = useState(null);
-  const { selectedMachineId, setSelectedMachineId } = useMachineSelection();
+  const { selectedMachineId } = useMachineSelection();
+
+  // Add state for machine restart functionality
+  const [activeVariantId, setActiveVariantId] = useState("");
+  const [stackConfig, setStackConfig] = useState({
+    min_stack_size: 1,
+    max_stack_size: 10,
+    min_stack_length: 10.0,
+    max_stack_length: 50.0
+  });
+
   // Refs for better performance
   const stateRef = useRef({
     queue: [],
@@ -48,6 +59,130 @@ function LiveImageFeed({ status, imagePath }) {
 
   const intervalRef = useRef(null);
   const cleanupIntervalRef = useRef(null);
+  const healthCheckIntervalRef = useRef(null);
+
+  // Fetch machine details to get active variant and stack config
+  useEffect(() => {
+    if (!selectedMachineId) return;
+
+    const fetchMachineDetails = async () => {
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/api/machines/${selectedMachineId}/`);
+        const data = await response.json();
+
+        if (data) {
+          setActiveVariantId(data.active_variant?.id || "");
+          // Update stack config from machine data if available
+          if (data.min_stack_size && data.max_stack_size &&
+              data.min_stack_length && data.max_stack_length) {
+            setStackConfig({
+              min_stack_size: data.min_stack_size,
+              max_stack_size: data.max_stack_size,
+              min_stack_length: data.min_stack_length,
+              max_stack_length: data.max_stack_length
+            });
+          }
+        }
+      } catch (error) {
+        console.error("❌ Failed to fetch machine details:", error);
+      }
+    };
+
+    fetchMachineDetails();
+  }, [selectedMachineId]);
+
+  // Health check and auto-restart function
+  const checkAndRestartProcess = useCallback(async () => {
+    if (!selectedMachineId || !activeVariantId) {
+      console.log('⏸️ Skipping health check - no machine or variant selected');
+      return;
+    }
+
+    try {
+      console.log('🔍 Checking process health...');
+
+      // Check if process is running - FIXED: Use full URL and parse JSON
+      const processResponse = await fetch(`http://127.0.0.1:8000/api/machines/${selectedMachineId}/process_status/`);
+
+      if (!processResponse.ok) {
+        throw new Error(`HTTP ${processResponse.status}`);
+      }
+
+      const statusData = await processResponse.json(); // FIXED: Parse as JSON, not text
+      console.log('🔍 Process status:', statusData);
+
+      // Check if process needs restart
+      if (statusData.needs_restart || statusData.status === 'Dead') {
+        console.log('🔄 Process died, auto-restarting...');
+
+        // Stop first to clean up
+        try {
+          await fetch(`http://127.0.0.1:8000/api/machines/${selectedMachineId}/stop_run/`, {
+            method: 'POST'
+          });
+          console.log('✅ Stop command sent');
+        } catch (stopError) {
+          console.log('⚠️ Stop command failed (might already be stopped):', stopError);
+        }
+
+        // Wait a moment for cleanup
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Restart with current configuration - FIXED: Use full URL
+        const restartResponse = await fetch(`http://127.0.0.1:8000/api/machines/${selectedMachineId}/start_run/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            machine: selectedMachineId,
+            variant: activeVariantId,
+            min_stack_size: stackConfig.min_stack_size,
+            max_stack_size: stackConfig.max_stack_size,
+            min_stack_length: stackConfig.min_stack_length,
+            max_stack_length: stackConfig.max_stack_length
+          })
+        });
+
+        if (restartResponse.ok) {
+          console.log('✅ Machine auto-restarted successfully');
+        } else {
+          const errorText = await restartResponse.text();
+          console.error('❌ Failed to auto-restart machine:', errorText);
+        }
+      } else {
+        console.log('✅ Process is healthy');
+      }
+    } catch (error) {
+      console.error('❌ Health check failed:', error);
+    }
+  }, [selectedMachineId, activeVariantId, stackConfig]);
+
+  // Health check interval - FIXED: Only run when machine is running
+  useEffect(() => {
+    if (status === "running") {
+      // Initial check
+      checkAndRestartProcess();
+
+      // Set up interval for regular health checks
+      healthCheckIntervalRef.current = setInterval(checkAndRestartProcess, HEALTH_CHECK_INTERVAL);
+
+      console.log('🔧 Health monitoring started');
+    } else {
+      // Clear interval when machine is stopped
+      if (healthCheckIntervalRef.current) {
+        clearInterval(healthCheckIntervalRef.current);
+        healthCheckIntervalRef.current = null;
+        console.log('🔧 Health monitoring stopped');
+      }
+    }
+
+    return () => {
+      if (healthCheckIntervalRef.current) {
+        clearInterval(healthCheckIntervalRef.current);
+      }
+    };
+  }, [status, checkAndRestartProcess]);
 
   // Stable callbacks
   const logFrameSkip = useCallback((url, reason) => {
@@ -222,6 +357,9 @@ function LiveImageFeed({ status, imagePath }) {
       if (cleanupIntervalRef.current) {
         clearInterval(cleanupIntervalRef.current);
       }
+      if (healthCheckIntervalRef.current) {
+        clearInterval(healthCheckIntervalRef.current);
+      }
     };
   }, [cleanup]);
 
@@ -231,29 +369,6 @@ function LiveImageFeed({ status, imagePath }) {
       cleanup();
     }
   }, [imagePath, cleanup]);
-
-  // In your live stream component
-  useEffect(() => {
-    const checkProcessHealth = async () => {
-      try {
-        const response = await fetch(`/api/machines/${selectedMachineId}/process_status/`);
-        const status = await response.json();
-        
-        if (status.needs_restart) {
-          console.log('🔄 Process died, auto-restarting...');
-          // Auto-restart logic
-          await restartMachine();
-        }
-      } catch (error) {
-        console.error('Health check failed:', error);
-      }
-    };
-
-    // Check health every 30 seconds
-    const healthInterval = setInterval(checkProcessHealth, 30000);
-    
-    return () => clearInterval(healthInterval);
-  }, [selectedMachineId]);
 
   return (
     <Box
@@ -266,8 +381,6 @@ function LiveImageFeed({ status, imagePath }) {
         justifyContent: "center",
         alignItems: "center",
         height: "58vh",
-        // backgroundColor: "background.paper",
-        // minHeight: 450
       }}
     >
       {currentImage && status === "running" ? (
@@ -293,7 +406,7 @@ function LiveImageFeed({ status, imagePath }) {
             p: 3
           }}
         >
-          No live feed available
+          {status === "running" ? "Waiting for live feed..." : "No live feed available"}
         </Box>
       )}
     </Box>
