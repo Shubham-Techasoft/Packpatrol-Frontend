@@ -241,9 +241,9 @@ function LiveImageFeed({ status, imagePath }) {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-//         height: "100%",
-//         backgroundColor: "background.paper",
-        minHeight: 300
+        height: "58vh",
+        // backgroundColor: "background.paper",
+        // minHeight: 450
       }}
     >
       {currentImage && status === "running" ? (

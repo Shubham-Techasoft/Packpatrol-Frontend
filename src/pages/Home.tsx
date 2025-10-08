@@ -886,7 +886,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         // height: "80vh",
         padding: 2,
         bgcolor: "rgb(209, 233, 237)",
-        marginBottom: {sx: 15, sm: 0}
+        mb: {sx: 18, sm: 0},
+        height: {sx:"100%", md: "80vh"}
       }}
     >
       <Grid container spacing={1.5} sx={{ height: "100%" }}>
