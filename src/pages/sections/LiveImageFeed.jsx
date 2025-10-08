@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Box } from "@mui/material";
+import { useMachineSelection } from "../../MachineSelectionContext";
 
 // Constants
 const MAX_QUEUE_SIZE = 3; // Reduced for better memory
@@ -34,7 +35,7 @@ const convertToWebPath = (() => {
 
 function LiveImageFeed({ status, imagePath }) {
   const [currentImage, setCurrentImage] = useState(null);
-
+  const { selectedMachineId, setSelectedMachineId } = useMachineSelection();
   // Refs for better performance
   const stateRef = useRef({
     queue: [],
@@ -235,7 +236,7 @@ function LiveImageFeed({ status, imagePath }) {
   useEffect(() => {
     const checkProcessHealth = async () => {
       try {
-        const response = await fetch(`/api/machines/${machineId}/process_status/`);
+        const response = await fetch(`/api/machines/${selectedMachineId}/process_status/`);
         const status = await response.json();
         
         if (status.needs_restart) {
@@ -252,7 +253,7 @@ function LiveImageFeed({ status, imagePath }) {
     const healthInterval = setInterval(checkProcessHealth, 30000);
     
     return () => clearInterval(healthInterval);
-  }, [machineId]);
+  }, [selectedMachineId]);
 
   return (
     <Box
