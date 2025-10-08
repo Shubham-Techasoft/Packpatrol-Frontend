@@ -231,6 +231,29 @@ function LiveImageFeed({ status, imagePath }) {
     }
   }, [imagePath, cleanup]);
 
+  // In your live stream component
+  useEffect(() => {
+    const checkProcessHealth = async () => {
+      try {
+        const response = await fetch(`/api/machines/${machineId}/process_status/`);
+        const status = await response.json();
+        
+        if (status.needs_restart) {
+          console.log('🔄 Process died, auto-restarting...');
+          // Auto-restart logic
+          await restartMachine();
+        }
+      } catch (error) {
+        console.error('Health check failed:', error);
+      }
+    };
+
+    // Check health every 30 seconds
+    const healthInterval = setInterval(checkProcessHealth, 30000);
+    
+    return () => clearInterval(healthInterval);
+  }, [machineId]);
+
   return (
     <Box
       sx={{
