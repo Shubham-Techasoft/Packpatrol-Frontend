@@ -100,57 +100,63 @@ const VariantGallaryView = () => {
     fetchNames();
   }, [machineId, variantId]);
 
-  // NEW: Fetch manifest from database API
-  useEffect(() => {
-    const fetchManifestFromDB = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        setImagesList([]);
-        setPage(1);
+  // NEW: Fetch images from database API with enhanced metadata
+  const fetchImages = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setImagesList([]);
+      setPage(1);
 
-        if (!machineInfo.machineName || !machineInfo.variantName) return;
+      if (!machineInfo.machineName || !machineInfo.variantName) return;
 
-        showSnackbar("Loading images from database...", "info");
+      showSnackbar("Loading images from database...", "info");
+      
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/gallery-images/${encodeURIComponent(
+          machineInfo.machineName
+        )}/${encodeURIComponent(machineInfo.variantName)}/`
+      );
 
-        // Fetch the manifest (list of image paths) from database API
-        const response = await fetch(
-          `http://127.0.0.1:8000/api/manifest/${encodeURIComponent(
-            machineInfo.machineName
-          )}/${encodeURIComponent(machineInfo.variantName)}/`
-        );
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch image manifest from database");
-        }
-
-        const imagePaths = await response.json();
-        
-        // Convert to image objects (same as old manifest processing)
-        const imageObjects = imagePaths.map((absolutePath, index) => {
-          const webPath = convertToWebPath(absolutePath);
-          return {
-            id: `img-${index}-${Date.now()}`,
-            url: webPath,
-            label: absolutePath.split("/").pop() || "Image",
-            originalPath: absolutePath
-          };
-        });
-
-        setImagesList(imageObjects);
-        showSnackbar(`Loaded ${imageObjects.length} images successfully!`, "success");
-
-      } catch (err) {
-        console.error("Error fetching manifest from database:", err);
-        setError("Failed to load images from database. The API endpoint may not be configured.");
-        showSnackbar("Failed to load images.", "error");
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        throw new Error("Failed to fetch images from database");
       }
-    };
 
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Convert to image objects with enhanced metadata
+      const imageObjects = data.images.map((img) => {
+        const webPath = convertToWebPath(img.image_path);
+        return {
+          id: img.id,
+          url: webPath,
+          label: img.image_path.split("/").pop() || "Image",
+          timestamp: img.timestamp,
+          is_rejected: img.is_rejected,
+          stack_count: img.stack_count,
+          originalPath: img.image_path
+        };
+      });
+
+      setImagesList(imageObjects);
+      showSnackbar(`Loaded ${imageObjects.length} images successfully!`, "success");
+
+    } catch (err) {
+      console.error("Error fetching gallery images:", err);
+      setError("Failed to load images from database.");
+      showSnackbar("Failed to load images.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (machineInfo.machineName && machineInfo.variantName) {
-      fetchManifestFromDB();
+      fetchImages();
     }
   }, [machineInfo.machineName, machineInfo.variantName]);
 
@@ -209,7 +215,7 @@ const VariantGallaryView = () => {
             {error}
             <Box sx={{ mt: 1 }}>
               <Typography variant="body2">
-                Make sure the manifest API endpoint is running.
+                Make sure the gallery images API endpoint is running.
               </Typography>
             </Box>
           </Alert>
@@ -240,6 +246,8 @@ const VariantGallaryView = () => {
                       transform: "scale(1.05)",
                       boxShadow: theme.shadows[8],
                     },
+                    border: img.is_rejected ? '2px solid #ff4444' : 'none',
+                    opacity: img.is_rejected ? 0.7 : 1,
                   }}
                   onClick={() => handleOpen(img)}
                 >
@@ -261,6 +269,21 @@ const VariantGallaryView = () => {
                     >
                       {img.label}
                     </Typography>
+                    {img.timestamp && (
+                      <Typography variant="caption" color="textSecondary" display="block">
+                        {new Date(img.timestamp).toLocaleDateString()}
+                      </Typography>
+                    )}
+                    {img.stack_count > 1 && (
+                      <Typography variant="caption" color="primary" display="block">
+                        Stack: {img.stack_count}
+                      </Typography>
+                    )}
+                    {img.is_rejected && (
+                      <Typography variant="caption" color="error" display="block">
+                        Rejected
+                      </Typography>
+                    )}
                   </CardContent>
                 </Card>
               </Grid>
