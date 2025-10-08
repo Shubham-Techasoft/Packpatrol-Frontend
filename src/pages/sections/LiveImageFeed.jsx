@@ -8,7 +8,7 @@ const MAX_CONCURRENT_LOADS = 1;
 const CLEANUP_INTERVAL = 15000;
 const FRAME_DISPLAY_INTERVAL = 150;
 const LOAD_TIMEOUT = 2000;
-const HEALTH_CHECK_INTERVAL = 30000;
+const HEALTH_CHECK_INTERVAL = 10000;
 
 // Memoized path conversion
 const convertToWebPath = (() => {
