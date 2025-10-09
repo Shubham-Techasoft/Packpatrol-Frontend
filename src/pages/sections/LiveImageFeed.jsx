@@ -3,8 +3,8 @@ import { Box } from "@mui/material";
 import { useMachineSelection } from "../../MachineSelectionContext";
 
 // Constants
-const MAX_QUEUE_SIZE = 3;
-const MAX_CONCURRENT_LOADS = 1;
+const MAX_QUEUE_SIZE = 5;
+const MAX_CONCURRENT_LOADS = 3;
 const CLEANUP_INTERVAL = 15000;
 const FRAME_DISPLAY_INTERVAL = 150;
 const LOAD_TIMEOUT = 2000;
@@ -35,6 +35,7 @@ const convertToWebPath = (() => {
 })();
 
 function LiveImageFeed({ status, imagePath }) {
+  console.log("image received: ",imagePath);
   const [currentImage, setCurrentImage] = useState(null);
   const { selectedMachineId } = useMachineSelection();
 
@@ -226,6 +227,7 @@ function LiveImageFeed({ status, imagePath }) {
       }, LOAD_TIMEOUT);
 
       img.onload = () => {
+        consoel.log("image loaded: ",url);
         clearTimeout(timeoutId);
         resolve(url);
       };

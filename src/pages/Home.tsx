@@ -629,8 +629,13 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                                     (data.total_frame_rejected ?? latestDataRef.current.total_frame_rejected),
             };
 
+            // if (cleanImagePath) {
+            //   setDisplaySrc(cleanImagePath);
+            //   latestDataRef.current.image_path = cleanImagePath;
+            // }
             if (cleanImagePath) {
-              setDisplaySrc(cleanImagePath);
+              // push new frame to queue instead of directly displaying it
+              frameQueueRef.current.push(cleanImagePath);
               latestDataRef.current.image_path = cleanImagePath;
             }
 
