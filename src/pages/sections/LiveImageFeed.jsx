@@ -417,45 +417,242 @@
 
 // export default LiveImageFeed;
 
-import { useEffect, useState } from "react";
-import { Box } from "@mui/material";
 
-// --- Convert absolute Linux path → web-accessible path ---
-const convertToWebPath = (absolutePath) => {
-  if (!absolutePath) return null;
-  return absolutePath.replace(
-    "/home/techasoft-testing-pc/PackImages",
-    "/public/packimages"
-  );
-};
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Box } from "@mui/material";
+import { useMachineSelection } from "../../MachineSelectionContext";
+
+// Constants
+const MAX_QUEUE_SIZE = 5;
+const MAX_CONCURRENT_LOADS = 3;
+const CLEANUP_INTERVAL = 15000;
+const FRAME_DISPLAY_INTERVAL = 150;
+const LOAD_TIMEOUT = 2000;
+
+// Memoized path conversion
+const convertToWebPath = (() => {
+  const cache = new Map();
+
+  return (absolutePath) => {
+    if (!absolutePath) return null;
+
+    if (cache.has(absolutePath)) {
+      return cache.get(absolutePath);
+    }
+
+    const webPath = absolutePath.replace(
+      "/home/techasoft-testing-pc/PackImages",
+      "/public/packimages"
+    );
+    cache.set(absolutePath, webPath);
+
+    // Limit cache size
+    if (cache.size > 100) {
+      const firstKey = cache.keys().next().value;
+      cache.delete(firstKey);
+    }
+
+    return webPath;
+  };
+})();
 
 function LiveImageFeed({ status, imagePath }) {
+  console.log("image received:", imagePath);
   const [currentImage, setCurrentImage] = useState(null);
+  const { selectedMachineId } = useMachineSelection();
 
+  // Refs for image handling and performance
+  const stateRef = useRef({
+    queue: [],
+    inFlightCount: 0,
+    skipCounter: 0,
+    lastDisplayTime: 0,
+    abortController: null,
+    isMounted: true,
+  });
+
+  const intervalRef = useRef(null);
+  const cleanupIntervalRef = useRef(null);
+
+  // Cleanup logic
+  const cleanup = useCallback(() => {
+    const state = stateRef.current;
+    state.queue = [];
+    state.inFlightCount = 0;
+    state.skipCounter = 0;
+
+    if (state.abortController) {
+      state.abortController.abort();
+      state.abortController = null;
+    }
+
+    setCurrentImage(null);
+  }, []);
+
+  // Optimized image preloader
+  const preloadImage = useCallback((url) => {
+    return new Promise((resolve, reject) => {
+      const state = stateRef.current;
+
+      if (!state.isMounted || state.abortController?.signal.aborted) {
+        reject(new Error("Cancelled"));
+        return;
+      }
+
+      const img = new Image();
+      const timeoutId = setTimeout(() => {
+        img.onload = img.onerror = null;
+        img.src = "";
+        reject(new Error("Timeout"));
+      }, LOAD_TIMEOUT);
+
+      img.onload = () => {
+        console.log("✅ image loaded:", url);
+        clearTimeout(timeoutId);
+        resolve(url);
+      };
+
+      img.onerror = () => {
+        clearTimeout(timeoutId);
+        reject(new Error("Load failed"));
+      };
+
+      img.src = url;
+    });
+  }, []);
+
+  // Debounced image processor
+  const processImagePath = useCallback(
+    (path) => {
+      const state = stateRef.current;
+
+      if (!path || state.inFlightCount >= MAX_CONCURRENT_LOADS) {
+        return;
+      }
+
+      const webPath = convertToWebPath(path);
+      if (!webPath) return;
+
+      // Skip if already in queue
+      if (state.queue.includes(webPath)) {
+        return;
+      }
+
+      // Manage queue size
+      if (state.queue.length >= MAX_QUEUE_SIZE) {
+        state.queue.shift();
+      }
+
+      state.inFlightCount++;
+
+      if (!state.abortController) {
+        state.abortController = new AbortController();
+      }
+
+      preloadImage(webPath)
+        .then((loadedUrl) => {
+          if (state.isMounted && !state.queue.includes(loadedUrl)) {
+            state.queue.push(loadedUrl);
+            state.skipCounter = 0;
+          }
+        })
+        .catch(() => {
+          // Silent fail - no need to log every failed frame
+        })
+        .finally(() => {
+          if (state.isMounted) {
+            state.inFlightCount = Math.max(0, state.inFlightCount - 1);
+          }
+        });
+    },
+    [preloadImage]
+  );
+
+  // Throttled image display
+  const displayNextImage = useCallback(() => {
+    const state = stateRef.current;
+    const now = Date.now();
+
+    // Throttle display to prevent rapid updates
+    if (now - state.lastDisplayTime < FRAME_DISPLAY_INTERVAL) {
+      return;
+    }
+
+    if (state.queue.length > 0) {
+      const nextImage = state.queue.shift();
+      setCurrentImage(nextImage);
+      state.lastDisplayTime = now;
+
+      // Keep only the latest frame for memory efficiency
+      if (state.queue.length > 1) {
+        state.queue = [state.queue[state.queue.length - 1]];
+      }
+    }
+  }, []);
+
+  // Handle new incoming image paths
   useEffect(() => {
-    if (!imagePath || status !== "running") return;
+    processImagePath(imagePath);
+  }, [imagePath, processImagePath]);
 
-    const webPath = convertToWebPath(imagePath);
-    const img = new Image();
-
-    img.onload = () => {
-      console.log("✅ image loaded:", webPath);
-      setCurrentImage(webPath);
-    };
-
-    img.onerror = (err) => {
-      console.warn("⚠️ Failed to load image:", webPath, err);
-      setCurrentImage(null);
-    };
-
-    img.src = webPath;
+  // Interval for smooth frame updates
+  useEffect(() => {
+    intervalRef.current = setInterval(displayNextImage, 50);
 
     return () => {
-      img.onload = null;
-      img.onerror = null;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
     };
-  }, [imagePath, status]);
+  }, [displayNextImage]);
 
+  // Periodic cleanup
+  useEffect(() => {
+    cleanupIntervalRef.current = setInterval(() => {
+      const state = stateRef.current;
+
+      if (state.queue.length > MAX_QUEUE_SIZE) {
+        state.queue = state.queue.slice(-1);
+      }
+
+      if (window.gc) {
+        window.gc();
+      }
+    }, CLEANUP_INTERVAL);
+
+    return () => {
+      if (cleanupIntervalRef.current) {
+        clearInterval(cleanupIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Mount/unmount
+  useEffect(() => {
+    const state = stateRef.current;
+    state.isMounted = true;
+
+    return () => {
+      state.isMounted = false;
+      cleanup();
+
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      if (cleanupIntervalRef.current) {
+        clearInterval(cleanupIntervalRef.current);
+      }
+    };
+  }, [cleanup]);
+
+  // Stream stop handler
+  useEffect(() => {
+    if (imagePath === null) {
+      cleanup();
+    }
+  }, [imagePath, cleanup]);
+
+  // Render
   return (
     <Box
       sx={{
@@ -469,7 +666,7 @@ function LiveImageFeed({ status, imagePath }) {
         height: "58vh",
       }}
     >
-      {status === "running" && currentImage ? (
+      {currentImage && status === "running" ? (
         <Box
           component="img"
           src={currentImage}
@@ -500,97 +697,3 @@ function LiveImageFeed({ status, imagePath }) {
 }
 
 export default LiveImageFeed;
-
-
-// import { useEffect, useRef, useState } from "react";
-// import { Box } from "@mui/material";
-
-// const MAX_QUEUE_SIZE = 5;        // keep a few frames only
-// const FRAME_INTERVAL = 100;      // ms between displayed frames
-
-// // Convert absolute path to frontend-accessible path
-// const convertToWebPath = (absolutePath) => {
-//   if (!absolutePath) return null;
-//   return absolutePath.replace(
-//     "/home/techasoft-testing-pc/PackImages",
-//     "/public/packimages"
-//   );
-// };
-
-// function LiveImageFeed({ status, imagePath }) {
-//   const [currentImage, setCurrentImage] = useState(null);
-//   const frameQueue = useRef([]); // store queued images
-//   const playerInterval = useRef(null);
-
-//   // Add new image paths to the queue
-//   useEffect(() => {
-//     if (!imagePath || status !== "running") return;
-
-//     const webPath = convertToWebPath(imagePath);
-//     if (!webPath) return;
-
-//     // Push into queue, keeping latest only
-//     frameQueue.current.push(webPath);
-//     if (frameQueue.current.length > MAX_QUEUE_SIZE) {
-//       frameQueue.current.shift(); // drop oldest
-//     }
-//   }, [imagePath, status]);
-
-//   // Display loop — pulls next frame every 100ms
-//   useEffect(() => {
-//     if (status !== "running") {
-//       setCurrentImage(null);
-//       frameQueue.current = [];
-//       if (playerInterval.current) clearInterval(playerInterval.current);
-//       return;
-//     }
-
-//     playerInterval.current = setInterval(() => {
-//       if (frameQueue.current.length > 0) {
-//         const nextFrame = frameQueue.current.shift();
-//         setCurrentImage(nextFrame);
-//       }
-//     }, FRAME_INTERVAL);
-
-//     return () => clearInterval(playerInterval.current);
-//   }, [status]);
-
-//   return (
-//     <Box
-//       sx={{
-//         width: "100%",
-//         margin: "auto",
-//         borderRadius: 2,
-//         overflow: "hidden",
-//         display: "flex",
-//         justifyContent: "center",
-//         alignItems: "center",
-//         height: "58vh",
-//         backgroundColor: "#f5f5f5",
-//       }}
-//     >
-//       {status === "running" && currentImage ? (
-//         <Box
-//           component="img"
-//           src={currentImage}
-//           alt="Live feed"
-//           sx={{
-//             width: "100%",
-//             height: "100%",
-//             objectFit: "contain",
-//             display: "block",
-//           }}
-//           onError={() => setCurrentImage(null)}
-//         />
-//       ) : (
-//         <Box sx={{ textAlign: "center", color: "text.secondary", p: 3 }}>
-//           {status === "running"
-//             ? "Waiting for live feed..."
-//             : "No live feed available"}
-//         </Box>
-//       )}
-//     </Box>
-//   );
-// }
-
-// export default LiveImageFeed;
