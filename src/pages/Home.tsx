@@ -1053,7 +1053,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
             </Box>
 
             {/* Image section */}
-            <LiveImageFeed status = {status} imagePath={status === "stopped" ? null : displaySrc} />
+            <LiveImageFeed status = {status}  /> 
+            {/* imagePath={status === "stopped" ? null : displaySrc} */}
             
           </StyledPaper>
         </Grid>
