@@ -155,6 +155,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       title: "Stack Count",
       value: realtimeData.estimated_stack_count || 0,
       bg: "#FFD700, #FFA500",
+      // bg: "linear-gradient(135deg, #1e3c72, #2a5298)", // Professional blue gradient
       tooltip: "Total number of stacks processed",
       icon: <StackIcon sx={{ fontSize: 28, mb: 0.5 }} />,
     },
@@ -162,6 +163,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       title: "Stack Length",
       value: `${realtimeData.estimated_stack_length || 0} mm`,
       bg: "#8E2DE2, #4A00E0",
+      // bg: "linear-gradient(135deg, #0052D4, #4364F7)", // Another shade of blue
       tooltip: "Length of each stack in millimeters",
       icon: <HeightIcon sx={{ fontSize: 28, mb: 0.5 }} />,
     },
@@ -169,6 +171,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       title: "Rejected Count",
       value: realtimeData.total_frame_rejected?.toLocaleString() || "0",
       bg: "#FF416C, #FF4B2B",
+      // bg: "linear-gradient(135deg, #4B6CB7, #182848)", // Darker, more serious blue
       tooltip: "Total rejected items during inspection",
       icon: <ErrorIcon sx={{ fontSize: 28, mb: 0.5 }} />,
     },
@@ -176,6 +179,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       title: "Passed Count",
       value: realtimeData.total_passed?.toLocaleString() || "0",
       bg: "#00b09b, #96c93d",
+      // bg: "linear-gradient(135deg, #2c3e50, #3498db)", // A calm, successful blue
       tooltip: "Items that passed quality checks",
       icon: <CheckCircleIcon sx={{ fontSize: 28, mb: 0.5 }} />,
     },
@@ -572,132 +576,133 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
     }
     if(selectedMachine === "all") return;
 
-    const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
-    console.log("📡 Connecting to SSE:", sseUrl);
+//     const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
+//     console.log("📡 Connecting to SSE:", sseUrl);
 
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 3;
-    const reconnectDelay = 5000;
-    let eventSource: EventSource | null = null;
+//     let reconnectAttempts = 0;
+//     const maxReconnectAttempts = 3;
+//     const reconnectDelay = 5000;
+//     let eventSource: EventSource | null = null;
 
-    const connectSSE = () => {
-      try {
-        // Close existing connection if any
-        if (eventSource) {
-          eventSource.close();
-        }
+//     const connectSSE = () => {
+//       try {
+//         // Close existing connection if any
+//         if (eventSource) {
+//           eventSource.close();
+//         }
 
-        eventSource = new EventSource(sseUrl);
-        setSseConnection(eventSource);
-        setSseError(null);
+//         eventSource = new EventSource(sseUrl);
+//         setSseConnection(eventSource);
+//         setSseError(null);
 
-        eventSource.onopen = (event) => {
-          console.log("✅ SSE connection opened:", event);
-          setIsSseConnected(true);
-          reconnectAttempts = 0;
-        };
+//         eventSource.onopen = (event) => {
+//           console.log("✅ SSE connection opened:", event);
+//           setIsSseConnected(true);
+//           reconnectAttempts = 0;
+//         };
 
-        eventSource.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            messageCountRef.current++;
+//         eventSource.onmessage = (event) => {
+//           try {
+//             const data = JSON.parse(event.data);
+//             messageCountRef.current++;
 
-            // --- Cleaning image path ---
-            let cleanImagePath = "";
-            if (data.image_path) {
+//             // --- Cleaning image path ---
+//             let cleanImagePath = "";
+//             if (data.image_path) {
               
-              console.log("🖼️ Raw image path from SSE:", data.image_path);
-              ///home/techasoft-testing-pc/PackImages/Pune-Line1-Machine6/Goodday/img_20251007_201002_687937_28.jpeg
+//               // console.log("🖼️ Raw image path from SSE:", data.image_path);
+//               ///home/techasoft-testing-pc/PackImages/Pune-Line1-Machine6/Goodday/img_20251007_201002_687937_28.jpeg
 
-              let basePath = data.image_path.split("?")[0];
-              // // code for random sample iamge test on my pc-----------------------------
-              // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
-              // const randomImage = sampleImagesUrl[randomIndex];
-              // basePath = randomImage.split("?")[0];
-              //-------------------------------------------------------------------------
-              cleanImagePath = basePath.replace(/\\/g, "/");
-            }
+//               let basePath = data.image_path.split("?")[0];
+//               // // code for random sample iamge test on my pc-----------------------------
+//               // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
+//               // const randomImage = sampleImagesUrl[randomIndex];
+//               // basePath = randomImage.split("?")[0];
+//               // console.log("🖼️ Using sample image path:", basePath);
+//               //-------------------------------------------------------------------------
+//               cleanImagePath = basePath.replace(/\\/g, "/");
+//             }
 
-            latestDataRef.current = {
-              estimated_stack_length: data.estimated_stack_length ?? latestDataRef.current.estimated_stack_length,
-              estimated_stack_count: data.estimated_stack_count ?? latestDataRef.current.estimated_stack_count,
-              total_passed: data.total_passed ?? latestDataRef.current.total_passed,
-              total_frame_rejected: data.total_frame_rejected ?? data.total_rejected ?? latestDataRef.current.total_frame_rejected,
-              image_path: cleanImagePath || latestDataRef.current.image_path,
-              timestamp: data.timestamp ?? latestDataRef.current.timestamp,
-              total_frame_processed: (data.total_passed ?? latestDataRef.current.total_passed) +
-                                    (data.total_frame_rejected ?? latestDataRef.current.total_frame_rejected),
-            };
+//             latestDataRef.current = {
+//               estimated_stack_length: data.estimated_stack_length ?? latestDataRef.current.estimated_stack_length,
+//               estimated_stack_count: data.estimated_stack_count ?? latestDataRef.current.estimated_stack_count,
+//               total_passed: data.total_passed ?? latestDataRef.current.total_passed,
+//               total_frame_rejected: data.total_frame_rejected ?? data.total_rejected ?? latestDataRef.current.total_frame_rejected,
+//               image_path: cleanImagePath || latestDataRef.current.image_path,
+//               timestamp: data.timestamp ?? latestDataRef.current.timestamp,
+//               total_frame_processed: (data.total_passed ?? latestDataRef.current.total_passed) +
+//                                     (data.total_frame_rejected ?? latestDataRef.current.total_frame_rejected),
+//             };
 
-            if (cleanImagePath) {
-              setDisplaySrc(cleanImagePath);
-              latestDataRef.current.image_path = cleanImagePath;
-            }
+//             if (cleanImagePath) {
+//               setDisplaySrc(cleanImagePath);
+//               latestDataRef.current.image_path = cleanImagePath;
+//             }
 
-            if (updateTimeoutRef.current) {
-              clearTimeout(updateTimeoutRef.current);
-            }
+//             if (updateTimeoutRef.current) {
+//               clearTimeout(updateTimeoutRef.current);
+//             }
 
-            updateTimeoutRef.current = setTimeout(() => {
-              setRealtimeData({ ...latestDataRef.current });
-              updateTimeoutRef.current = null;
-            }, 250);
+//             updateTimeoutRef.current = setTimeout(() => {
+//               setRealtimeData({ ...latestDataRef.current });
+//               updateTimeoutRef.current = null;
+//             }, 250);
 
-          } catch (err) {
-            console.error("🚫 SSE JSON parse error:", err);
-          }
-        };
+//           } catch (err) {
+//             console.error("🚫 SSE JSON parse error:", err);
+//           }
+//         };
 
-        eventSource.onerror = (error) => {
-          console.error("❌ SSE connection error:", error);
-          setIsSseConnected(false);
-          setSseError(error);
+//         eventSource.onerror = (error) => {
+//           console.error("❌ SSE connection error:", error);
+//           setIsSseConnected(false);
+//           setSseError(error);
 
-          if (eventSource?.readyState === EventSource.CLOSED) {
-            console.warn("🔌 SSE connection closed by server.");
-//             setDisplaySrc(null);
-          } else if (eventSource?.readyState === EventSource.CONNECTING) {
-            console.warn("🔄 SSE reconnecting...");
-          }
+//           if (eventSource?.readyState === EventSource.CLOSED) {
+//             console.warn("🔌 SSE connection closed by server.");
+// //             setDisplaySrc(null);
+//           } else if (eventSource?.readyState === EventSource.CONNECTING) {
+//             console.warn("🔄 SSE reconnecting...");
+//           }
 
-          // Attempt to reconnect on error
-          if (reconnectAttempts < maxReconnectAttempts) {
-            reconnectAttempts++;
-            console.log(`🔄 Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts}) in ${reconnectDelay}ms...`);
-            setTimeout(connectSSE, reconnectDelay);
-          } else {
-            console.error("❌ Max reconnection attempts reached");
-          }
-        };
+//           // Attempt to reconnect on error
+//           if (reconnectAttempts < maxReconnectAttempts) {
+//             reconnectAttempts++;
+//             console.log(`🔄 Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts}) in ${reconnectDelay}ms...`);
+//             setTimeout(connectSSE, reconnectDelay);
+//           } else {
+//             console.error("❌ Max reconnection attempts reached");
+//           }
+//         };
 
-      } catch (error: unknown) {
-        console.error("❌ Failed to create SSE connection:", error);
-        if (error instanceof Error) {
-          setSseError(error);
-        } else {
-          setSseError(new Error('An unknown error occurred during SSE connection'));
-        }
-        setIsSseConnected(false);
-      }
-    };
+//       } catch (error: unknown) {
+//         console.error("❌ Failed to create SSE connection:", error);
+//         if (error instanceof Error) {
+//           setSseError(error);
+//         } else {
+//           setSseError(new Error('An unknown error occurred during SSE connection'));
+//         }
+//         setIsSseConnected(false);
+//       }
+//     };
 
-    connectSSE();
+//     connectSSE();
 
-    // Cleanup function
-    return () => {
-      console.log("🛑 Cleaning up SSE connection");
-      if (updateTimeoutRef.current) {
-        clearTimeout(updateTimeoutRef.current);
-        updateTimeoutRef.current = null;
-      }
-      if (eventSource) {
-        eventSource.close();
-        setSseConnection(null);
-      }
-      setIsSseConnected(false);
-      setSseError(null);
-    };
-    // eslint-disable-next-line
+//     // Cleanup function
+//     return () => {
+//       console.log("🛑 Cleaning up SSE connection");
+//       if (updateTimeoutRef.current) {
+//         clearTimeout(updateTimeoutRef.current);
+//         updateTimeoutRef.current = null;
+//       }
+//       if (eventSource) {
+//         eventSource.close();
+//         setSseConnection(null);
+//       }
+//       setIsSseConnected(false);
+//       setSseError(null);
+//     };
+//     // eslint-disable-next-line
   }, [selectedMachine]);
 
   // Optional: Add this useEffect to monitor state changes (for debugging)
@@ -1277,6 +1282,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                       padding: 12,
                       // backgroundColor: "green",
                       background: "linear-gradient(135deg, #00b09b, #96c93d)",
+                      // background: "linear-gradient(135deg, #1e88e5, #0d47a1)", // Blue gradient for start
                       color: "white",
                       border: "none",
                       cursor: "pointer",
@@ -1299,6 +1305,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                       padding: 12,
                       // backgroundColor: "red",
                       background: "linear-gradient(135deg, #FF416C, #FF4B2B)",
+                      // background: "linear-gradient(135deg, #6c757d, #343a40)", // Neutral grey/dark for stop
                       color: "white",
                       border: "none",
                       cursor: "pointer",

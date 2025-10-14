@@ -20,6 +20,7 @@ import {
   TextField,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import SettingsIcon from '@mui/icons-material/Settings';
 import MemoryIcon from "@mui/icons-material/Memory";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 // import AddMachineForm from "./AddMachineForm";
@@ -53,6 +54,7 @@ const DeveloperSettings = () => {
       const sorted = res.data.sort(
         (a, b) => new Date(a.created_at) - new Date(b.created_at)
       );
+      console.log("Fetched machines:", sorted);
       setMachines(sorted);
     } catch (err) {
       console.error("Error fetching machines:", err);
@@ -219,22 +221,23 @@ const DeveloperSettings = () => {
   };
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "#f0f4f8" }}>
+    <Box sx={{ display: "flex", flexDirection: { xs: 'column', sm: 'row' }, minHeight: "100vh", bgcolor: "#f0f4f8" }}>
       {/* Sidebar */}
       <Box
         sx={{
-          width: "22%",
-          background:
-            "linear-gradient(to bottom, rgb(24, 10, 73), rgb(26, 82, 203))",
-          color: "#fff",
-          p: 3,
+          width: { xs: "100%", sm: "22%" },
+          background: "linear-gradient(180deg, #002049ff 0%, #182848 100%)", // Dark blue professional gradient
+          color: "common.white",
+          p: { xs: 2 , sm: 1.5, md: 3 },
+          flexShrink: 0,
         }}
       >
         <Typography
           variant="h5"
           fontWeight={600}
           mb={3}
-          display="flex"
+          display="flex" // Ensures icon and text are aligned
+          sx={{ fontSize: { xs: '1rem', md: '1.5rem' } }}
           alignItems="center"
         >
           <MemoryIcon sx={{ mr: 1 }} /> Developer Panel
@@ -249,38 +252,43 @@ const DeveloperSettings = () => {
             onClick={handleOpen}
             sx={{
               mb: 3,
-              background: "linear-gradient(to bottom, #00b09b, #96c93d)",
-              color: "#fff",
+              bgcolor: "rgba(255, 255, 255, 0.1)",
+              color: "common.white",
               fontWeight: 600,
-              borderRadius: "8px",
-              boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
+              fontSize: { xs: '0.8rem', sm: "0.8rem",md: '0.9rem' } ,
+              borderRadius: 2,
+              border: "1px solid rgba(255, 255, 255, 0.2)",
               "&:hover": {
-                background: "linear-gradient(to right, #ff4b2b, #ff416c)",
-                transform: "translateY(-2px)",
+                bgcolor: "rgba(255, 255, 255, 0.2)",
+                borderColor: "rgba(255, 255, 255, 0.5)",
+                transform: "translateY(-1px)",
               },
+              padding: { xs: '6px 12px', sm: '5px 16px', md: '10px 20px' }
             }}
           >
             Add Machine
           </Button>
         )}
 
-        <Divider sx={{ mb: 2, borderColor: "rgba(255,255,255,0.2)" }} />
+        <Divider sx={{ mb: 2, borderColor: "rgba(255, 255, 255, 0.15)" }} />
         <Typography
           variant="subtitle1"
           gutterBottom
           fontWeight={600}
-          sx={{ fontSize: 20 }}
+          sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}
         >
           Machines
         </Typography>
 
         <List>
           {machines.map((machine) => (
-            <ListItem key={machine.id} disablePadding sx={{ mb: 1 }}>
+            <ListItem key={machine.id} disablePadding sx={{ mb: 1.5 }}>
               <ListItemIcon sx={{ color: "#fff", minWidth: 36 }}>
                 <MemoryIcon />
               </ListItemIcon>
-              <ListItemText primary={machine.name} />
+              <ListItemText
+                primaryTypographyProps={{ sx: { fontSize: { xs: '0.875rem', md: '1rem' } } }}
+                primary={machine.name} />
             </ListItem>
           ))}
         </List>
@@ -290,10 +298,10 @@ const DeveloperSettings = () => {
       <Box
         sx={{
           flexGrow: 1,
-          p: 4,
+          p: { xs: 2, sm: 3, md: 4 },
         }}
       >
-        <Typography variant="h4" fontWeight={600} mb={4}>
+        <Typography variant="h4" fontWeight={600} mb={4} sx={{ fontSize: { xs: '1.5rem', md: '2rem' } }}>
           Available Machines
         </Typography>
 
@@ -303,32 +311,40 @@ const DeveloperSettings = () => {
             elevation={2}
             sx={{
               mb: 3,
-              p: 3,
-              borderRadius: 3,
-              backgroundImage:
-                "linear-gradient(90.2deg, rgba(1,47,95,1) -0.4%, rgba(56,141,217,1) 106.1%)",
-              color: "#fff",
+              p: { xs: 2, md: 3 },
+              borderRadius: "12px",
+              bgcolor: "background.paper",
+              border: "1px solid",
+              borderColor: "divider",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              transition: "transform 0.2s ease",
               "&:hover": { transform: "scale(1.01)" },
             }}
           >
             <Box>
-              <Typography variant="h6" fontWeight={600}>
+              <Typography variant="h6" color="#022149" fontWeight={600} sx={{fontSize: { xs: '1rem', md: '1.5rem' }}}>
                 {machine.name}
               </Typography>
-              <Typography variant="body2">Status: Active</Typography>
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  Status:{' '}
+                  {machine.is_active ? (
+                    <span style={{ color: 'green', fontWeight: 'bold' }}>Active</span>
+                  ) : (
+                    <span style={{ color: 'red', fontWeight: 'bold' }}>Inactive</span>
+                  )}
+                </Typography>
+              </Box>
             </Box>
             <Button
               variant="text"
               endIcon={<ArrowForwardIosIcon />}
               sx={{
-                color: "#fff",
+                color: "text.secondary",
                 fontWeight: 600,
                 textTransform: "none",
-                "&:hover": { textDecoration: "underline" },
+                "&:hover": { bgcolor: "action.hover" },
               }}
               onClick={(e) => handleSettingsClick(e, machine)}
             >

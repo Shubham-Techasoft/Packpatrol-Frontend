@@ -254,101 +254,101 @@ export default function Dashboard() {
 
 
   // Enhanced SSE connection management for Dashboard
-  React.useEffect(() => {
-    if (!selectedMachineId || selectedMachineId === "all") {
-      // Clean up any existing connection
-      if (sseConnection) {
-        console.log("🛑 Cleaning up SSE connection - no machine selected");
-        sseConnection.close();
-        setSseConnection(null);
-        setIsSseConnected(false);
-      }
-      return;
-    }
-    const sseUrl = `http://localhost:8000/api/machines/${selectedMachineId}/sse/`;
-    console.log("📡 Connecting SSE for dashboard:", sseUrl);
+  // React.useEffect(() => {
+  //   if (!selectedMachineId || selectedMachineId === "all") {
+  //     // Clean up any existing connection
+  //     if (sseConnection) {
+  //       console.log("🛑 Cleaning up SSE connection - no machine selected");
+  //       sseConnection.close();
+  //       setSseConnection(null);
+  //       setIsSseConnected(false);
+  //     }
+  //     return;
+  //   }
+  //   const sseUrl = `http://localhost:8000/api/machines/${selectedMachineId}/sse/`;
+  //   console.log("📡 Connecting SSE for dashboard:", sseUrl);
 
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 3;
-    const reconnectDelay = 5000; // 5 seconds
-    let eventSource = null;
+  //   let reconnectAttempts = 0;
+  //   const maxReconnectAttempts = 3;
+  //   const reconnectDelay = 5000; // 5 seconds
+  //   let eventSource = null;
 
-    const connectSSE = () => {
-      try {
-        // Close existing connection if any
-        if (eventSource) {
-          eventSource.close();
-        }
+  //   const connectSSE = () => {
+  //     try {
+  //       // Close existing connection if any
+  //       if (eventSource) {
+  //         eventSource.close();
+  //       }
 
-        eventSource = new EventSource(sseUrl);
-        setSseConnection(eventSource);
-        setSseError(null);
+  //       eventSource = new EventSource(sseUrl);
+  //       setSseConnection(eventSource);
+  //       setSseError(null);
 
-        eventSource.onopen = () => {
-          console.log("✅ SSE connection opened successfully");
-          setIsSseConnected(true);
-          reconnectAttempts = 0; // Reset on successful connection
-        };
+  //       eventSource.onopen = () => {
+  //         console.log("✅ SSE connection opened successfully");
+  //         setIsSseConnected(true);
+  //         reconnectAttempts = 0; // Reset on successful connection
+  //       };
 
-        eventSource.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
+  //       eventSource.onmessage = (event) => {
+  //         try {
+  //           const data = JSON.parse(event.data);
 
-            if (data.image_path) {
-              console.log("🖼️ Raw image path from SSE:", data.image_path);
-              let basePath = data.image_path.split("?")[0];
-              // sample image path --------------------------------------------------
-              // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
-              // const randomImage = sampleImagesUrl[randomIndex];
-              // basePath = randomImage.split("?")[0];
-              // --------------------------------------------------------------------
-              data.image_path = basePath.replace(/\\/g, "/");;
-            }
+  //           if (data.image_path) {
+  //             console.log("🖼️ Raw image path from SSE:", data.image_path);
+  //             let basePath = data.image_path.split("?")[0];
+  //             // sample image path --------------------------------------------------
+  //             // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
+  //             // const randomImage = sampleImagesUrl[randomIndex];
+  //             // basePath = randomImage.split("?")[0];
+  //             // --------------------------------------------------------------------
+  //             data.image_path = basePath.replace(/\\/g, "/");;
+  //           }
 
-            setRealtimeData(data);
-            setDisplaySrc(data.image_path || null)
-          } catch (parseError) {
-            console.error("❌ Error parsing SSE data:", parseError);
-          }
-        };
+  //           setRealtimeData(data);
+  //           setDisplaySrc(data.image_path || null)
+  //         } catch (parseError) {
+  //           console.error("❌ Error parsing SSE data:", parseError);
+  //         }
+  //       };
 
-        eventSource.onerror = (error) => {
-          console.error("❌ SSE connection error:", error);
-          setIsSseConnected(false);
-          setSseError(error);
+  //       eventSource.onerror = (error) => {
+  //         console.error("❌ SSE connection error:", error);
+  //         setIsSseConnected(false);
+  //         setSseError(error);
 
-          // Attempt to reconnect on error
-          if (reconnectAttempts < maxReconnectAttempts) {
-            reconnectAttempts++;
-            console.log(`🔄 Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts}) in ${reconnectDelay}ms...`);
-            setTimeout(connectSSE, reconnectDelay);
-          } else {
-            console.error("❌ Max reconnection attempts reached");
-          }
-        };
+  //         // Attempt to reconnect on error
+  //         if (reconnectAttempts < maxReconnectAttempts) {
+  //           reconnectAttempts++;
+  //           console.log(`🔄 Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts}) in ${reconnectDelay}ms...`);
+  //           setTimeout(connectSSE, reconnectDelay);
+  //         } else {
+  //           console.error("❌ Max reconnection attempts reached");
+  //         }
+  //       };
 
-      } catch (error) {
-        console.error("❌ Failed to create SSE connection:", error);
-        setSseError(error);
-        setIsSseConnected(false);
-      }
-    };
+  //     } catch (error) {
+  //       console.error("❌ Failed to create SSE connection:", error);
+  //       setSseError(error);
+  //       setIsSseConnected(false);
+  //     }
+  //   };
 
-    connectSSE();
+  //   connectSSE();
 
-    // Cleanup function
-    return () => {
-      console.log("🛑 Cleaning up SSE connection");
-      if (eventSource) {
-        eventSource.close();
-        setDisplaySrc(null);
-        setSseConnection(null);
-      }
-      setIsSseConnected(false);
-      setSseError(null);
-    };
-    // eslint-disable-next-line
-  }, [selectedMachineId]);
+  //   // Cleanup function
+  //   return () => {
+  //     console.log("🛑 Cleaning up SSE connection");
+  //     if (eventSource) {
+  //       eventSource.close();
+  //       setDisplaySrc(null);
+  //       setSseConnection(null);
+  //     }
+  //     setIsSseConnected(false);
+  //     setSseError(null);
+  //   };
+  //   // eslint-disable-next-line
+  // }, [selectedMachineId]);
 
 
   // production-time graph
@@ -1135,7 +1135,7 @@ export default function Dashboard() {
             <Typography variant="h6" gutterBottom>
               Live Camera Feed
             </Typography>
-            <LiveImageFeed imagePath={displaySrc} status={"running"}/>
+            <LiveImageFeed status={status}/>
             <Typography variant="body2" color="text.secondary" mt={2}>
               * Only the running Machine live feed will be shown here!
             </Typography>

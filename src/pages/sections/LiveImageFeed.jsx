@@ -503,6 +503,30 @@
 // export default LiveImageFeed;
 
 
+const sampleImagesUrl= [
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_1.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_2.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_3.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_4.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_5.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_6.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_7.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_8.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_9.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_10.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_11.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_12.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_13.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_14.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_15.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_16.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_17.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_18.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_19.bmp",
+    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_20.bmp"
+]
+
+
 import { useEffect, useRef, useState } from "react";
 import { Box } from "@mui/material";
 import { useMachineSelection } from "../../MachineSelectionContext";
@@ -510,6 +534,14 @@ import { useMachineSelection } from "../../MachineSelectionContext";
 // Helper to convert backend absolute path → frontend static path
 const convertToWebPath = (absolutePath) => {
   if (!absolutePath) return null;
+
+  //work for both "home/packpatrol-frontend/public/..." and "/home/techasoft-testing-pc/PackImages/..."
+  const idx = absolutePath.indexOf("/public/");
+  if (idx !== -1) {
+    const cleanImagePath = absolutePath.substring(idx);
+    return cleanImagePath;
+  }
+
   return absolutePath.replace(
     "/home/techasoft-testing-pc/PackImages",
     "/public/packimages"
@@ -547,10 +579,23 @@ export default function LiveImageFeed({ status }) {
     };
 
     eventSource.onmessage = (event) => {
+      
       try {
         const data = JSON.parse(event.data);
         if (data?.image_path) {
-          const cleanPath = convertToWebPath(data.image_path);
+
+          let basePath = data.image_path.split("?")[0];
+          // // code for random sample iamge test on my pc-----------------------------
+          const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
+          const randomImage = sampleImagesUrl[randomIndex];
+          basePath = randomImage.split("?")[0];
+          console.log("🖼️ Using sample image path:", basePath);
+          //-------------------------------------------------------------------------
+          
+          // const cleanPath = convertToWebPath(data.image_path);
+
+          const cleanPath = convertToWebPath(basePath);
+
           console.log("🖼️ New image from SSE:", cleanPath);
 
           const img = new Image();
