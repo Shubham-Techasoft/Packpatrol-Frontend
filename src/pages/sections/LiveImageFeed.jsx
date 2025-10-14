@@ -584,7 +584,7 @@ export default function LiveImageFeed({ status }) {
         const data = JSON.parse(event.data);
         if (data?.image_path) {
 
-          let basePath = data.image_path.split("?")[0];
+          // let basePath = data.image_path.split("?")[0];
           // // code for random sample iamge test on my pc-----------------------------
           // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
           // const randomImage = sampleImagesUrl[randomIndex];
@@ -594,7 +594,7 @@ export default function LiveImageFeed({ status }) {
           
           // const cleanPath = convertToWebPath(data.image_path);
 
-          const cleanPath = convertToWebPath(basePath);
+          const cleanPath = convertToWebPath(data?.image_path);
 
           console.log("🖼️ New image from SSE:", cleanPath);
 
