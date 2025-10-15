@@ -253,102 +253,69 @@ export default function Dashboard() {
   };
 
 
-  // Enhanced SSE connection management for Dashboard
-  // React.useEffect(() => {
-  //   if (!selectedMachineId || selectedMachineId === "all") {
-  //     // Clean up any existing connection
-  //     if (sseConnection) {
-  //       console.log("🛑 Cleaning up SSE connection - no machine selected");
-  //       sseConnection.close();
-  //       setSseConnection(null);
-  //       setIsSseConnected(false);
-  //     }
-  //     return;
-  //   }
-  //   const sseUrl = `http://localhost:8000/api/machines/${selectedMachineId}/sse/`;
-  //   console.log("📡 Connecting SSE for dashboard:", sseUrl);
+  // SSE connection management for Dashboard
+  React.useEffect(() => {
+    if (!selectedMachineId || selectedMachineId === "all") {
+      if (sseConnection) {
+        sseConnection.close();
+        setSseConnection(null);
+        setIsSseConnected(false);
+        setDisplaySrc(null);
+      }
+      return;
+    }
 
-  //   let reconnectAttempts = 0;
-  //   const maxReconnectAttempts = 3;
-  //   const reconnectDelay = 5000; // 5 seconds
-  //   let eventSource = null;
+    const sseUrl = `http://localhost:8000/api/machines/${selectedMachineId}/sse/`;
+    console.log("📡 Connecting SSE for dashboard:", sseUrl);
 
-  //   const connectSSE = () => {
-  //     try {
-  //       // Close existing connection if any
-  //       if (eventSource) {
-  //         eventSource.close();
-  //       }
+    let eventSource = new EventSource(sseUrl);
+    setSseConnection(eventSource);
 
-  //       eventSource = new EventSource(sseUrl);
-  //       setSseConnection(eventSource);
-  //       setSseError(null);
+    eventSource.onopen = () => {
+      console.log("✅ SSE connection opened successfully for dashboard");
+      setIsSseConnected(true);
+      setSseError(null);
+    };
 
-  //       eventSource.onopen = () => {
-  //         console.log("✅ SSE connection opened successfully");
-  //         setIsSseConnected(true);
-  //         reconnectAttempts = 0; // Reset on successful connection
-  //       };
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        setRealtimeData(data);
+        if (data.image_path) {
+          const cleanImagePath = data.image_path.replace(/\\/g, "/");
+          setDisplaySrc(cleanImagePath);
+        }
+      } catch (parseError) {
+        console.error("❌ Error parsing SSE data on dashboard:", parseError);
+      }
+    };
 
-  //       eventSource.onmessage = (event) => {
-  //         try {
-  //           const data = JSON.parse(event.data);
+    eventSource.onerror = (error) => {
+      console.error("❌ SSE connection error on dashboard:", error);
+      setIsSseConnected(false);
+      setSseError(error);
+      eventSource.close();
+    };
 
-  //           if (data.image_path) {
-  //             console.log("🖼️ Raw image path from SSE:", data.image_path);
-  //             let basePath = data.image_path.split("?")[0];
-  //             // sample image path --------------------------------------------------
-  //             // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
-  //             // const randomImage = sampleImagesUrl[randomIndex];
-  //             // basePath = randomImage.split("?")[0];
-  //             // --------------------------------------------------------------------
-  //             data.image_path = basePath.replace(/\\/g, "/");;
-  //           }
+    return () => {
+      console.log("🛑 Cleaning up SSE connection on dashboard");
+      if (eventSource) {
+        eventSource.close();
+      }
+      setDisplaySrc(null);
+      setSseConnection(null);
+      setIsSseConnected(false);
+      setSseError(null);
+    };
+  }, [selectedMachineId]);
 
-  //           setRealtimeData(data);
-  //           setDisplaySrc(data.image_path || null)
-  //         } catch (parseError) {
-  //           console.error("❌ Error parsing SSE data:", parseError);
-  //         }
-  //       };
-
-  //       eventSource.onerror = (error) => {
-  //         console.error("❌ SSE connection error:", error);
-  //         setIsSseConnected(false);
-  //         setSseError(error);
-
-  //         // Attempt to reconnect on error
-  //         if (reconnectAttempts < maxReconnectAttempts) {
-  //           reconnectAttempts++;
-  //           console.log(`🔄 Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts}) in ${reconnectDelay}ms...`);
-  //           setTimeout(connectSSE, reconnectDelay);
-  //         } else {
-  //           console.error("❌ Max reconnection attempts reached");
-  //         }
-  //       };
-
-  //     } catch (error) {
-  //       console.error("❌ Failed to create SSE connection:", error);
-  //       setSseError(error);
-  //       setIsSseConnected(false);
-  //     }
-  //   };
-
-  //   connectSSE();
-
-  //   // Cleanup function
-  //   return () => {
-  //     console.log("🛑 Cleaning up SSE connection");
-  //     if (eventSource) {
-  //       eventSource.close();
-  //       setDisplaySrc(null);
-  //       setSseConnection(null);
-  //     }
-  //     setIsSseConnected(false);
-  //     setSseError(null);
-  //   };
-  //   // eslint-disable-next-line
-  // }, [selectedMachineId]);
+  const getSseConnectionStatus = () => {
+    if (status !== "running" || !selectedMachineId || selectedMachineId === "all") return "disconnected";
+    if (sseError) return "error";
+    if (isSseConnected && displaySrc) return "receiving_frames";
+    if (isSseConnected) return "connected";
+    return "connecting";
+  };
 
 
   // production-time graph
@@ -1135,7 +1102,11 @@ export default function Dashboard() {
             <Typography variant="h6" gutterBottom>
               Live Camera Feed
             </Typography>
-            <LiveImageFeed status={status}/>
+            <LiveImageFeed
+              status={status}
+              imagePath={status === "stopped" ? null : displaySrc}
+              connectionStatus={getSseConnectionStatus()}
+            />
             <Typography variant="body2" color="text.secondary" mt={2}>
               * Only the running Machine live feed will be shown here!
             </Typography>
