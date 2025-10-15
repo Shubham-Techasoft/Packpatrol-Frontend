@@ -546,19 +546,22 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   const messageCountRef = React.useRef(0);
 
   // REPLACE your existing useEffect with this enhanced version:
+  // SSE connection management - REPLACE your existing useEffect with this:
   React.useEffect(() => {
-    if (!selectedMachine) {
-      setDisplaySrc(null);
-      console.warn("⚠️ No machine selected. SSE connection skipped.");
-      // Clean up any existing connection
+    // If no machine selected OR machine is stopped, clean up SSE connection
+    if (!selectedMachine || selectedMachine === "all" || status !== "running") {
+      console.log("🛑 Cleaning up SSE connection - machine stopped or no machine selected");
+      
       if (sseConnection) {
-        console.log("🛑 Cleaning up SSE connection - no machine selected");
         sseConnection.close();
         setSseConnection(null);
-        setIsSseConnected(false);
       }
-      // Reset data when no machine selected
-      latestDataRef.current = {
+      setIsSseConnected(false);
+      setSseError(null);
+      setDisplaySrc(null);
+      
+      // Reset realtime data when machine stops
+      setRealtimeData({
         estimated_stack_length: 0,
         estimated_stack_count: 0,
         total_frame_processed: 0,
@@ -566,11 +569,10 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         total_passed: 0,
         image_path: "",
         timestamp: "",
-      };
-      setRealtimeData({ ...latestDataRef.current });
+      });
+      
       return;
     }
-    if(selectedMachine === "all") return;
 
     const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
     console.log("📡 Connecting to SSE:", sseUrl);
@@ -601,49 +603,42 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           try {
             const data = JSON.parse(event.data);
             messageCountRef.current++;
-            console.log("DATA:", data)
+            console.log("DATA:", data);
 
-            // --- Cleaning image path ---
-            let cleanImagePath = "";
-            if (data.image_path) {
+            // Update realtime data only if machine is still running
+            if (status === "running") {
+              let cleanImagePath = "";
+              if (data.image_path) {
+                console.log("🖼️ Raw image path from SSE:", data.image_path);
+                let basePath = data.image_path.split("?")[0];
+                cleanImagePath = basePath.replace(/\\/g, "/");
+              }
 
-              console.log("🖼️ Raw image path from SSE:", data.image_path);
-              ///home/techasoft-testing-pc/PackImages/Pune-Line1-Machine6/Goodday/img_20251007_201002_687937_28.jpeg
+              latestDataRef.current = {
+                estimated_stack_length: data.estimated_stack_length ?? latestDataRef.current.estimated_stack_length,
+                estimated_stack_count: data.estimated_stack_count ?? latestDataRef.current.estimated_stack_count,
+                total_passed: data.total_passed ?? latestDataRef.current.total_passed,
+                total_frame_rejected: data.total_frame_rejected ?? data.total_rejected ?? latestDataRef.current.total_frame_rejected,
+                image_path: cleanImagePath || latestDataRef.current.image_path,
+                timestamp: data.timestamp ?? latestDataRef.current.timestamp,
+                total_frame_processed: (data.total_passed ?? latestDataRef.current.total_passed) +
+                                      (data.total_frame_rejected ?? latestDataRef.current.total_frame_rejected),
+              };
 
-              let basePath = data.image_path.split("?")[0];
-              // // code for random sample iamge test on my pc-----------------------------
-              // const randomIndex = Math.floor(Math.random() * sampleImagesUrl.length);
-              // const randomImage = sampleImagesUrl[randomIndex];
-              // basePath = randomImage.split("?")[0];
-              //-------------------------------------------------------------------------
-              cleanImagePath = basePath.replace(/\\/g, "/");
+              if (cleanImagePath) {
+                setDisplaySrc(cleanImagePath);
+                latestDataRef.current.image_path = cleanImagePath;
+              }
+
+              if (updateTimeoutRef.current) {
+                clearTimeout(updateTimeoutRef.current);
+              }
+
+              updateTimeoutRef.current = setTimeout(() => {
+                setRealtimeData({ ...latestDataRef.current });
+                updateTimeoutRef.current = null;
+              }, 250);
             }
-
-            latestDataRef.current = {
-              estimated_stack_length: data.estimated_stack_length ?? latestDataRef.current.estimated_stack_length,
-              estimated_stack_count: data.estimated_stack_count ?? latestDataRef.current.estimated_stack_count,
-              total_passed: data.total_passed ?? latestDataRef.current.total_passed,
-              total_frame_rejected: data.total_frame_rejected ?? data.total_rejected ?? latestDataRef.current.total_frame_rejected,
-              image_path: cleanImagePath || latestDataRef.current.image_path,
-              timestamp: data.timestamp ?? latestDataRef.current.timestamp,
-              total_frame_processed: (data.total_passed ?? latestDataRef.current.total_passed) +
-                                    (data.total_frame_rejected ?? latestDataRef.current.total_frame_rejected),
-            };
-
-            if (cleanImagePath) {
-              setDisplaySrc(cleanImagePath);
-              latestDataRef.current.image_path = cleanImagePath;
-            }
-
-            if (updateTimeoutRef.current) {
-              clearTimeout(updateTimeoutRef.current);
-            }
-
-            updateTimeoutRef.current = setTimeout(() => {
-              setRealtimeData({ ...latestDataRef.current });
-              updateTimeoutRef.current = null;
-            }, 250);
-
           } catch (err) {
             console.error("🚫 SSE JSON parse error:", err);
           }
@@ -656,18 +651,17 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
           if (eventSource?.readyState === EventSource.CLOSED) {
             console.warn("🔌 SSE connection closed by server.");
-//             setDisplaySrc(null);
           } else if (eventSource?.readyState === EventSource.CONNECTING) {
             console.warn("🔄 SSE reconnecting...");
           }
 
-          // Attempt to reconnect on error
-          if (reconnectAttempts < maxReconnectAttempts) {
+          // Only attempt reconnect if machine is still running
+          if (status === "running" && reconnectAttempts < maxReconnectAttempts) {
             reconnectAttempts++;
             console.log(`🔄 Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts}) in ${reconnectDelay}ms...`);
             setTimeout(connectSSE, reconnectDelay);
           } else {
-            console.error("❌ Max reconnection attempts reached");
+            console.error("❌ Max reconnection attempts reached or machine stopped");
           }
         };
 
@@ -698,11 +692,12 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       setIsSseConnected(false);
       setSseError(null);
     };
-    // eslint-disable-next-line
-  }, [selectedMachine]);
+  }, [selectedMachine, status]); // Depend on both selectedMachine AND status
 
   const getSseConnectionStatus = () => {
-    if (status !== "running" || !selectedMachine || selectedMachine === "all") return "disconnected";
+    if (status !== "running" || !selectedMachine || selectedMachine === "all") {
+      return "disconnected";
+    }
     if (sseError) return "error";
     if (isSseConnected && displaySrc) return "receiving_frames";
     if (isSseConnected) return "connected";
@@ -715,7 +710,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   // }, [realtimeData]);
 
   // handle submit
-  const handleSubmit = async (actionType:string) => {
+  const handleSubmit = async (actionType: string) => {
     if (!selectedMachine) {
       alert("Please select a machine.");
       return;
@@ -733,34 +728,6 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         alert("Please fill in all fields before starting the machine.");
         return;
       }
-    } else {
-        // const endpoint2 = `http://127.0.0.1:8000/api/machines/${selectedMachineId}/stop_run/`;
-        // try {
-        //   const res = await fetch(endpoint2, {
-        //     method: "POST",
-        //     headers: {
-        //       "Content-Type": "application/json",
-        //     },
-        //     body: null, // 'stop' API doesn't need a body
-        //   });
-        //   const data = await res.json();
-        //   if (!res.ok) {
-        //     throw new Error(data.detail || "Something went wrong.");
-        //   }
-        //   console.log("Machine Stop Response:", data);
-        //   setStatus("stopped");
-        //   setIsMachineRunning(false);
-        //   setDisplaySrc(null);
-        // }
-        // catch (err: unknown) {
-        //   console.error("Control Error:", err);
-        //   if (err instanceof Error) {
-        //     alert(err.message || "Failed to control machine.");
-        //   } else {
-        //     alert("An unknown error occurred while controlling the machine.");
-        //   }
-        // }
-        // return;
     }
 
     const endpoint = `http://127.0.0.1:8000/api/machines/${selectedMachine}/${actionType}_run/`;
@@ -780,7 +747,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                 min_stack_size: Number(minStackSize),
                 max_stack_size: Number(maxStackSize),
               })
-            : null, // 'stop' API doesn't need a body
+            : null,
       });
 
       const data = await res.json();
@@ -790,8 +757,27 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       }
 
       console.log("Machine Control Response:", data);
-      setStatus(actionType === "start" ? "running" : "stopped");
-      setIsMachineRunning(actionType === "start");
+      
+      // Force status update and cleanup
+      if (actionType === "stop") {
+        setStatus("stopped");
+        setIsMachineRunning(false);
+        setDisplaySrc(null);
+        
+        // Clear realtime data immediately
+        setRealtimeData({
+          estimated_stack_length: 0,
+          estimated_stack_count: 0,
+          total_frame_processed: 0,
+          total_frame_rejected: 0,
+          total_passed: 0,
+          image_path: "",
+          timestamp: "",
+        });
+      } else {
+        setStatus("running");
+        setIsMachineRunning(true);
+      }
     } catch (err: unknown) {
       console.error("Control Error:", err);
       if (err instanceof Error) {
@@ -800,30 +786,6 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         alert("An unknown error occurred while controlling the machine.");
       }
     }
-
-    // fetch("http://localhost:8000/machine/control", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({
-    //     action: actionType, // for now we are only sending the action type later on we can send the input val as well
-    //   }),
-    // })
-    //   .then((res) => {
-    //     if (!res.ok) {
-    //       return res.json().then((err) => {
-    //         throw new Error(err.detail || "Something went wrong");
-    //       });
-    //     }
-    //     return res.json();
-    //   })
-    //   .then((data) => {
-    //     console.log("Machine Control Response:", data);
-    //     setStatus(actionType === "start" ? "running" : "stopped");
-    //   })
-    //   .catch((err) => {
-    //     console.error("Control Error:", err);
-    //     alert(err.message || "Failed to control machine.");
-    //   });
   };
 
   // handle favourites
