@@ -514,19 +514,44 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
   // fetch base dir path for machine after selecting
   React.useEffect(() => {
-    if (!selectedMachine) return;
+    if (!selectedMachine) {
+      // Clear everything when no machine selected
+      setVariants([]);
+      setSelectedVariant("");
+      setMinStackSize("");
+      setMaxStackSize("");
+      setMinStackLength("");
+      setMaxStackLength("");
+      return;
+    }
 
-    fetch(`http://localhost:8000/api/machines/${selectedMachine}/`)
+    setIsLoadingVariants(true);
+
+    fetch(`http://127.0.0.1:8000/api/machines/${selectedMachine}/`)
       .then((res) => res.json())
       .then((data) => {
-        if (data?.base_dir_path) {
-          // Normalize slashes for URL use
-          const normalizedPath = data.base_dir_path.replace(/\\/g, "/");
-          setBaseDirPath(normalizedPath);
-        }
+        setVariants(data.variants || []);
+        setSelectedVariant(data.active_variant?.id || "");
+
+        // More robust status checking from backend
+        setStatus(data.is_running === true ? "running" : "stopped");
+        setIsMachineRunning(data.is_running === true);
+
+        console.log("📦 data received:", data);
+        // Clear stack values when switching machines
+        setMinStackSize("");
+        setMaxStackSize("");
+        setMinStackLength("");
+        setMaxStackLength("");
       })
-      .catch((err) => console.error("❌ Error fetching base dir path:", err));
+      .catch((err) => {
+        console.error("Failed to fetch machine details", err);
+        setVariants([]);
+        setSelectedVariant("");
+      })
+      .finally(() => setIsLoadingVariants(false));
   }, [selectedMachine]);
+
 
 
   // sse endpoint
@@ -771,25 +796,42 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
       console.log("Machine Control Response:", data);
       
-      // Force status update and cleanup
-      if (actionType === "stop") {
-        setStatus("stopped");
-        setIsMachineRunning(false);
-        setDisplaySrc(null);
-        
-        // Clear realtime data immediately
-        setRealtimeData({
-          estimated_stack_length: 0,
-          estimated_stack_count: 0,
-          total_frame_processed: 0,
-          total_frame_rejected: 0,
-          total_passed: 0,
-          image_path: "",
-          timestamp: "",
-        });
+      // Update status based on API response
+      if (actionType === "start") {
+        // Check if machine is running from response
+        if (data.is_running === true) {
+          setStatus("running");
+          setIsMachineRunning(true);
+          console.log("✅ Machine started successfully");
+        } else {
+          // This shouldn't happen but handle it anyway
+          console.warn("⚠️ Start API call succeeded but is_running is false");
+          setStatus("running"); // Assume it's running since API succeeded
+          setIsMachineRunning(true);
+        }
       } else {
-        setStatus("running");
-        setIsMachineRunning(true);
+        // For stop action
+        if (data.is_running === false || data.process_stopped === true || data.status === "stopped_successfully" || data.status === "already_stopped") {
+          setStatus("stopped");
+          setIsMachineRunning(false);
+          setDisplaySrc(null);
+          
+          // Clear realtime data immediately
+          setRealtimeData({
+            estimated_stack_length: 0,
+            estimated_stack_count: 0,
+            total_frame_processed: 0,
+            total_frame_rejected: 0,
+            total_passed: 0,
+            image_path: "",
+            timestamp: "",
+          });
+          console.log("✅ Machine stopped successfully");
+        } else {
+          console.warn("⚠️ Stop API call succeeded but machine might still be running");
+          setStatus("stopped"); // Assume it's stopped since API succeeded
+          setIsMachineRunning(false);
+        }
       }
     } catch (err: unknown) {
       console.error("Control Error:", err);
