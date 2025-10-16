@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Box } from "@mui/material";
 
 // Helper to convert backend absolute path → frontend static path
@@ -24,7 +24,20 @@ const convertToWebPath = (absolutePath) => {
 };
 
 export default function LiveImageFeed({ status, imagePath, connectionStatus }) {
+  const startTimeRef = useRef(null);
+
+  // Start timer when a new imagePath is received
+  useEffect(() => {
+    if (imagePath) {
+      startTimeRef.current = performance.now();
+    } else {
+      startTimeRef.current = null;
+    }
+  }, [imagePath]);
+
+  const pathProcessStart = performance.now();
   const currentImage = convertToWebPath(imagePath);
+  const pathProcessEnd = performance.now();
 
   const getStatusMessage = () => {
     if (status !== "running") {
@@ -34,6 +47,12 @@ export default function LiveImageFeed({ status, imagePath, connectionStatus }) {
       return "Receiving live feed...";
     }
     return "Connected, waiting for frames...";
+  };
+
+  const handleImageLoad = () => {
+    const endTime = performance.now();
+    const totalTime = endTime - (startTimeRef.current || endTime);
+    console.log(`[Perf] ✅ Image Loaded & Shown: Total time was ${totalTime.toFixed(2)}ms.`);
   };
 
   return (
@@ -86,6 +105,7 @@ export default function LiveImageFeed({ status, imagePath, connectionStatus }) {
               objectFit: "contain",
               display: "block",
             }}
+            onLoad={handleImageLoad}
             onError={() => {
               console.warn("⚠️ Image display error, clearing current image");
               // The parent component will handle clearing the image path

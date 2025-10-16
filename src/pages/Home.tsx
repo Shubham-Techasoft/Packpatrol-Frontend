@@ -132,6 +132,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   const [sseConnection, setSseConnection] = React.useState<EventSource | null>(null);
   const [isSseConnected, setIsSseConnected] = React.useState(false);
   const [sseError, setSseError] = React.useState<Event | Error | null>(null);
+  const lastMessageTimeRef = React.useRef<number | null>(null);
 
   // IMPORTANT DON'T REMOVE
   React.useEffect(() => {
@@ -549,6 +550,9 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   // SSE connection management - REPLACE your existing useEffect with this:
   React.useEffect(() => {
     // If no machine selected OR machine is stopped, clean up SSE connection
+    // Reset timer when effect runs
+    lastMessageTimeRef.current = null;
+
     if (!selectedMachine || selectedMachine === "all" || status !== "running") {
       console.log("🛑 Cleaning up SSE connection - machine stopped or no machine selected");
       
@@ -601,6 +605,15 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
         eventSource.onmessage = (event) => {
           try {
+            const now = performance.now();
+            if (lastMessageTimeRef.current) {
+              const interval = now - lastMessageTimeRef.current;
+              console.log(`[Perf] 📨 SSE message received. Interval since last: ${interval.toFixed(2)}ms.`);
+            } else {
+              console.log(`[Perf] 📨 First SSE message received.`);
+            }
+            lastMessageTimeRef.current = now;
+
             const data = JSON.parse(event.data);
             messageCountRef.current++;
             console.log("DATA:", data);
