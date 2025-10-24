@@ -15,6 +15,8 @@ export default defineConfig({
   ],
 
   server: {
+    host: '0.0.0.0', // This binds the server to all network interfaces
+    port: 5173,
     watch: {
       // 🚫 Ignore everything inside /public (so Vite doesn’t watch thousands of files)
       ignored: ["**/public/**"],

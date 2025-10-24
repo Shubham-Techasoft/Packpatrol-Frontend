@@ -1,0 +1,16 @@
+:root {
+  --vh: 1vh;
+}
+
+#root {
+  min-height: calc(var(--vh, 1vh) * 100);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Optional: For modern browsers that support dvh */
+@supports (height: 100dvh) {
+  #root {
+    min-height: 100dvh;
+  }
+}

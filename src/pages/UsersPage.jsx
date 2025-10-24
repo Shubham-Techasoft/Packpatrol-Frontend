@@ -6,6 +6,7 @@ import {
 } from "@mui/material";
 import axios from "axios";
 import { isAuthenticated, isSuperAdmin } from "../utils/auth";
+import {base_URL} from "../utils/api";
 
 const UsersPage = () => {
   const [users, setUsers] = useState([]);
@@ -24,7 +25,7 @@ const UsersPage = () => {
     // fetch users
     const fetchUsers = async () => {
       try {
-        const res = await axios.get("http://127.0.0.1:8000/api/users/list_all_users/", {
+        const res = await axios.get(`${base_URL}/api/users/list_all_users/`, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",

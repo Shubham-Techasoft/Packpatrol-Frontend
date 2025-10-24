@@ -12,6 +12,7 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
+import {base_URL} from '../utils/api';
 
 const MachineDetailsPage = () => {
   const { id } = useParams(); // Machine ID
@@ -22,7 +23,7 @@ const MachineDetailsPage = () => {
 
   useEffect(() => {
     axios
-      .get(`http://127.0.0.1:8000/api/machines/${id}/`)
+      .get(`${base_URL}/api/machines/${id}/`)
       .then((res) => {
         console.log("Fetched machine data:", res.data);
         setMachine(res.data);

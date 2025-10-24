@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { Box } from "@mui/material";
+import {base_URL} from '../../utils/api';
 
 // Helper to convert backend absolute path → frontend static path
 const convertToWebPath = (absolutePath) => {
@@ -7,7 +8,7 @@ const convertToWebPath = (absolutePath) => {
 
   // If path contains "media", it's hosted on the server - add localhost:8000
   if (absolutePath.includes("media")) {
-    return `http://127.0.0.1:8000/${absolutePath}`;
+    return `${base_Url}/${absolutePath}`;
   }
 
   // Work for both "home/packpatrol-frontend/public/..." and "/home/techasoft-testing-pc/PackImages/..."

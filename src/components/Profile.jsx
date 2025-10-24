@@ -23,6 +23,7 @@ import {
   Autocomplete,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
+import {base_URL} from '../utils/api';
 
 const Profile = () => {
   const accessToken = localStorage.getItem("access_token");
@@ -60,7 +61,7 @@ const Profile = () => {
 
   const fetchUserInfo = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/users/me/", {
+      const res = await fetch(`${base_URL}/api/users/me/`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -76,7 +77,7 @@ const Profile = () => {
   const fetchAllUsers = async () => {
     try {
       const res = await fetch(
-        "http://127.0.0.1:8000/api/users/list_all_users/",
+        `${base_URL}/api/users/list_all_users/`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -110,7 +111,7 @@ const Profile = () => {
 
     try {
       const res = await fetch(
-        "http://127.0.0.1:8000/api/users/change_password/",
+        `${base_URL}/api/users/change_password/`,
         {
           method: "POST",
           headers: {
@@ -160,7 +161,7 @@ const Profile = () => {
 
     try {
       const res = await fetch(
-        "http://127.0.0.1:8000/api/users/admin_password_reset/",
+        `${base_URL}/api/users/admin_password_reset/`,
         {
           method: "POST",
           headers: {

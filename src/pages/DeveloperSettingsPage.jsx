@@ -24,6 +24,8 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import MemoryIcon from "@mui/icons-material/Memory";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 // import AddMachineForm from "./AddMachineForm";
+import {base_URL} from '../utils/api';
+
 
 import AddMachineStepper from "./AddMachineStepper";
 import { isManager } from "../utils/auth";
@@ -49,7 +51,7 @@ const DeveloperSettings = () => {
   // fetch machines
   const fetchMachines = async () => {
     try {
-      const res = await axios.get("http://localhost:8000/api/machines/");
+      const res = await axios.get(`${base_URL}/api/machines/`);
       // Sort by created_at (oldest first)
       const sorted = res.data.sort(
         (a, b) => new Date(a.created_at) - new Date(b.created_at)
@@ -92,7 +94,7 @@ const DeveloperSettings = () => {
     try {
       // 1. Fetch full machine with variants
       const machineRes = await fetch(
-        `http://localhost:8000/api/machines/${selectedMachine.id}/`,
+        `${base_URL}/api/machines/${selectedMachine.id}/`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -108,7 +110,7 @@ const DeveloperSettings = () => {
       //     (await fetchCameraIdByMachineName(machineData.name));
 
       //   const camRes = await fetch(
-      //     `http://localhost:8000/api/cameras/${cameraId}/`,
+      //     `${base_URL}/api/cameras/${cameraId}/`,
       //     {
       //       headers: { Authorization: `Bearer ${token}` },
       //     }
@@ -129,7 +131,7 @@ const DeveloperSettings = () => {
           );
         } else {
           const camRes = await fetch(
-            `http://localhost:8000/api/cameras/${fallbackCameraId}/`,
+            `${base_URL}/api/cameras/${fallbackCameraId}/`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }
@@ -149,7 +151,7 @@ const DeveloperSettings = () => {
       let mlModelData = null;
       if (mlModelId) {
         const mlModelRes = await fetch(
-          `http://localhost:8000/api/mlmodels/${mlModelId}/`,
+          `${base_URL}/api/mlmodels/${mlModelId}/`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -179,7 +181,7 @@ const DeveloperSettings = () => {
   // Optional helper if camera ID is not embedded
   const fetchCameraIdByMachineName = async (machineName) => {
     const token = localStorage.getItem("access_token");
-    const res = await fetch("http://localhost:8000/api/cameras/", {
+    const res = await fetch(`${base_URL}/api/cameras/`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const allCams = await res.json();
@@ -196,7 +198,7 @@ const DeveloperSettings = () => {
     try {
       console.log("Deleting Machine with ID:", selectedMachine.id);
       const response = await fetch(
-        `http://localhost:8000/api/machines/${selectedMachine.id}/`,
+        `${base_URL}/api/machines/${selectedMachine.id}/`,
         {
           method: "DELETE",
           headers: {

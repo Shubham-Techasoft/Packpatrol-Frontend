@@ -32,6 +32,9 @@ import { MachineSelectionProvider } from "./MachineSelectionContext";
 import VariantGallary from "./pages/VariantGallary";
 import VariantGallaryView from "./pages/VariantGallaryView";
 
+import {base_URL} from "./utils/api";
+import { useKeyboardSafeView } from './hooks/useKeyboardSafeView';
+
 function TokenWatcherWrapper() {
   const navigate = useNavigate();
   return <TokenWatcher navigate={navigate} />;
@@ -39,6 +42,7 @@ function TokenWatcherWrapper() {
 
 // Main App component
 function App() {
+  // useKeyboardSafeView();
   const navigate = useNavigate();
   const [recentDialogOpen, setRecentDialogOpen] = useState(false);
 
@@ -57,7 +61,8 @@ function App() {
   const clearAppliedLog = () => setAppliedLog(null);
 
   return (
-    <>
+    <div className="app">
+      <>
       <TokenWatcherWrapper />
       <AppSuccessAlert />
       <ResponsiveAppBar />
@@ -123,6 +128,7 @@ function App() {
 
       <Footer onRecentOpen={openRecentDialog} onApplyLog={onApplyLog} />
     </>
+    </div>
   );
 }
 
@@ -168,7 +174,7 @@ async function attemptRefresh(navigate) {
     const refreshToken = localStorage.getItem("refresh_token");
     if (!refreshToken) throw new Error("No refresh token found");
 
-    const res = await fetch("http://127.0.0.1:8000/api/token/refresh/", {
+    const res = await fetch(`${base_URL}/api/token/refresh/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh: refreshToken }), // ✅ Correct key

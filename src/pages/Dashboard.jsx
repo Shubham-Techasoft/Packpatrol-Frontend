@@ -1,21 +1,26 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect} from "react";
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery'; 
 import { Box, Typography, Grid, Paper, Button, Divider, Card, CardContent, CircularProgress, Snackbar, Alert, Chip, FormControl, InputLabel, Select, MenuItem,FormGroup, FormControlLabel, Checkbox, } from "@mui/material";
 import { Assessment, LiveTv, Engineering, WarningAmber, PlayArrow, Stop, RestartAlt, } from "@mui/icons-material";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { DatePicker, DesktopDatePicker, MobileDatePicker } from "@mui/x-date-pickers";
 import TextField from "@mui/material/TextField";
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { styled } from "@mui/material/styles";
 import dayjs from "dayjs";
 import advancedFormat from "dayjs/plugin/advancedFormat";
+import utc from 'dayjs/plugin/utc';
 dayjs.extend(advancedFormat);
+dayjs.extend(utc);
 import axios from "axios";
 import Stack from "@mui/material/Stack";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import MemoryIcon from "@mui/icons-material/Memory";
 import { isAuthenticated } from "../utils/auth";
 import ScrollToTopButton from "./sections/about/ScrollToTop";
+import {base_URL} from '../utils/api';
 
 import { useMachineSelection } from "../MachineSelectionContext";
 import LiveImageFeed from "./sections/LiveImageFeed";
@@ -205,35 +210,51 @@ export default function Dashboard() {
   const fetchDashboardSummary = async () => {
     setLoading(true);
     try {
-      const params = {};
+      const params = new URLSearchParams();
 
-      // Machine filter
-      if (selectedMachineId !== "all") {
-        params.machine_id = selectedMachineId;
+      // Machine filter - only add if specific machine selected
+      if (selectedMachineId && selectedMachineId !== "all") {
+        params.append('machine_id', selectedMachineId);
       }
 
-      // Date filter
+      // Variant filter - only add if specific variant selected 
+      if (selectedVariant && selectedVariant !== "all") {
+        params.append('variant_id', selectedVariant);
+      }
+
+      // Date formatting helper
+      const formatDateParam = (date) => {
+        return dayjs(date).utc().format('YYYY-MM-DDTHH:mm:ss[Z]');
+      };
+
+      // Date parameters
       if (timeFilter === "Custom" && dateRange[0] && dateRange[1]) {
-        params.start_time = dayjs(dateRange[0]).startOf("day").toISOString();
-        params.end_time = dayjs(dateRange[1]).endOf("day").toISOString();
+        params.append('start_time', formatDateParam(dayjs(dateRange[0]).startOf('day')));
+        params.append('end_time', formatDateParam(dayjs(dateRange[1]).endOf('day')));
       } else if (timeFilter === "7d") {
-        params.start_time = dayjs().subtract(7, "day").toISOString();
-        params.end_time = dayjs().toISOString();
+        params.append('start_time', formatDateParam(dayjs().subtract(7, 'day')));
+        params.append('end_time', formatDateParam(dayjs()));
       } else if (timeFilter === "30d") {
-        params.start_time = dayjs().subtract(30, "day").toISOString();
-        params.end_time = dayjs().toISOString();
+        params.append('start_time', formatDateParam(dayjs().subtract(30, 'day')));
+        params.append('end_time', formatDateParam(dayjs()));
       } else if (timeFilter === "24h") {
-        params.start_time = dayjs().subtract(1, "day").toISOString();
-        params.end_time = dayjs().toISOString();
+        params.append('start_time', formatDateParam(dayjs().subtract(1, 'day')));
+        params.append('end_time', formatDateParam(dayjs()));
       } else if (timeFilter === "all") {
-        params.start_time = dayjs().subtract(100, "year").toISOString();
-        params.end_time = dayjs().toISOString();
+        params.append('start_time', formatDateParam(dayjs().subtract(100, 'year')));
+        params.append('end_time', formatDateParam(dayjs()));
       }
 
-      const res = await axios.get(
-        "http://127.0.0.1:8000/api/machinerunlogs/dashboard_summary/",
-        { params }
-      );
+      // Ensure we have date params (fallback to last 24h)
+      if (!params.get('start_time') || !params.get('end_time')) {
+        params.append('start_time', formatDateParam(dayjs().subtract(1, 'day')));
+        params.append('end_time', formatDateParam(dayjs()));
+      }
+
+      const url = `${base_URL}/api/machinerunlogs/dashboard_summary/?${params.toString()}`;
+      console.log('Fetching dashboard summary:', url);
+
+      const res = await axios.get(url);
 
       const stats = res.data.frame_statistics || {};
       setPerformanceStats({
@@ -265,7 +286,7 @@ export default function Dashboard() {
       return;
     }
 
-    const sseUrl = `http://localhost:8000/api/machines/${selectedMachineId}/sse/`;
+    const sseUrl = `${base_URL}/api/machines/${selectedMachineId}/sse/`;
     console.log("📡 Connecting SSE for dashboard:", sseUrl);
 
     let eventSource = new EventSource(sseUrl);
@@ -324,107 +345,115 @@ export default function Dashboard() {
     setRestricted(!auth);
     setLoading(true);
 
-    fetchDashboardSummary();
+    // Format date params consistently
+    const formatDateParam = (date) => {
+      return dayjs(date).utc().format('YYYY-MM-DDTHH:mm:ss[Z]');
+    };
 
-    const now = dayjs();
+    // Build API parameters
+    const params = new URLSearchParams();
+    
+    // Add machine filter if specific machine selected
+    if (selectedMachineId && selectedMachineId !== "all") {
+      params.append('machine_id', selectedMachineId);
+    }
+
+    // Add date range based on timeFilter
+    if (timeFilter === "Custom" && dateRange[0] && dateRange[1]) {
+      params.append('start_time', formatDateParam(dayjs(dateRange[0]).startOf('day')));
+      params.append('end_time', formatDateParam(dayjs(dateRange[1]).endOf('day')));
+    } else if (timeFilter === "7d") {
+      params.append('start_time', formatDateParam(dayjs().subtract(7, 'day')));
+      params.append('end_time', formatDateParam(dayjs()));
+    } else if (timeFilter === "30d") {
+      params.append('start_time', formatDateParam(dayjs().subtract(30, 'day')));
+      params.append('end_time', formatDateParam(dayjs()));
+    } else if (timeFilter === "24h") {
+      params.append('start_time', formatDateParam(dayjs().subtract(1, 'day')));
+      params.append('end_time', formatDateParam(dayjs()));
+    } else if (timeFilter === "all") {
+      params.append('start_time', formatDateParam(dayjs().subtract(100, 'year')));
+      params.append('end_time', formatDateParam(dayjs()));
+    }
+
+    // Ensure date params exist (fallback to 24h)
+    if (!params.get('start_time') || !params.get('end_time')) {
+      params.append('start_time', formatDateParam(dayjs().subtract(1, 'day')));
+      params.append('end_time', formatDateParam(dayjs()));
+    }
+
+    const summaryUrl = `${base_URL}/api/machinerunlogs/dashboard_summary/?${params.toString()}`;
+    console.log('Fetching dashboard data:', summaryUrl);
 
     Promise.all([
-      fetch("http://127.0.0.1:8000/api/machinerunlogs/").then((res) => res.json()),
-      fetch("http://127.0.0.1:8000/api/machines/").then((res) => res.json()),
+      fetch(summaryUrl).then(res => res.json()),
+      fetch(`${base_URL}/api/machines/`).then(res => res.json())
     ])
-      .then(([logs, machines]) => {
-        console.log("Raw API Data:", logs);
-        //console.log("Machines List:", machines);
-
-        // 🔎 Apply time filtering
-        const filteredByTime = logs.filter((it) => {
-        const startIso = getStart(it);
-        if (!startIso) return false;
-        const itemTime = dayjs(startIso);
-
-        if (restricted || timeFilter === '24h') {
-          return dayjs().diff(itemTime, 'hour') <= 24;
-        }
-        if (timeFilter === '7d')  return dayjs().diff(itemTime, 'day') <= 7;
-        if (timeFilter === '30d') return dayjs().diff(itemTime, 'day') <= 30;
-        if (timeFilter === 'Custom') {
-          const [d0, d1] = dateRange || [];
-          if (!d0 || !d1) return false;
-          const ts = itemTime.valueOf();
-          return ts >= dayjs(d0).startOf('day').valueOf() && ts <= dayjs(d1).endOf('day').valueOf();
-        }
-        // 'all'
-        return true;
-      });
-
-      // Machine filter: match by ID first, then by name with fallbacks
-      const filtered = selectedMachineId !== 'all'
-        ? filteredByTime.filter((it) => {
-            const itId   = String(getMachineId(it) ?? '');
-            const itName = getMachineName(it);
-            const selId  = String(selectedMachineId);
-            const selName = selectedMachine?.name ?? null;
-            return itId === selId || (selName && itName === selName);
-          })
-        : filteredByTime;
-
-      // When logging, avoid "undefined"
-      console.log('Filtered Logs (with ' + (selectedMachine?.name || 'All') + '):', filtered);
-
-        const rangeIsCustom = timeFilter === 'Custom' && dateRange?.[0] && dateRange?.[1];
-        const customDurationMs = rangeIsCustom
-          ? dayjs(dateRange[1]).endOf('day').valueOf() - dayjs(dateRange[0]).startOf('day').valueOf()
-          : null;
-        const shortCustom = rangeIsCustom && customDurationMs < 3 * 24 * 60 * 60 * 1000;
-
-        const grouped = {};
-        filtered.forEach((it) => {
-//           console.log(`📦 Processing log{${it + 1}}:\ntotal processed: ${getProcessed(it)}\ntotal rejected: ${getRejected(it)}\ntotal accepted: ${getProcessed(it)- getRejected(it)}`);
-          const ts = dayjs(getStart(it));
-          const key = (restricted || timeFilter === '24h' || shortCustom)
-            ? ts.format('YYYY-MM-DD HH:mm:ss')
-            : ts.startOf('day').format('YYYY-MM-DD');
-
-          // const r = getRejected(it) || 0;
-          // const a = getAccepted(it) || 0;
-          // const p = a+r;
-
-          const p = getProcessed(it);
-          const r = getRejected(it);
-          const a = Math.max(0, p - r);
-
-          if (!grouped[key]) grouped[key] = { processed: 0, rejected: 0, accepted: 0 };
-          grouped[key].processed += p;
-          grouped[key].rejected  += r;
-          grouped[key].accepted  += a;
+      .then(([summary, machines]) => {
+        // Set performance stats from summary
+        const stats = summary.frame_statistics || {};
+        setPerformanceStats({
+          total_frames: stats.total_frames_processed || 0,
+          rejected_frames: stats.total_frames_rejected || 0,
+          rejection_rate_percent: stats.overall_rejection_rate || 0,
         });
 
-        const chart = Object.entries(grouped).map(([k, v]) => {
-          const t = (restricted || timeFilter === '24h' || shortCustom)
-            ? dayjs(k, 'YYYY-MM-DD HH:mm:ss').valueOf()
-            : dayjs(k, 'YYYY-MM-DD').valueOf();
-          return { t, ...v };
+        // Set logs from summary
+        setLogs(summary.recent_runs || []);
+        console.log(`Recent Runs (${summary.recent_runs?.length}):`, summary.recent_runs || []);
+
+        // Update chart data
+        if (summary.recent_runs?.length > 0) {
+          // Process chart data similar to before...
+          const grouped = {};
+          summary.recent_runs.forEach((it) => {
+            const startTime = getStart(it);
+            if (!startTime) return;
+            
+            // Round to nearest hour for grouping
+            const timeKey = dayjs(startTime).utc().startOf('hour').format('YYYY-MM-DD HH:00:00');
+            if (!grouped[timeKey]) {
+              grouped[timeKey] = {
+                processed: 0,
+                rejected: 0,
+                accepted: 0,
+              };
+            }
+            grouped[timeKey].processed += getProcessed(it);
+            grouped[timeKey].rejected += getRejected(it);
+            grouped[timeKey].accepted += getAccepted(it);
+            grouped[timeKey].total += getProcessed(it) + getRejected(it) + getAccepted(it);
+            grouped[timeKey].time = timeKey;
+            grouped[timeKey].rejection_rate = ((grouped[timeKey].rejected / grouped[timeKey].total) * 100).toFixed(2);
+            grouped[timeKey].acceptance_rate = ((grouped[timeKey].accepted / grouped[timeKey].total) * 100).toFixed(2);
+            grouped[timeKey].rejection_rate_percent = ((grouped[timeKey].rejected / grouped[timeKey].total) * 100).toFixed(2);
+            grouped[timeKey].acceptance_rate_percent = ((grouped[timeKey].accepted / grouped[timeKey].total) * 100).toFixed(2);
+          });
+          
+          // Set chart data
+          setChartData(Object.entries(grouped).map(([k, v]) => ({
+            t: dayjs(k).valueOf(),
+            ...v
+          })).sort((a, b) => a.t - b.t));
+        } else {
+          setChartData([]);
+        }
+
+        // Update machine status
+        const activeCount = machines.filter(m => m.is_running).length;
+        setMachineStatus({
+          active: activeCount,
+          total: machines.length,
+          liveFeed: activeCount > 0 ? "Running" : "Stopped"
         });
-
-        setChartData(chart.sort((a, b) => a.t - b.t));
-
 
         setLoading(false);
-
-        // 🟢 Machine stats
-        const activeMachines = new Set();
-        logs.forEach((log) => {
-          if (log.is_running) activeMachines.add(log.machine_name);
-        });
-
-        setMachineStatus({
-          active: activeMachines.size,
-          total: machines.length,
-          liveFeed: activeMachines.size > 0 ? "Running" : "Stopped",
-        });
       })
       .catch((err) => {
         console.error("Failed to load dashboard data:", err);
+        setPerformanceStats(null);
+        setChartData([]);
+        setLogs([]);
         setLoading(false);
       });
   }, [timeFilter, restricted, selectedMachineId, dateRange, selectedMachine]);
@@ -442,7 +471,7 @@ export default function Dashboard() {
       return;
     }
     setIsLoadingVariants(true);
-    fetch(`http://127.0.0.1:8000/api/machines/${selectedMachineId}/`)
+    fetch(`${base_URL}/api/machines/${selectedMachineId}/`)
       .then((res) => res.json())
       .then((data) => {
         const list = Array.isArray(data.variants) ? data.variants : [];
@@ -481,18 +510,18 @@ export default function Dashboard() {
   const fetchMachinesWithRunLogInfo = async () => {
     try {
       // Step 1: Get all machines
-      const machinesRes = await fetch("http://127.0.0.1:8000/api/machines/");
+      const machinesRes = await fetch(`${base_URL}/api/machines/`);
       const machines = await machinesRes.json();
 
       // Step 2: Get all machine run logs
-      const logsRes = await fetch("http://127.0.0.1:8000/api/machinerunlogs/");
+      const logsRes = await fetch(`${base_URL}/api/machinerunlogs/`);
       const runLogs = await logsRes.json();
 
       // Step 3: Fetch camera + variants per machine
       const enrichedMachines = await Promise.all(
         machines.map(async (machine) => {
           const detailRes = await fetch(
-            `http://127.0.0.1:8000/api/machines/${machine.id}/`
+            `${base_URL}/api/machines/${machine.id}/`
           );
           const detailData = await detailRes.json();
 
@@ -597,7 +626,7 @@ export default function Dashboard() {
         //console.log(`▶️ Starting "${machine.name}"`);
 
         const response = await fetch(
-          `http://127.0.0.1:8000/api/machines/${machine.id}/start_run/`,
+          `${base_URL}/api/machines/${machine.id}/start_run/`,
           {
             method: "POST",
             headers: {
@@ -706,7 +735,7 @@ export default function Dashboard() {
         //console.log(`⛔ Stopping "${machine.name}"`);
 
         const response = await fetch(
-          `http://127.0.0.1:8000/api/machines/${machine.id}/stop_run/`,
+          `${base_URL}/api/machines/${machine.id}/stop_run/`,
           {
             method: "POST",
             headers: {
@@ -786,6 +815,9 @@ export default function Dashboard() {
   };
   //console.log("🔄 Loading State:", controlLoading, controlText);
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
   return (
     <Box
       sx={{
@@ -809,6 +841,7 @@ export default function Dashboard() {
           <Box display="flex" alignItems="center" gap={2}>
             {["24h", "7d", "30d", "all", "Custom"].map((filter) => (
               <Button
+                key={filter}
                 variant={timeFilter === filter ? "contained" : "outlined"}
                 onClick={() => setTimeFilter(filter)}
                 color="primary"
@@ -844,34 +877,111 @@ export default function Dashboard() {
           </Select>
         </FormControl>
       </Box>
-
-      {!restricted && timeFilter === "Custom" && (
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <Box display="flex" alignItems="center" gap={2} mb={2}>
-            {/* Start Date Picker */}
-            <DatePicker
-              label="Start Date"
-              value={dateRange[0]} // Use the first element of dateRange
-              onChange={(newValue) => setDateRange([newValue, dateRange[1]])} // Update only the start date
-              renderInput={(params) => <TextField size="small" {...params} />}
-            />
-            {/* End Date Picker */}
-            <DatePicker
-              label="End Date"
-              value={dateRange[1]} // Use the second element of dateRange
-              onChange={(newValue) => setDateRange([dateRange[0], newValue])} // Update only the end date
-              renderInput={(params) => <TextField size="small" {...params} />}
-            />
-            <Button
-              variant="contained"
-              onClick={handleDateFilter}
-              disabled={!dateRange[0] || !dateRange[1]}
-            >
-              Apply
-            </Button>
-          </Box>
-        </LocalizationProvider>
+{!restricted && timeFilter === "Custom" && (
+  <LocalizationProvider dateAdapter={AdapterDayjs}>
+    <Box display="flex" alignItems="center" gap={2} mb={2}>
+      {isMobile ? (
+        <MobileDatePicker
+          label="Start Date"
+          value={dateRange[0]}
+          onChange={(newValue) => setDateRange([newValue, dateRange[1]])}
+          slotProps={{ 
+            textField: { 
+              size: 'small',
+              fullWidth: true,
+              inputProps: {
+                style: { cursor: 'pointer' }
+              }
+            },
+            dialog: {
+              sx: { 
+                '& .MuiDialogActions-root': { 
+                  paddingBottom: 2
+                }
+              }
+            }
+          }}
+        />
+      ) : (
+        <DesktopDatePicker
+          label="Start Date"
+          value={dateRange[0]}
+          onChange={(newValue) => setDateRange([newValue, dateRange[1]])}
+          slotProps={{ 
+            textField: { 
+              size: 'small'
+            },
+            popper: {
+              sx: { zIndex: 1300 }
+            }
+          }}
+        />
       )}
+
+      {isMobile ? (
+        <>
+          <MobileDatePicker
+            label="End Date"
+            value={dateRange[1]}
+            onChange={(newValue) => setDateRange([dateRange[0], newValue])}
+            slotProps={{ 
+              textField: { 
+                size: 'small',
+                fullWidth: true,
+                error: dateRange[0] && dateRange[1] && dayjs(dateRange[1]).isBefore(dayjs(dateRange[0])),
+                inputProps: {
+                  style: { cursor: 'pointer' }
+                }
+              },
+              dialog: {
+                sx: { 
+                  '& .MuiDialogActions-root': { 
+                    paddingBottom: 2
+                  }
+                }
+              }
+            }}
+          />
+          {dateRange[0] && dateRange[1] && dayjs(dateRange[1]).isBefore(dayjs(dateRange[0])) && (
+            <Typography variant="caption" color="error" sx={{ position: 'absolute'}}>
+              End date cannot be before start date
+            </Typography>
+          )}
+        </>
+      ) : (
+        <>
+          <DesktopDatePicker
+            label="End Date"
+            value={dateRange[1]}
+            onChange={(newValue) => setDateRange([dateRange[0], newValue])}
+            slotProps={{ 
+              textField: { 
+                size: 'small',
+                error: dateRange[0] && dateRange[1] && dayjs(dateRange[1]).isBefore(dayjs(dateRange[0]))
+              },
+              popper: {
+                sx: { zIndex: 1300 }
+              }
+            }}
+          />
+          {dateRange[0] && dateRange[1] && dayjs(dateRange[1]).isBefore(dayjs(dateRange[0])) && (
+            <Typography variant="caption" color="error" sx={{ position: 'absolute', marginTop: '55px'}}>
+              End date cannot be before start date
+            </Typography>
+          )}
+        </>
+      )}
+
+      <Button
+        variant="contained"
+        onClick={handleDateFilter}
+        disabled={!dateRange[0] || !dateRange[1] || (dateRange[0] && dateRange[1] && dayjs(dateRange[1]).isBefore(dayjs(dateRange[0])))}
+      >
+        Apply
+      </Button>
+    </Box>
+  </LocalizationProvider>
+)}
 
       {/* Top Summary */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -1213,27 +1323,71 @@ export default function Dashboard() {
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <Box display="flex" alignItems="center" gap={2} mb={2}>
                 {/* Start Date Picker */}
-                <DatePicker
-                  label="Start Date"
-                  value={dateRange[0]} // Use the first element of dateRange
-                  onChange={(newValue) =>
-                    setDateRange([newValue, dateRange[1]])
-                  } // Update only the start date
-                  renderInput={(params) => (
-                    <TextField size="small" {...params} />
-                  )}
-                />
+                {isMobile ? (
+                  <MobileDatePicker
+                    label="Start Date"
+                    value={dateRange[0]}
+                    onChange={(newValue) =>
+                      setDateRange([newValue, dateRange[1]])
+                    }
+                    slotProps={{ 
+                      textField: { 
+                        size: 'small',
+                        fullWidth: true,
+                        inputProps: {
+                          style: { cursor: 'pointer' }
+                        }
+                      }
+                    }}
+                  />
+                ) : (
+                  <DesktopDatePicker
+                    label="Start Date"
+                    value={dateRange[0]}
+                    onChange={(newValue) =>
+                      setDateRange([newValue, dateRange[1]])
+                    }
+                    slotProps={{ 
+                      textField: { 
+                        size: 'small'
+                      }
+                    }}
+                  />
+                )}
+
                 {/* End Date Picker */}
-                <DatePicker
-                  label="End Date"
-                  value={dateRange[1]} // Use the second element of dateRange
-                  onChange={(newValue) =>
-                    setDateRange([dateRange[0], newValue])
-                  } // Update only the end date
-                  renderInput={(params) => (
-                    <TextField size="small" {...params} />
-                  )}
-                />
+                {isMobile ? (
+                  <MobileDatePicker
+                    label="End Date"
+                    value={dateRange[1]}
+                    onChange={(newValue) =>
+                      setDateRange([dateRange[0], newValue])
+                    }
+                    slotProps={{ 
+                      textField: { 
+                        size: 'small',
+                        fullWidth: true,
+                        inputProps: {
+                          style: { cursor: 'pointer' }
+                        }
+                      }
+                    }}
+                  />
+                ) : (
+                  <DesktopDatePicker
+                    label="End Date"
+                    value={dateRange[1]}
+                    onChange={(newValue) =>
+                      setDateRange([dateRange[0], newValue])
+                    }
+                    slotProps={{ 
+                      textField: { 
+                        size: 'small'
+                      }
+                    }}
+                  />
+                )}
+
                 <Button
                   variant="contained"
                   onClick={handleDateFilter}

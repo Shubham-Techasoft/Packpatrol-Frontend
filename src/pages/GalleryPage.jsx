@@ -13,6 +13,7 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import {base_URL} from '../utils/api';
 
 const GalleryPage = () => {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ const GalleryPage = () => {
 
   const fetchMachines = async () => {
     try {
-      const res = await axios.get("http://127.0.0.1:8000/api/machines/");
+      const res = await axios.get(`${base_URL}/api/machines/`);
       setMachines(res.data);
     } catch (err) {
       console.error("Failed to fetch machines", err);

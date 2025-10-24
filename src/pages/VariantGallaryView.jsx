@@ -23,12 +23,6 @@ import { useNavigate, useParams } from "react-router-dom";
 
 const IMAGES_PER_PAGE = 20;
 
-// Path conversion function
-const convertToWebPath = (absolutePath) => {
-  if (!absolutePath) return null;
-  return absolutePath.replace('/home/techasoft-testing-pc/PackImages', '/public/packimages');
-};
-
 const VariantGallaryView = () => {
   const navigate = useNavigate();
   const theme = useTheme();
@@ -36,7 +30,7 @@ const VariantGallaryView = () => {
   const { machineId, variantId } = useParams();
 
   const [imagesList, setImagesList] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [open, setOpen] = useState(false);
   const [currentImage, setCurrentImage] = useState(null);
@@ -47,6 +41,7 @@ const VariantGallaryView = () => {
   });
 
   const [page, setPage] = useState(1);
+  const [pageCount, setPageCount] = useState(0);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -76,8 +71,8 @@ const VariantGallaryView = () => {
     const fetchNames = async () => {
       try {
         const [machineRes, variantRes] = await Promise.all([
-          fetch(`http://127.0.0.1:8000/api/machines/${machineId}/`),
-          fetch(`http://127.0.0.1:8000/api/machinevariants/${variantId}/`),
+          fetch(`${base_URL}/api/machines/${machineId}/`),
+          fetch(`${base_URL}/api/machinevariants/${variantId}/`),
         ]);
 
         if (!machineRes.ok || !variantRes.ok) {
@@ -100,72 +95,61 @@ const VariantGallaryView = () => {
     fetchNames();
   }, [machineId, variantId]);
 
-  // NEW: Fetch images from database API with enhanced metadata
-  const fetchImages = async () => {
+  // Fetch images from the new paginated API
+  const fetchImages = async (currentPage) => {
     try {
       setLoading(true);
       setError(null);
-      setImagesList([]);
-      setPage(1);
-
-      if (!machineInfo.machineName || !machineInfo.variantName) return;
 
       showSnackbar("Loading images from database...", "info");
       
       const response = await fetch(
-        `http://127.0.0.1:8000/api/gallery-images/${encodeURIComponent(
-          machineInfo.machineName
-        )}/${encodeURIComponent(machineInfo.variantName)}/`
+        `${base_URL}/api/gallery/${machineId}/${variantId}?page=${currentPage}`
       );
 
       if (!response.ok) {
         throw new Error("Failed to fetch images from database");
       }
 
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      const data = await response.json(); // Expects { page, page_size, total_pages, results }
 
       // Convert to image objects with enhanced metadata
-      const imageObjects = data.images.map((img) => {
-        const webPath = convertToWebPath(img.image_path);
+      const imageObjects = data.results.map((img) => {
         return {
           id: img.id,
-          url: webPath,
-          label: img.image_path.split("/").pop() || "Image",
+          url: img.image_url,
+          label: img.image_url.split("/").pop() || "Image",
           timestamp: img.timestamp,
           is_rejected: img.is_rejected,
-          stack_count: img.stack_count,
-          originalPath: img.image_path
+          stack_lenght: img.stack_length, // API field is stack_length
+          stack_count: img.stack_count, // For consistency
         };
       });
 
       setImagesList(imageObjects);
+      setPage(data.page || 1);
+      setPageCount(data.total_pages || Math.ceil(data.count / IMAGES_PER_PAGE) || 1);
       showSnackbar(`Loaded ${imageObjects.length} images successfully!`, "success");
 
     } catch (err) {
       console.error("Error fetching gallery images:", err);
       setError("Failed to load images from database.");
+      setImagesList([]);
+      setPageCount(0);
       showSnackbar("Failed to load images.", "error");
     } finally {
       setLoading(false);
     }
   };
 
+  // Fetch images when component mounts or page changes
   useEffect(() => {
-    if (machineInfo.machineName && machineInfo.variantName) {
-      fetchImages();
-    }
-  }, [machineInfo.machineName, machineInfo.variantName]);
+    fetchImages(page);
+  }, [page, machineId, variantId]);
 
-  // Pagination logic
-  const pageCount = Math.ceil(imagesList.length / IMAGES_PER_PAGE);
-  const paginatedImages = imagesList.slice(
-    (page - 1) * IMAGES_PER_PAGE,
-    page * IMAGES_PER_PAGE
-  );
+  const handlePageChange = (event, value) => {
+    setPage(value);
+  };
 
   return (
     <>
@@ -234,7 +218,7 @@ const VariantGallaryView = () => {
         >
           {!loading &&
             !error &&
-            paginatedImages.map((img) => (
+            imagesList.map((img) => (
               <Grid item xs={12} sm={6} md={4} lg={3} key={img.id}>
                 <Card
                   sx={{
@@ -291,15 +275,15 @@ const VariantGallaryView = () => {
         </Grid>
 
         {/* Pagination controls */}
-        {!loading && !error && imagesList.length > IMAGES_PER_PAGE && (
+        {!loading && !error && pageCount > 1 && (
           <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
             <Typography variant="body2" color="textSecondary">
-              Page {page} of {pageCount} • {imagesList.length} total images
+              Page {page} of {pageCount}
             </Typography>
             <Pagination
               count={pageCount}
               page={page}
-              onChange={(_, value) => setPage(value)}
+              onChange={handlePageChange}
               color="primary"
               shape="rounded"
               showFirstButton

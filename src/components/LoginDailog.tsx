@@ -15,6 +15,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { useNavigate } from "react-router-dom";
+import { base_URL } from "../utils/api";
 
 const Transition = React.forwardRef(function Transition(props: any, ref: any) {
   return <Slide direction="down" ref={ref} {...props} />;
@@ -58,7 +59,7 @@ const CombinedSignInPage: React.FC<CombinedSignInPageProps> = ({
     try {
       console.log("Attempting login with email:", email);
 
-      const loginResponse = await fetch("http://127.0.0.1:8000/api/token/", {
+      const loginResponse = await fetch(`${base_URL}/api/token/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -77,7 +78,7 @@ const CombinedSignInPage: React.FC<CombinedSignInPageProps> = ({
       const refreshToken = data.refresh;
 
     // Now fetch user details to get designation
-    const userInfoRes = await fetch("http://127.0.0.1:8000/api/users/me/", {
+    const userInfoRes = await fetch(`${base_URL}/api/users/me/`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },

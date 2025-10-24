@@ -19,6 +19,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import { CheckCircle, Cancel, AccessTime } from "@mui/icons-material";
 import { useTheme } from "@mui/material/styles";
 import axios from "axios";
+import {base_URL} from '../utils/api';
 
 const LOCAL_STORAGE_KEY = "hiddenActivityLogs";
 
@@ -31,7 +32,7 @@ export default function RecentActivitiesDialog({ open, handleClose, onApplyLog }
   React.useEffect(() => {
     if (open) {
       axios
-        .get("http://127.0.0.1:8000/api/machinerunlogs/")
+        .get(`${base_URL}/api/machinerunlogs/`)
         .then((res) => {
           const hiddenIds = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)) || [];
           const filtered = res.data

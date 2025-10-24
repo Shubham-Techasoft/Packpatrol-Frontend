@@ -24,6 +24,7 @@ import HeightIcon from "@mui/icons-material/Straighten";
 import ErrorIcon from "@mui/icons-material/ErrorOutline";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import RecentActivitiesDialog from "../components/RecentActivitiesDialog";
+import {base_URL} from '../utils/api';
 
 import { useMachineSelection } from "../MachineSelectionContext";
 
@@ -235,8 +236,9 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
     const fetchMachines = async () => {
       setIsLoadingMachines(true);
       try {
+        console.log(base_URL)
         const response = await fetch(
-          "http://localhost:8000/api/machines/??is_active=true"
+          `${base_URL}/api/machines/??is_active=true`
         );
         const data = await response.json();
         setMachines(data);
@@ -284,7 +286,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
     setIsLoadingVariants(true);
 
-    fetch(`http://127.0.0.1:8000/api/machines/${selectedMachine}/`)
+    fetch(`${base_URL}/api/machines/${selectedMachine}/`)
       .then((res) => res.json())
       .then((data) => {
         setVariants(data.variants || []);
@@ -314,7 +316,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
     try {
       const machineRes = await fetch(
-        `http://127.0.0.1:8000/api/machines/${selectedMachine}/`
+        `${base_URL}/api/machines/${selectedMachine}/`
       );
       const machineData = await machineRes.json();
 
@@ -341,7 +343,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       };
 
       const res = await fetch(
-        `http://127.0.0.1:8000/api/machines/${selectedMachine}/switch_variant/`,
+        `${base_URL}/api/machines/${selectedMachine}/switch_variant/`,
         {
           method: "POST",
           headers: {
@@ -402,7 +404,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       }
 
       try {
-        const res = await fetch("http://127.0.0.1:8000/api/machinerunlogs/");
+        const res = await fetch(`${base_URL}/api/machinerunlogs/`);
         const data = await res.json();
 
         // Find selected machine and variant names
@@ -466,7 +468,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
     try {
       const res = await fetch(
-        `http://127.0.0.1:8000/api/machines/${matchedMachine.id}/`
+        `${base_URL}/api/machines/${matchedMachine.id}/`
       );
       const machineData = await res.json();
       const allVariants = machineData.variants || [];
@@ -512,7 +514,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   };
 
 
-  // fetch base dir path for machine after selecting
+  // fetch variants after selecting machines - UPDATED VERSION
   React.useEffect(() => {
     if (!selectedMachine) {
       // Clear everything when no machine selected
@@ -527,8 +529,13 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
     setIsLoadingVariants(true);
 
-    fetch(`http://127.0.0.1:8000/api/machines/${selectedMachine}/`)
-      .then((res) => res.json())
+    fetch(`${base_URL}/api/machines/${selectedMachine}/`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch machine details: ${res.status}`);
+        }
+        return res.json();
+      })
       .then((data) => {
         setVariants(data.variants || []);
         setSelectedVariant(data.active_variant?.id || "");
@@ -537,7 +544,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         setStatus(data.is_running === true ? "running" : "stopped");
         setIsMachineRunning(data.is_running === true);
 
-        console.log("📦 data received:", data);
+        console.log("📦 Machine data received:", data);
         // Clear stack values when switching machines
         setMinStackSize("");
         setMaxStackSize("");
@@ -548,6 +555,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         console.error("Failed to fetch machine details", err);
         setVariants([]);
         setSelectedVariant("");
+        alert(`❌ Failed to load machine details: ${err.message}`);
       })
       .finally(() => setIsLoadingVariants(false));
   }, [selectedMachine]);
@@ -603,7 +611,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       return;
     }
 
-    const sseUrl = `http://localhost:8000/api/machines/${selectedMachine}/sse/`;
+    const sseUrl = `${base_URL}/api/machines/${selectedMachine}/sse/`;
     console.log("📡 Connecting to SSE:", sseUrl);
 
     let reconnectAttempts = 0;
@@ -732,6 +740,39 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
     };
   }, [selectedMachine, status]); // Depend on both selectedMachine AND status
 
+  // // Add a new useEffect for polling machine status
+  // React.useEffect(() => {
+  //   if (status !== "running" || !selectedMachine || selectedMachine === "all") {
+  //     return; // Don't poll if not running or no machine selected
+  //   }
+
+  //   const checkStatus = async () => {
+  //     try {
+  //       const response = await fetch(`${base_URL}/api/machines/${selectedMachine}/process_status/`);
+  //       console.log(response);
+  //       if (!response.ok) {
+  //         // Don't stop on transient network errors, just log them.
+  //         console.warn("Could not verify machine status, will retry.", response.statusText);
+  //         return;
+  //       }
+  //       const data = await response.json();
+
+  //       if (data.is_running === false) {
+  //         console.warn("Machine process stopped unexpectedly on the backend. Syncing UI.");
+  //         setStatus("stopped");
+  //         setIsMachineRunning(false);
+  //         alert("Machine stopped unexpectedly. The UI has been updated.");
+  //       }
+  //     } catch (error) {
+  //       console.error("Error polling machine status:", error);
+  //     }
+  //   };
+
+  //   const intervalId = setInterval(checkStatus, 5000); // Check every 5 seconds
+
+  //   return () => clearInterval(intervalId); // Cleanup on component unmount or when dependencies change
+  // }, [selectedMachine, status]);
+
   const getSseConnectionStatus = () => {
     if (status !== "running" || !selectedMachine || selectedMachine === "all") {
       return "disconnected";
@@ -768,7 +809,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       }
     }
 
-    const endpoint = `http://127.0.0.1:8000/api/machines/${selectedMachine}/${actionType}_run/`;
+    const endpoint = `${base_URL}/api/machines/${selectedMachine}/${actionType}_run/`;
     try {
       const res = await fetch(endpoint, {
         method: "POST",
@@ -791,7 +832,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.detail || "Something went wrong.");
+        throw new Error(data.detail || data.message || "Something went wrong.");
       }
 
       console.log("Machine Control Response:", data);
@@ -803,11 +844,13 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           setStatus("running");
           setIsMachineRunning(true);
           console.log("✅ Machine started successfully");
+          alert("✅ Machine started successfully!");
         } else {
           // This shouldn't happen but handle it anyway
           console.warn("⚠️ Start API call succeeded but is_running is false");
-          setStatus("running"); // Assume it's running since API succeeded
-          setIsMachineRunning(true);
+          alert("⚠️ Machine start command sent, but status is unclear. Please check machine status.");
+          setStatus("stopped"); // Assume it's stpped since API succeeded but status is unclear
+          setIsMachineRunning(false);
         }
       } else {
         // For stop action
@@ -827,19 +870,29 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
             timestamp: "",
           });
           console.log("✅ Machine stopped successfully");
+          
+          // Show appropriate success message
+          if (data.status === "already_stopped") {
+            alert("ℹ️ Machine was already stopped.");
+          } else {
+            alert("✅ Machine stopped successfully!");
+          }
         } else {
           console.warn("⚠️ Stop API call succeeded but machine might still be running");
+          alert("⚠️ Stop command sent, but machine status is unclear. Please check machine status.");
           setStatus("stopped"); // Assume it's stopped since API succeeded
           setIsMachineRunning(false);
         }
       }
     } catch (err: unknown) {
       console.error("Control Error:", err);
+      let errorMessage = "Failed to control machine.";
+      
       if (err instanceof Error) {
-        alert(err.message || "Failed to control machine.");
-      } else {
-        alert("An unknown error occurred while controlling the machine.");
+        errorMessage = err.message || errorMessage;
       }
+      
+      alert(`❌ ${errorMessage}`);
     }
   };
 
@@ -889,7 +942,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
   // React.useEffect(() => {
   //   const eventSource = new EventSource(
-  //     "http://localhost:8000/home/image-stream"
+  //     `${base_URL}/home/image-stream`
   //   );
 
   //   // eventSource.onmessage = (event) => {

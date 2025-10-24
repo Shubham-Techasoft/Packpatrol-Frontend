@@ -14,6 +14,7 @@ import ImageIcon from "@mui/icons-material/Image";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import axios from "axios";
+import {base_URL} from '../utils/api';
 
 const FolderTree = () => {
   const [machines, setMachines] = useState([]);
@@ -22,7 +23,7 @@ const FolderTree = () => {
 
   useEffect(() => {
     axios
-      .get("http://127.0.0.1:8000/api/machines/")
+      .get(`${base_URL}/api/machines/`)
       .then((res) => {
         setMachines(res.data);
         setLoading(false);

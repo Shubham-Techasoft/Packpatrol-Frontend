@@ -25,6 +25,7 @@ import {
 } from "@mui/material";
 import { isManager } from "../utils/auth";
 // import { isSuperAdmin } from "../utils/auth";
+import {base_URL} from '../utils/api';
 
 const AddMachineStepper = ({
   mode = "add",
@@ -82,7 +83,7 @@ const AddMachineStepper = ({
     try {
       // 1. Fetch variant
       const res = await fetch(
-        `http://127.0.0.1:8000/api/machinevariants/${variantId}/`,
+        `${base_URL}/api/machinevariants/${variantId}/`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("access_token")}`,
@@ -93,7 +94,7 @@ const AddMachineStepper = ({
       const full = await res.json();
 
       // 2. Fetch all models
-      const modelsRes = await fetch(`http://127.0.0.1:8000/api/mlmodels/`, {
+      const modelsRes = await fetch(`${base_URL}/api/mlmodels/`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
@@ -152,7 +153,7 @@ const AddMachineStepper = ({
   useEffect(() => {
     const fetchExistingVariants = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/machinevariants/", {
+        const res = await fetch(`${base_URL}/api/machinevariants/`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("access_token")}`,
           },
@@ -357,7 +358,7 @@ const AddMachineStepper = ({
       camFormData.append("max_failed_frames", 5);
       camFormData.append("check_max_failed_frames", true);
 
-      const camRes = await fetch("http://localhost:8000/api/cameras/", {
+      const camRes = await fetch(`${base_URL}/api/cameras/`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
@@ -411,7 +412,7 @@ const AddMachineStepper = ({
         };
 
         const varRes = await fetch(
-          "http://localhost:8000/api/machinevariants/",
+          `${base_URL}/api/machinevariants/`,
           {
             method: "POST",
             headers: {
@@ -433,7 +434,7 @@ const AddMachineStepper = ({
 
         // Fetch the variant ID by name immediately after creation
         const variantsRes = await fetch(
-          "http://localhost:8000/api/machinevariants/",
+          `${base_URL}/api/machinevariants/`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("access_token")}`,
@@ -477,7 +478,7 @@ const AddMachineStepper = ({
           console.log("📤 Sending ML Model POST →", [...mlFormData.entries()]);
 
           // ⚠️ do NOT send variant here (backend PATCH handles linking)
-          const mlRes = await fetch("http://localhost:8000/api/mlmodels/", {
+          const mlRes = await fetch(`${base_URL}/api/mlmodels/`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${localStorage.getItem("access_token")}`,
@@ -502,7 +503,7 @@ const AddMachineStepper = ({
           console.log("🔹 Candidate active model:", activeModel);
 
           const activeRes = await fetch(
-            `http://localhost:8000/api/machinevariants/${variantId}/set_active_model/`,
+            `${base_URL}/api/machinevariants/${variantId}/set_active_model/`,
             {
               method: "POST",
               headers: {
@@ -543,7 +544,7 @@ const AddMachineStepper = ({
         active_variant_id: variantId || null,
       };
 
-      const machineRes = await fetch("http://localhost:8000/api/machines/", {
+      const machineRes = await fetch(`${base_URL}/api/machines/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -563,7 +564,7 @@ const AddMachineStepper = ({
       // 4) PATCH machine to link camera
       if (cameraId) {
         const patchRes = await fetch(
-          `http://localhost:8000/api/machines/${machineData.id}/`,
+          `${base_URL}/api/machines/${machineData.id}/`,
           {
             method: "PATCH",
             headers: {
@@ -600,7 +601,7 @@ const AddMachineStepper = ({
       // Cleanup orphan camera if machine creation fails
       if (cameraId) {
         console.warn("🧹 Cleaning up orphan camera:", cameraId);
-        await fetch(`http://localhost:8000/api/cameras/${cameraId}/`, {
+        await fetch(`${base_URL}/api/cameras/${cameraId}/`, {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${localStorage.getItem("access_token")}`,
@@ -661,8 +662,8 @@ const AddMachineStepper = ({
           };
 
       const cameraEndpoint = isManager
-        ? `http://localhost:8000/api/cameras/${cameraId}/manager_update/`
-        : `http://localhost:8000/api/cameras/${cameraId}/`;
+        ? `${base_URL}/api/cameras/${cameraId}/manager_update/`
+        : `${base_URL}/api/cameras/${cameraId}/`;
 
       const camRes = await fetch(cameraEndpoint, {
         method: "PATCH",
@@ -687,7 +688,7 @@ const AddMachineStepper = ({
         };
 
         const machineRes = await fetch(
-          `http://localhost:8000/api/machines/${machineId}/`,
+          `${base_URL}/api/machines/${machineId}/`,
           {
             method: "PATCH",
             headers: {
@@ -758,7 +759,7 @@ const AddMachineStepper = ({
             console.log("🔹 FormData keys:", Array.from(formData.keys()));
 
             const mlRes = await fetch(
-              `http://localhost:8000/api/mlmodels/${editData.mlModel.id}/`,
+              `${base_URL}/api/mlmodels/${editData.mlModel.id}/`,
               {
                 method: "PATCH",
                 headers: { Authorization: `Bearer ${token}` },
@@ -776,7 +777,7 @@ const AddMachineStepper = ({
             console.log("🔹 PATCH ML Model JSON payload:", mlPayload);
 
             const mlRes = await fetch(
-              `http://localhost:8000/api/mlmodels/${editData.mlModel.id}/`,
+              `${base_URL}/api/mlmodels/${editData.mlModel.id}/`,
               {
                 method: "PATCH",
                 headers: {
@@ -814,7 +815,7 @@ const AddMachineStepper = ({
         if (variant.id) {
           // PATCH existing variant
           const res = await fetch(
-            `http://localhost:8000/api/machinevariants/${variant.id}/`,
+            `${base_URL}/api/machinevariants/${variant.id}/`,
             {
               method: "PATCH",
               headers: {
@@ -853,7 +854,7 @@ const AddMachineStepper = ({
           console.log("➡️ Creating new Variant:", variantPayload);
 
           const res = await fetch(
-            `http://localhost:8000/api/machinevariants/`,
+            `${base_URL}/api/machinevariants/`,
             {
               method: "POST",
               headers: {
@@ -879,7 +880,7 @@ const AddMachineStepper = ({
 
             // ✅ Patch machine to include this new variant
             const linkRes = await fetch(
-              `http://localhost:8000/api/machines/${machineId}/`,
+              `${base_URL}/api/machines/${machineId}/`,
               {
                 method: "PATCH",
                 headers: {
@@ -926,7 +927,7 @@ const AddMachineStepper = ({
                 mlFormData.append("is_active", true);
 
                 const mlRes = await fetch(
-                  `http://localhost:8000/api/mlmodels/`,
+                  `${base_URL}/api/mlmodels/`,
                   {
                     method: "POST",
                     headers: { Authorization: `Bearer ${token}` },
@@ -953,7 +954,7 @@ const AddMachineStepper = ({
               const activeModel = createdModels[variant.activeModelIndex];
               if (activeModel) {
                 await fetch(
-                  `http://localhost:8000/api/machinevariants/${variantId}/set_active_model/`,
+                  `${base_URL}/api/machinevariants/${variantId}/set_active_model/`,
                   {
                     method: "POST",
                     headers: {
@@ -996,7 +997,7 @@ const AddMachineStepper = ({
         console.log("🔹 Setting active model via API:", chosenModel);
 
         const activeRes = await fetch(
-          `http://localhost:8000/api/machinevariants/${variantId}/set_active_model/`,
+          `${base_URL}/api/machinevariants/${variantId}/set_active_model/`,
           {
             method: "POST",
             headers: {
