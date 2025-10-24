@@ -37,29 +37,6 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   boxShadow: theme.shadows[3],
 }));
 
-const sampleImagesUrl= [
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_1.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_2.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_3.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_4.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_5.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_6.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_7.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_8.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_9.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_10.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_11.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_12.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_13.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_14.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_15.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_16.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_17.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_18.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_19.bmp",
-    "home/techasoft-testing-pc/packpatrol-frontend/public/Pune-Line-1-Machine6/Goodday/dummy_20.bmp"
-]
-
 // live updates messages
 const logMessages = [
   "Batch #101 started: Stack size set to 45mm, targeting 200 stacks.",
@@ -134,6 +111,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   const [isSseConnected, setIsSseConnected] = React.useState(false);
   const [sseError, setSseError] = React.useState<Event | Error | null>(null);
   const lastMessageTimeRef = React.useRef<number | null>(null);
+  const isStoppingRef = React.useRef< boolean | null>(false);
 
   // IMPORTANT DON'T REMOVE
   React.useEffect(() => {
@@ -149,6 +127,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
     total_passed: 0,
     image_path: "",
     timestamp: "",
+    machine_status: false,
+    status_description: "",
   });
 
   // summary cards at top (sse data)
@@ -571,6 +551,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
     total_passed: 0,
     image_path: "",
     timestamp: "",
+    machine_status: false,
+    status_description: "",
   });
 
   // const updateTimeoutRef = React.useRef(null);
@@ -606,6 +588,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         total_passed: 0,
         image_path: "",
         timestamp: "",
+        machine_status: false,
+        status_description: "",
       });
       
       return;
@@ -650,6 +634,14 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
             const data = JSON.parse(event.data);
             messageCountRef.current++;
             console.log("DATA:", data);
+            
+            if (data?.machine_status === false) {
+              console.log("🛑 Machine status is false, stopping machine automatically!");
+              console.log("=> Machine Status Description:", data?.status_description || "No description provided");
+              isStoppingRef.current = true;
+              handleSubmit("stop");
+              return; // Stop processing this message
+            }
 
             // Update realtime data only if machine is still running
             if (status === "running") {
@@ -669,6 +661,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                 timestamp: data.timestamp ?? latestDataRef.current.timestamp,
                 total_frame_processed: (data.total_passed ?? latestDataRef.current.total_passed) +
                                       (data.total_frame_rejected ?? latestDataRef.current.total_frame_rejected),
+                machine_status: data.machine_status ?? latestDataRef.current.machine_status,
+                status_description: data.status_description ?? latestDataRef.current.status_description,
               };
 
               if (cleanImagePath) {
@@ -868,9 +862,14 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
             total_passed: 0,
             image_path: "",
             timestamp: "",
+            machine_status: false,
+            status_description: "",
           });
           console.log("✅ Machine stopped successfully");
           
+          
+          isStoppingRef.current = false;
+
           // Show appropriate success message
           if (data.status === "already_stopped") {
             alert("ℹ️ Machine was already stopped.");
@@ -881,12 +880,14 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           console.warn("⚠️ Stop API call succeeded but machine might still be running");
           alert("⚠️ Stop command sent, but machine status is unclear. Please check machine status.");
           setStatus("stopped"); // Assume it's stopped since API succeeded
+          isStoppingRef.current = false;
           setIsMachineRunning(false);
         }
       }
     } catch (err: unknown) {
       console.error("Control Error:", err);
       let errorMessage = "Failed to control machine.";
+      isStoppingRef.current = false;
       
       if (err instanceof Error) {
         errorMessage = err.message || errorMessage;
