@@ -111,7 +111,7 @@ const VariantGallaryView = () => {
         throw new Error("Failed to fetch images from database");
       }
 
-      const data = await response.json(); // Expects { page, page_size, total_pages, results }
+      const data = await response.json(); // Expects { page, page_size, total_pages, total_images, results }
 
       // Convert to image objects with enhanced metadata
       const imageObjects = data.results.map((img) => {
@@ -121,14 +121,14 @@ const VariantGallaryView = () => {
           label: img.image_url.split("/").pop() || "Image",
           timestamp: img.timestamp,
           is_rejected: img.is_rejected,
-          stack_lenght: img.stack_length, // API field is stack_length
-          stack_count: img.stack_count, // For consistency
+          stack_length: img.stack_length,
+          stack_count: img.stack_count,
         };
       });
 
       setImagesList(imageObjects);
       setPage(data.page || 1);
-      setPageCount(data.total_pages || Math.ceil(data.count / IMAGES_PER_PAGE) || 1);
+      setPageCount(data.total_pages || Math.ceil(data.total_images / data.page_size) || 1);
       showSnackbar(`Loaded ${imageObjects.length} images successfully!`, "success");
 
     } catch (err) {
