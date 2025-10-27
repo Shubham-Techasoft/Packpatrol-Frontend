@@ -493,7 +493,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
   // fetch variants after selecting machines - UPDATED VERSION
   React.useEffect(() => {
-    if (!selectedMachine) {
+    if (!selectedMachine || selectedMachine === "all") {
       // Clear everything when no machine selected
       setVariants([]);
       setSelectedVariant("");
