@@ -83,12 +83,9 @@ type HomeProps = {
 };
 
 export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, clearAppliedLog }: HomeProps) {
-  // const [imageUrls, setImageUrls] = React.useState([]);
-  const [imageUrls, setImageUrls] = React.useState<string>("");
   const [messages, setMessages] = React.useState(logMessages);
   const { selectedMachineId, setSelectedMachineId } = useMachineSelection();
   const [selectedMachine, setSelectedMachine] = React.useState("");
-  const [stackSize, setStackSize] = React.useState("");
   const [status, setStatus] = React.useState("stopped");
 
   const [selectedVariant, setSelectedVariant] = React.useState("");
@@ -98,9 +95,6 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   const [minStackLength, setMinStackLength] = React.useState("");
   const [maxStackLength, setMaxStackLength] = React.useState("");
   const [skipAutoFetch, setSkipAutoFetch] = React.useState(false);
-  const [isMachineRunning, setIsMachineRunning] = React.useState(false);
-  const [baseDirPath, setBaseDirPath] = React.useState("");
-  const [skipMachineEffect, setSkipMachineEffect] = React.useState(false);
 
   // 1) Add state/refs near other state
   const frameQueueRef = React.useRef<string[]>([]); // holds fully-loaded frame srcs
@@ -111,6 +105,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   const [isSseConnected, setIsSseConnected] = React.useState(false);
   const [sseError, setSseError] = React.useState<Event | Error | null>(null);
   const lastMessageTimeRef = React.useRef<number | null>(null);
+  const isStoppingRef = React.useRef< boolean | null>(false);
 
   // IMPORTANT DON'T REMOVE
   React.useEffect(() => {
@@ -126,6 +121,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
     total_passed: 0,
     image_path: "",
     timestamp: "",
+    machine_status: false,
+    status_description: "",
   });
 
   // summary cards at top (sse data)
@@ -286,10 +283,19 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
       .finally(() => setIsLoadingVariants(false));
   }, [selectedMachine]);
 
-  // handle active variant
-  const handleVariantChange = async (event: SelectChangeEvent<string>) => {
-    const newVariantId = event.target.value;
+  // handle active variant (accept any event to satisfy TextField select onChange typing)
+  const handleVariantChange = async (event: any) => {
+    const newVariantId = event?.target?.value as string;
     setSelectedVariant(newVariantId);
+
+    if (!selectedMachine) {
+      console.error("No machine selected");
+      return;
+    }
+    if (!newVariantId) {
+      console.error("No variant selected");
+      return;
+    }
 
     try {
       const machineRes = await fetch(
@@ -519,7 +525,6 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
         // More robust status checking from backend
         setStatus(data.is_running === true ? "running" : "stopped");
-        setIsMachineRunning(data.is_running === true);
 
         console.log("📦 Machine data received:", data);
         // Clear stack values when switching machines
@@ -548,6 +553,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
     total_passed: 0,
     image_path: "",
     timestamp: "",
+    machine_status: false,
+    status_description: "",
   });
 
   // const updateTimeoutRef = React.useRef(null);
@@ -583,6 +590,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         total_passed: 0,
         image_path: "",
         timestamp: "",
+        machine_status: false,
+        status_description: "",
       });
       
       return;
@@ -627,6 +636,14 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
             const data = JSON.parse(event.data);
             messageCountRef.current++;
             console.log("DATA:", data);
+                        
+            if (data?.machine_status === false) {
+              console.log("🛑 Machine status is false, stopping machine automatically!");
+              console.log("=> Machine Status Description:", data?.status_description || "No description provided");
+              isStoppingRef.current = true;
+              handleSubmit("stop");
+              return; // Stop processing this message
+            }
 
             // Update realtime data only if machine is still running
             if (status === "running") {
@@ -646,6 +663,9 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                 timestamp: data.timestamp ?? latestDataRef.current.timestamp,
                 total_frame_processed: (data.total_passed ?? latestDataRef.current.total_passed) +
                                       (data.total_frame_rejected ?? latestDataRef.current.total_frame_rejected),
+                machine_status: data.machine_status ?? latestDataRef.current.machine_status,
+                status_description: data.status_description ?? latestDataRef.current.status_description,
+
               };
 
               if (cleanImagePath) {
@@ -737,7 +757,6 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   //       if (data.is_running === false) {
   //         console.warn("Machine process stopped unexpectedly on the backend. Syncing UI.");
   //         setStatus("stopped");
-  //         setIsMachineRunning(false);
   //         alert("Machine stopped unexpectedly. The UI has been updated.");
   //       }
   //     } catch (error) {
@@ -819,7 +838,6 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         // Check if machine is running from response
         if (data.is_running === true) {
           setStatus("running");
-          setIsMachineRunning(true);
           console.log("✅ Machine started successfully");
           alert("✅ Machine started successfully!");
         } else {
@@ -827,13 +845,11 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           console.warn("⚠️ Start API call succeeded but is_running is false");
           alert("⚠️ Machine start command sent, but status is unclear. Please check machine status.");
           setStatus("stopped"); // Assume it's stpped since API succeeded but status is unclear
-          setIsMachineRunning(false);
         }
       } else {
         // For stop action
         if (data.is_running === false || data.process_stopped === true || data.status === "stopped_successfully" || data.status === "already_stopped") {
           setStatus("stopped");
-          setIsMachineRunning(false);
           setDisplaySrc(null);
           
           // Clear realtime data immediately
@@ -845,8 +861,13 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
             total_passed: 0,
             image_path: "",
             timestamp: "",
+            machine_status: false,
+            status_description: "",
+
           });
           console.log("✅ Machine stopped successfully");
+
+          isStoppingRef.current = false;
           
           // Show appropriate success message
           if (data.status === "already_stopped") {
@@ -858,12 +879,13 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           console.warn("⚠️ Stop API call succeeded but machine might still be running");
           alert("⚠️ Stop command sent, but machine status is unclear. Please check machine status.");
           setStatus("stopped"); // Assume it's stopped since API succeeded
-          setIsMachineRunning(false);
+          isStoppingRef.current = false;
         }
       }
     } catch (err: unknown) {
       console.error("Control Error:", err);
       let errorMessage = "Failed to control machine.";
+      isStoppingRef.current = false;
       
       if (err instanceof Error) {
         errorMessage = err.message || errorMessage;
@@ -935,6 +957,69 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   //     eventSource.close();
   //   };
   // }, []);
+
+  const clearMachineData = () => {
+    setRealtimeData({
+      estimated_stack_length: 0,
+      estimated_stack_count: 0,
+      total_frame_processed: 0,
+      total_frame_rejected: 0,
+      total_passed: 0,
+      image_path: "",
+      timestamp: "",
+      machine_status: false,
+      status_description: "",
+    });
+    setDisplaySrc(null);
+    setStatus('stopped');
+  };
+
+  // Call this when changing machines
+  const [isLoadingMachineData, setIsLoadingMachineData] = React.useState(false);
+  const [machineError, setMachineError] = React.useState<Error | null>(null);
+
+  // Call this when changing machines
+  const handleMachineChange = async (e: any) => {
+    const newMachineId = e?.target?.value as string;
+    clearMachineData();
+    
+    try {
+      setIsLoadingMachineData(true);
+      setMachineError(null);
+      
+      // Update machine ID first
+      setSelectedMachine(newMachineId);
+      setSelectedMachineId(newMachineId);
+
+      if (!newMachineId || newMachineId === "all") {
+        // Clear states if no machine selected
+        setVariants([]);
+        setSelectedVariant("");
+        setStatus("stopped");
+        return;
+      }
+
+      // Then fetch machine details
+      const machineRes = await fetch(`${base_URL}/api/machines/${newMachineId}/`);
+      if (!machineRes.ok) throw new Error("Failed to fetch machine details");
+      
+      const machineData = await machineRes.json();
+      
+      // Update states in sequence
+      setVariants(machineData.variants || []);
+      setSelectedVariant(machineData.active_variant?.id || "");
+      setStatus(machineData.is_running ? "running" : "stopped");
+    } catch (err) {
+      console.error("Error loading machine:", err);
+      setMachineError(err instanceof Error ? err : new Error("Unknown error"));
+      // Reset states on error
+      setVariants([]);
+      setSelectedVariant("");
+      setStatus("stopped");
+    } finally {
+      setIsLoadingMachineData(false);
+    }
+  };
 
   return (
     <Box
@@ -1052,10 +1137,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                   select
                   label="Choose Machine"
                   value={selectedMachine || ""}
-                  onChange={(e) => {
-                    setSelectedMachine(e.target.value);
-                    setSelectedMachineId(e.target.value);
-                  }}
+                  onChange={handleMachineChange}
                   size="small"
                   sx={{
                     "& .MuiOutlinedInput-root": {
@@ -1224,8 +1306,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                   select
                   label="Choose Machine"
                   value={selectedMachine}
-                  onChange={(e) => {setSelectedMachine(e.target.value)
-                    setSelectedMachineId(e.target.value)}}
+                  onChange={handleMachineChange}
                   size="small"
                   // SelectProps={{
                   //   MenuProps: {

@@ -85,8 +85,8 @@ function App() {
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/machine/:id" element={<MachineDetailsPage />} />
           <Route path="/machine/:machineName" element={<MachineGallery />} />
-          {/* <Route path="/machine/:machineName/variant/:variantName" element={<VariantGallary />} /> */}
-          <Route path="/machine/:machineId/variant/:variantId" element={<VariantGallaryView />} />
+          <Route path="/machine/:machineName/:machineId/variant/:variantName/:variantId" element={<VariantGallary />} />
+          {/* <Route path="/machine/:machineId/variant/:variantId" element={<VariantGallaryView />} /> */}
           <Route path="/folder-structure" element={<FolderTree />} />
 
           {/* dev settings page */}

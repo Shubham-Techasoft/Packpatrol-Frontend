@@ -19,6 +19,7 @@ const MachineDetailsPage = () => {
   console.log("all params", useParams());
   const navigate = useNavigate();
   const [machine, setMachine] = useState(null);
+  const [variant, setVariant] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -88,7 +89,7 @@ const MachineDetailsPage = () => {
                   boxShadow: "0 12px 30px rgba(0,0,0,0.1)",
                 },
               }}
-              onClick={() => navigate(`/machine/${machine.id}/variant/${variant.id}`)}
+              onClick={() => navigate(`/machine/${machine.name}/${machine.id}/variant/${variant.name}/${variant.id}`)}
             >
               {/* Top image */}
               <Box
