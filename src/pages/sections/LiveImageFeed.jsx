@@ -6,12 +6,13 @@ import {base_URL} from '../../utils/api';
 const convertToWebPath = (absolutePath) => {
   if (!absolutePath) return null;
 
-  // If path contains "media", it's hosted on the server - add localhost:8000
-  if (absolutePath.includes("media")) {
-    return `${base_Url}/${absolutePath}`;
+  absolutePath = absolutePath.trim();
+
+  if (absolutePath.includes("ImageLogs")) {
+    const relativePath = absolutePath.split("ImageLogs").pop();
+    return `${base_URL}/media/ImageLogs${relativePath}`;
   }
 
-  // Work for both "home/packpatrol-frontend/public/..." and "/home/techasoft-testing-pc/PackImages/..."
   const idx = absolutePath.indexOf("/public/");
   if (idx !== -1) {
     const cleanImagePath = absolutePath.substring(idx);
