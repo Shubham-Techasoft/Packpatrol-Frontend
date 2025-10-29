@@ -53,7 +53,7 @@ const MachineDetailsPage = () => {
             <ArrowBackIcon />
           </IconButton>
           <Typography sx={{ ml: 2, flex: 1 }} variant="h6">
-            {machine.name} Variants
+            {machine.name}'s Variants
           </Typography>
         </Toolbar>
       </AppBar>
@@ -68,6 +68,7 @@ const MachineDetailsPage = () => {
             display: "grid",
             gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
             gap: 4,
+            height: '80vh',
           }}
         >
           {machine.variants.map((variant) => (

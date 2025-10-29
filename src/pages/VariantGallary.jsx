@@ -35,7 +35,7 @@ const VariantGallaryView = () => {
   const [error, setError] = useState(null);
   const [open, setOpen] = useState(false);
   const [currentImage, setCurrentImage] = useState(null);
-
+  const [total_images, setTotalImages] = useState(0);
   const [page, setPage] = useState(1);
   const [pageCount, setPageCount] = useState(0);
   const [snackbar, setSnackbar] = useState({
@@ -96,6 +96,7 @@ const VariantGallaryView = () => {
 
       setImagesList(imageObjects);
       setPage(data.page || 1);
+      setTotalImages(data.total_images || 0);
       setPageCount(data.total_pages || Math.ceil(data.total_images / data.page_size) || 1);
       showSnackbar(`Loaded ${imageObjects.length} images successfully!`, "success");
 
@@ -104,6 +105,7 @@ const VariantGallaryView = () => {
       setError("Failed to load images from database.");
       setImagesList([]);
       setPageCount(0);
+      setTotalImages(0);
       showSnackbar("Failed to load images.", "error");
     } finally {
       setLoading(false);
@@ -145,7 +147,7 @@ const VariantGallaryView = () => {
           </Typography>
           {!loading && (
             <Typography variant="body2" sx={{ mr: 2 }}>
-              {imagesList.length} images
+              {total_images} images
             </Typography>
           )}
         </Toolbar>
@@ -159,6 +161,7 @@ const VariantGallaryView = () => {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
+          paddingBottom: "10vh",
         }}
       >
         {loading && <CircularProgress sx={{ mt: 5 }} />}
