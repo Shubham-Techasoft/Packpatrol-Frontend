@@ -1,7 +1,7 @@
 import React, { useState, useEffect} from "react";
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery'; 
-import { Box, Typography, Grid, Paper, Button, Divider, Card, CardContent, CircularProgress, Snackbar, Alert, Chip, FormControl, InputLabel, Select, MenuItem,FormGroup, FormControlLabel, Checkbox, } from "@mui/material";
+import { Box, Typography, Grid, Paper, Button, Divider, Card, CardContent, CircularProgress, Snackbar, Alert, Chip, FormControl, InputLabel, Select, MenuItem,FormGroup, FormControlLabel, Checkbox, Switch } from "@mui/material";
 import { Assessment, LiveTv, Engineering, WarningAmber, PlayArrow, Stop, RestartAlt, } from "@mui/icons-material";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -202,8 +202,8 @@ export default function Dashboard() {
 
   const [seriesSelection, setSeriesSelection] = React.useState({
     processed: true,
-    rejected: false,
-    accepted: false,
+    accepted: true,
+    rejected: true
   });
 
 
@@ -1099,82 +1099,119 @@ export default function Dashboard() {
               <Box display="flex" justifyContent="center" mt={4}>
                 <CircularProgress color="primary" />
               </Box>
-            ) : chartData.length > 0 ?
-              (
-                [<ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+            ) : chartData.length > 0 ? (
+              <>
+                <Box mb={2} display="flex" gap={2} flexWrap="wrap">
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={seriesSelection.processed}
+                        onChange={(e) => setSeriesSelection(prev => ({...prev, processed: e.target.checked}))}
+                        color="primary"
+                      />
+                    }
+                    label="Total Processed"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={seriesSelection.accepted}
+                        onChange={(e) => setSeriesSelection(prev => ({...prev, accepted: e.target.checked}))}
+                        color="success"
+                      />
+                    }
+                    label="Accepted"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={seriesSelection.rejected}
+                        onChange={(e) => setSeriesSelection(prev => ({...prev, rejected: e.target.checked}))}
+                        color="error"
+                      />
+                    }
+                    label="Rejected"
+                  />
+                </Box>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart
+                    data={chartData}
+                    margin={{ top: 20, right: 30, left: 0, bottom: 20 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
                     <XAxis
                       dataKey="t"
                       type="number"
                       domain={['auto', 'auto']}
                       tick={{ fontSize: 12 }}
-                      tickFormatter={(unixMs) => {
-                        const isShort =
-                          restricted ||
-                          timeFilter === '24h' ||
-                          (timeFilter === 'Custom' && dateRange[0] && dateRange[1] &&
-                          dayjs(dateRange[1]).endOf('day').diff(dayjs(dateRange[0]).startOf('day'), 'day', true) < 3);
-                        return isShort ? dayjs(unixMs).format('YYYY-MM-DD HH:mm') : dayjs(unixMs).format('YYYY-MM-DD');
-                      }}
-                      label={{ value: 'Time', position: 'insideBottom', offset: -5, fontSize: 12 }}
+                      tickFormatter={(unixMs) => dayjs(unixMs).format('HH:mm')}
+                      label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
                     />
                     <YAxis
-                      label={{ value: 'Frames', angle: -90, position: 'insideCenter', fontSize: 12 }}
-                      tick={{ fontSize: 12 }}
-                      allowDecimals={false}
+                      yAxisId="left"
+                      label={{
+                        value: 'Frames',
+                        angle: -90,
+                        position: 'insideLeft',
+                        fontSize: 12
+                      }}
                     />
-                    <Tooltip content={CustomTooltip} cursor={{ strokeDasharray: '3 3' }} />
-                    <Legend wrapperStyle={{ paddingTop: 24 }} />
-
+                    {/* <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      domain={[0, 100]}
+                      label={{
+                        value: 'Rejection Rate (%)',
+                        angle: 90,
+                        position: 'insideRight',
+                        fontSize: 12
+                      }}
+                    /> */}
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    
                     {seriesSelection.processed && (
                       <Line
+                        yAxisId="left"
                         type="monotone"
                         dataKey="processed"
                         name="Total Processed"
-                        stroke="#1976d2"
-                        strokeWidth={3}
-                        dot={true}
-                        activeDot={{ r: 6 }}
-                      />
-                    )}
-                    {seriesSelection.rejected && (
-                      <Line
-                        type="monotone"
-                        dataKey="rejected"
-                        name="Total Rejected"
-                        stroke="#d32f2f"
-                        strokeWidth={2.5}
-                        dot={true}
-                        activeDot={{ r: 6 }}
+                        stroke="#007bceff"
+                        strokeWidth={2}
+                        dot={false}
                       />
                     )}
                     {seriesSelection.accepted && (
                       <Line
+                        yAxisId="left"
                         type="monotone"
                         dataKey="accepted"
-                        name="Total Accepted"
-                        stroke="#2e7d32"
-                        strokeWidth={2.5}
-                        dot={true}
-                        activeDot={{ r: 6 }}
+                        name="Accepted"
+                        stroke="#009122ff"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    )}
+                    {seriesSelection.rejected && (
+                      <Line
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="rejected"
+                        name="Rejected"
+                        stroke="#b10127ff"
+                        strokeWidth={2}
+                        dot={false}
                       />
                     )}
                   </LineChart>
-                </ResponsiveContainer>,
-                seriesSelection.accepted==false && seriesSelection.rejected==false && seriesSelection.processed==false &&
-                  (
-                    <Typography color="textPrimary" align="center" mt={2} sx={{ fontWeight: 'bold', color: '#d32f2f' }}>
-                      Please Select minimum one filter below for chart.
-                    </Typography>
-                )]
-              ) : (
-                <Typography color="textSecondary" align="center" mt={2}>
-                  No production data available for this range.
-                </Typography>
-              )
-            }
-            <Box sx={{paddingLeft:3}}>
+                </ResponsiveContainer>
+              </>
+            ) : (
+              <Typography color="textSecondary" align="center" mt={2}>
+                No production data available for this range.
+              </Typography>
+            )}
+            {/* <Box sx={{paddingLeft:3}}>
               <Typography color="textPrimary" mt={2}>
                 Chart Filters
               </Typography>
@@ -1216,7 +1253,7 @@ export default function Dashboard() {
                   label="Total Accepted"
                 />
               </FormGroup>
-            </Box>
+            </Box> */}
           </StyledPaper>
         </Grid>
 
