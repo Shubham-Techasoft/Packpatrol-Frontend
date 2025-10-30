@@ -402,39 +402,53 @@ export default function Dashboard() {
         setLogs(summary.recent_runs || []);
         console.log(`Recent Runs (${summary.recent_runs?.length}):`, summary.recent_runs || []);
 
-        // Update chart data
-        if (summary.recent_runs?.length > 0) {
-          // Process chart data similar to before...
+        // Update chart data handling
+        if (summary.chart_data) {
+          // Process chart data with new format (preserve grouped[timeKey].processed shape)
           const grouped = {};
-          summary.recent_runs.forEach((it) => {
-            const startTime = getStart(it);
-            if (!startTime) return;
-            
-            // Round to nearest hour for grouping
-            const timeKey = dayjs(startTime).utc().startOf('hour').format('YYYY-MM-DD HH:00:00');
-            if (!grouped[timeKey]) {
-              grouped[timeKey] = {
-                processed: 0,
-                rejected: 0,
-                accepted: 0,
-              };
+          const labels = summary.chart_data.labels || [];
+          const datasets = summary.chart_data.datasets || [];
+          const startTimeRaw = summary.time_range?.start_time ?? null;
+          const startTime = startTimeRaw ? dayjs(startTimeRaw) : null;
+
+          labels.forEach((label, index) => {
+            // Determine timestamp for this label:
+            // - If label already contains a date (e.g. "2025-10-29 16:00"), parse it directly
+            // - Else if API provided a time_range.start_time, base timestamps on that + index hours
+            // - Fallback: use today's date with the hour from the label
+            let ts;
+            if (/^\d{4}-\d{2}-\d{2}/.test(label) || /^\d{4}\/\d{2}\/\d{2}/.test(label)) {
+              ts = dayjs(label).startOf('hour');
+            } else if (startTime) {
+              ts = startTime.startOf('hour').add(index, 'hour');
+            } else {
+              const hour = parseInt(String(label).split(':')[0], 10) || 0;
+              ts = dayjs().startOf('day').hour(hour);
             }
-            grouped[timeKey].processed += getProcessed(it);
-            grouped[timeKey].rejected += getRejected(it);
-            grouped[timeKey].accepted += getAccepted(it);
-            grouped[timeKey].total += getProcessed(it) + getRejected(it) + getAccepted(it);
-            grouped[timeKey].time = timeKey;
-            grouped[timeKey].rejection_rate = ((grouped[timeKey].rejected / grouped[timeKey].total) * 100).toFixed(2);
-            grouped[timeKey].acceptance_rate = ((grouped[timeKey].accepted / grouped[timeKey].total) * 100).toFixed(2);
-            grouped[timeKey].rejection_rate_percent = ((grouped[timeKey].rejected / grouped[timeKey].total) * 100).toFixed(2);
-            grouped[timeKey].acceptance_rate_percent = ((grouped[timeKey].accepted / grouped[timeKey].total) * 100).toFixed(2);
+
+            const timeKey = ts.format('YYYY-MM-DD HH:00:00');
+
+            grouped[timeKey] = {
+              processed: datasets[0]?.data[index] ?? 0,
+              accepted: datasets[1]?.data[index] ?? 0,
+              rejected: datasets[2]?.data[index] ?? 0,
+              rejection_rate: datasets[3]?.data[index] ?? 0,
+              time: timeKey,
+              rejection_rate_percent: datasets[3]?.data[index] ?? 0,
+              acceptance_rate: 100 - (datasets[3]?.data[index] ?? 0),
+              acceptance_rate_percent: 100 - (datasets[3]?.data[index] ?? 0),
+            };
           });
-          
-          // Set chart data
-          setChartData(Object.entries(grouped).map(([k, v]) => ({
-            t: dayjs(k).valueOf(),
-            ...v
-          })).sort((a, b) => a.t - b.t));
+
+          // Convert grouped object to sorted chartData (same structure as before)
+          setChartData(
+            Object.entries(grouped)
+              .map(([k, v]) => ({
+                t: dayjs(k).valueOf(),
+                ...v,
+              }))
+              .sort((a, b) => a.t - b.t)
+          );
         } else {
           setChartData([]);
         }
@@ -1215,7 +1229,7 @@ export default function Dashboard() {
             <LiveImageFeed
               status={status}
               imagePath={status === "stopped" ? null : displaySrc}
-              connectionStatus={getSseConnectionStatus()}
+              connectionStatus={getSseConnectionStatus()} // This is for the small chip
             />
             <Typography variant="body2" color="text.secondary" mt={2}>
               * Only the running Machine live feed will be shown here!

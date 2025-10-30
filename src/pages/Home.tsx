@@ -635,15 +635,18 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
             const data = JSON.parse(event.data);
             messageCountRef.current++;
+            
             console.log("DATA:", data);
-                        
-            if (data?.machine_status === false) {
+
+            // Use the new 'machine_running' field from the backend
+            if (data?.machine_running === false) {
               console.log("🛑 Machine status is false, stopping machine automatically!");
-              console.log("=> Machine Status Description:", data?.status_description || "No description provided");
+              console.log("=> Machine Status Description:", data?.message || "No description provided");
               isStoppingRef.current = true;
               handleSubmit("stop");
               return; // Stop processing this message
             }
+
 
             // Update realtime data only if machine is still running
             if (status === "running") {
@@ -658,13 +661,15 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                 estimated_stack_length: data.estimated_stack_length ?? latestDataRef.current.estimated_stack_length,
                 estimated_stack_count: data.estimated_stack_count ?? latestDataRef.current.estimated_stack_count,
                 total_passed: data.total_passed ?? latestDataRef.current.total_passed,
-                total_frame_rejected: data.total_frame_rejected ?? data.total_rejected ?? latestDataRef.current.total_frame_rejected,
+                // Map backend 'total_rejected' to frontend 'total_frame_rejected'
+                total_frame_rejected: data.total_rejected ?? latestDataRef.current.total_frame_rejected,
                 image_path: cleanImagePath || latestDataRef.current.image_path,
                 timestamp: data.timestamp ?? latestDataRef.current.timestamp,
                 total_frame_processed: (data.total_passed ?? latestDataRef.current.total_passed) +
-                                      (data.total_frame_rejected ?? latestDataRef.current.total_frame_rejected),
-                machine_status: data.machine_status ?? latestDataRef.current.machine_status,
-                status_description: data.status_description ?? latestDataRef.current.status_description,
+                                      (data.total_rejected ?? latestDataRef.current.total_frame_rejected),
+                machine_status: data.machine_running ?? latestDataRef.current.machine_status,
+                // Map backend 'message' to frontend 'status_description'
+                status_description: data.message ?? latestDataRef.current.status_description,
 
               };
 
@@ -1195,6 +1200,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
               status={status}
               imagePath={status === "stopped" ? null : displaySrc}
               connectionStatus={getSseConnectionStatus()}
+              statusDescription={realtimeData.status_description} // Pass the specific status message
             />
 
           </StyledPaper>

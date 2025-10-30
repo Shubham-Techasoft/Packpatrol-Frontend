@@ -25,13 +25,16 @@ const convertToWebPath = (absolutePath) => {
   );
 };
 
-export default function LiveImageFeed({ status, imagePath, connectionStatus }) {
+export default function LiveImageFeed({ status, imagePath, connectionStatus, statusDescription }) {
   const startTimeRef = useRef(null);
 
   // Start timer when a new imagePath is received
   useEffect(() => {
     if (imagePath) {
       startTimeRef.current = performance.now();
+      // console.log(`[Perf] 🖼️ Image path received: ${imagePath.substring(imagePath.lastIndexOf('/') + 1)}`);
+    } else if (startTimeRef.current !== null) {
+      // console.log("[Perf] 🖼️ Image path cleared.");
     } else {
       startTimeRef.current = null;
     }
@@ -42,13 +45,17 @@ export default function LiveImageFeed({ status, imagePath, connectionStatus }) {
   const pathProcessEnd = performance.now();
 
   const getStatusMessage = () => {
+    // Prioritize specific status description from SSE if available and relevant
+    if (status === "running" && !currentImage && statusDescription) {
+      return statusDescription;
+    }
     if (status !== "running") {
       return "Machine stopped — no live feed.";
     }
     if (currentImage) {
       return "Receiving live feed...";
     }
-    return "Connected, waiting for frames...";
+    return "Connected, waiting for frames..."; // Fallback
   };
 
   const handleImageLoad = () => {
