@@ -11,6 +11,10 @@ const convertToWebPath = (absolutePath) => {
   if (absolutePath.includes("ImageLogs")) {
     const relativePath = absolutePath.split("ImageLogs").pop();
     return `${base_URL}/media/ImageLogs${relativePath}`;
+  } 
+  else if(absolutePath.includes("media")){
+    const relativePath = absolutePath.split("media").pop();
+    return `${base_URL}/media${relativePath}`;
   }
 
   const idx = absolutePath.indexOf("/public/");

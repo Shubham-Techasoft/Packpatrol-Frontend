@@ -347,7 +347,9 @@ export default function Dashboard() {
 
     // Format date params consistently
     const formatDateParam = (date) => {
-      return dayjs(date).utc().format('YYYY-MM-DDTHH:mm:ss[Z]');
+      const utcOffsetDate = dayjs(date).utc().format('YYYY-MM-DDTHH:mm:ss[Z]');
+      console.log('UTC Offset:', utcOffsetDate);
+      return utcOffsetDate;
     };
 
     // Build API parameters
