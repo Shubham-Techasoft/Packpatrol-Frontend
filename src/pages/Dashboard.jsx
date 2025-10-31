@@ -55,17 +55,23 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   backgroundColor: "#ffffff",
 }));
 
-const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload, label, timeInterval }) => {
   if (!active || !payload || !payload.length) return null;
 
-  const when = dayjs(label).format('YYYY-MM-DD HH:mm:ss');
+  const when =
+    timeInterval === "hour"
+      ? dayjs(label).format("YYYY-MM-DD HH:mm")
+      : dayjs(label).format("YYYY-MM-DD");
+
   return (
     <Paper elevation={3} sx={{ p: 1.5, borderRadius: 1.5, bgcolor: '#fff', border: '1px solid #e0e0e0', minWidth: 220 }}>
       <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{when}</Typography>
       {payload.map((p) => (
         <Box key={p.dataKey} display="flex" justifyContent="space-between">
           <Typography variant="body2" color="text.secondary">{p.name}</Typography>
-          <Typography variant="body2">{(p.value ?? 0).toLocaleString()}</Typography>
+          <Typography variant="body2">
+            {p.dataKey === 'rejection_rate' ? `${(p.value ?? 0).toFixed(2)}%` : (p.value ?? 0).toLocaleString()}
+          </Typography>
         </Box>
       ))}
     </Paper>
@@ -205,6 +211,8 @@ export default function Dashboard() {
     accepted: true,
     rejected: true
   });
+  // time interval used for x-axis / tooltip formatting ('hour' | 'day' ...)
+  const [chartTimeInterval, setChartTimeInterval] = React.useState("hour");
 
 
   const fetchDashboardSummary = async () => {
@@ -405,53 +413,53 @@ export default function Dashboard() {
         console.log(`Recent Runs (${summary.recent_runs?.length}):`, summary.recent_runs || []);
 
         // Update chart data handling
-        if (summary.chart_data) {
-          // Process chart data with new format (preserve grouped[timeKey].processed shape)
-          const grouped = {};
-          const labels = summary.chart_data.labels || [];
-          const datasets = summary.chart_data.datasets || [];
-          const startTimeRaw = summary.time_range?.start_time ?? null;
-          const startTime = startTimeRaw ? dayjs(startTimeRaw) : null;
+          if (summary.chart_data) {
+            const grouped = {};
+            const labels = summary.chart_data.labels || [];
+            const datasets = summary.chart_data.datasets || [];
+            const startTimeRaw = summary.time_range?.start_time ?? null;
+            // parse startTime as UTC
+            const startTime = startTimeRaw ? dayjs.utc(startTimeRaw) : null;
+            const timeIntervalRaw = summary.chart_data.time_interval || "hour";
+            const timeInterval = String(timeIntervalRaw).toLowerCase().replace(/ly$/, "");
+            setChartTimeInterval(timeInterval);
 
-          labels.forEach((label, index) => {
-            // Determine timestamp for this label:
-            // - If label already contains a date (e.g. "2025-10-29 16:00"), parse it directly
-            // - Else if API provided a time_range.start_time, base timestamps on that + index hours
-            // - Fallback: use today's date with the hour from the label
-            let ts;
-            if (/^\d{4}-\d{2}-\d{2}/.test(label) || /^\d{4}\/\d{2}\/\d{2}/.test(label)) {
-              ts = dayjs(label).startOf('hour');
-            } else if (startTime) {
-              ts = startTime.startOf('hour').add(index, 'hour');
-            } else {
-              const hour = parseInt(String(label).split(':')[0], 10) || 0;
-              ts = dayjs().startOf('day').hour(hour);
-            }
+            labels.forEach((label, index) => {
+              let ts;
+              // if label contains full date -> parse as UTC
+              if (/^\d{4}-\d{2}-\d{2}/.test(label) || /^\d{4}\/\d{2}\/\d{2}/.test(label)) {
+                ts = dayjs.utc(label).startOf("hour");
+              } else if (startTime) {
+                ts = startTime.startOf("hour").add(index, "hour");
+              } else {
+                const hour = parseInt(String(label).split(":")[0], 10) || 0;
+                ts = dayjs.utc().startOf("day").hour(hour);
+              }
 
-            const timeKey = ts.format('YYYY-MM-DD HH:00:00');
+              const timeKey = ts.format("YYYY-MM-DD HH:00:00");
 
-            grouped[timeKey] = {
-              processed: datasets[0]?.data[index] ?? 0,
-              accepted: datasets[1]?.data[index] ?? 0,
-              rejected: datasets[2]?.data[index] ?? 0,
-              rejection_rate: datasets[3]?.data[index] ?? 0,
-              time: timeKey,
-              rejection_rate_percent: datasets[3]?.data[index] ?? 0,
-              acceptance_rate: 100 - (datasets[3]?.data[index] ?? 0),
-              acceptance_rate_percent: 100 - (datasets[3]?.data[index] ?? 0),
-            };
-          });
+              grouped[timeKey] = {
+                processed: datasets[0]?.data[index] ?? 0,
+                accepted: datasets[1]?.data[index] ?? 0,
+                rejected: datasets[2]?.data[index] ?? 0,
+                rejection_rate: datasets[3]?.data[index] ?? 0,
+                time: timeKey,
+                rejection_rate_percent: datasets[3]?.data[index] ?? 0,
+                acceptance_rate: 100 - (datasets[3]?.data[index] ?? 0),
+                acceptance_rate_percent: 100 - (datasets[3]?.data[index] ?? 0),
+              };
+            });
 
-          // Convert grouped object to sorted chartData (same structure as before)
-          setChartData(
-            Object.entries(grouped)
-              .map(([k, v]) => ({
-                t: dayjs(k).valueOf(),
-                ...v,
-              }))
-              .sort((a, b) => a.t - b.t)
-          );
-        } else {
+            setChartData(
+              Object.entries(grouped)
+                .map(([k, v]) => ({
+                  // produce epoch ms from UTC timeKey
+                  t: dayjs.utc(k).valueOf(),
+                  ...v,
+                }))
+                .sort((a, b) => a.t - b.t)
+            );
+          } else {
           setChartData([]);
         }
 
@@ -1146,7 +1154,11 @@ export default function Dashboard() {
                       type="number"
                       domain={['auto', 'auto']}
                       tick={{ fontSize: 12 }}
-                      tickFormatter={(unixMs) => dayjs(unixMs).format('HH:mm')}
+                      tickFormatter={(unixMs) =>
+                        chartTimeInterval === "hour"
+                          ? dayjs(unixMs).format("HH:mm")
+                          : dayjs(unixMs).format("MMM D")
+                      }
                       label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
                     />
                     <YAxis
@@ -1169,7 +1181,7 @@ export default function Dashboard() {
                         fontSize: 12
                       }}
                     /> */}
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip content={(props) => <CustomTooltip {...props} timeInterval={chartTimeInterval} />} />
                     <Legend />
                     
                     {seriesSelection.processed && (
