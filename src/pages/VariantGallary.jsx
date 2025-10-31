@@ -225,9 +225,9 @@ const VariantGallaryView = () => {
                       {img.label}
                     </Typography>
                     {img.timestamp && (
-                      <Typography variant="caption" color="textSecondary" display="block">
-                        {new Date(img.timestamp).toLocaleDateString()}
-                      </Typography>
+                        <Typography variant="caption" color="textSecondary" display="block">
+                          {new Date(img.timestamp).toUTCString()}
+                        </Typography>
                     )}
                     {img.stack_count > 1 && (
                       <Typography variant="caption" color="primary" display="block">
