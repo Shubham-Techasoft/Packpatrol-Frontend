@@ -355,7 +355,7 @@ export default function Dashboard() {
 
     // Format date params consistently
     const formatDateParam = (date) => {
-      const utcOffsetDate = dayjs(date).utc().format('YYYY-MM-DDTHH:mm:ss[Z]');
+      const utcOffsetDate = dayjs(date).format('YYYY-MM-DDTHH:mm:ss[Z]');
       console.log('UTC Offset:', utcOffsetDate);
       return utcOffsetDate;
     };
@@ -371,25 +371,25 @@ export default function Dashboard() {
     // Add date range based on timeFilter
     if (timeFilter === "Custom" && dateRange[0] && dateRange[1]) {
       params.append('start_time', formatDateParam(dayjs(dateRange[0]).startOf('day')));
-      params.append('end_time', formatDateParam(dayjs(dateRange[1]).endOf('day')));
+      params.append('end_time', formatDateParam(dayjs(dateRange[1]).add(1, 'day').startOf('day')));
     } else if (timeFilter === "7d") {
       params.append('start_time', formatDateParam(dayjs().subtract(7, 'day')));
-      params.append('end_time', formatDateParam(dayjs()));
+      params.append('end_time', formatDateParam(dayjs().add(1, 'day').startOf('day')));
     } else if (timeFilter === "30d") {
       params.append('start_time', formatDateParam(dayjs().subtract(30, 'day')));
-      params.append('end_time', formatDateParam(dayjs()));
+      params.append('end_time', formatDateParam(dayjs().add(1, 'day').startOf('day')));
     } else if (timeFilter === "24h") {
       params.append('start_time', formatDateParam(dayjs().subtract(1, 'day')));
-      params.append('end_time', formatDateParam(dayjs()));
+      params.append('end_time', formatDateParam(dayjs().add(1, 'day').startOf('day')));
     } else if (timeFilter === "all") {
       params.append('start_time', formatDateParam(dayjs().subtract(100, 'year')));
-      params.append('end_time', formatDateParam(dayjs()));
+      params.append('end_time', formatDateParam(dayjs().add(1, 'day').startOf('day')));
     }
 
     // Ensure date params exist (fallback to 24h)
     if (!params.get('start_time') || !params.get('end_time')) {
-      params.append('start_time', formatDateParam(dayjs().subtract(1, 'day')));
-      params.append('end_time', formatDateParam(dayjs()));
+      params.append('start_time', formatDateParam(dayjs().startOf('day')));
+      params.append('end_time', formatDateParam(dayjs().add(1, 'day').startOf('day')));
     }
 
     const summaryUrl = `${base_URL}/api/machinerunlogs/dashboard_summary/?${params.toString()}`;
@@ -419,23 +419,25 @@ export default function Dashboard() {
             const datasets = summary.chart_data.datasets || [];
             const startTimeRaw = summary.time_range?.start_time ?? null;
             // parse startTime as UTC
-            const startTime = startTimeRaw ? dayjs.utc(startTimeRaw) : null;
+            const startTime = startTimeRaw ? dayjs(startTimeRaw) : null;
             const timeIntervalRaw = summary.chart_data.time_interval || "hour";
             const timeInterval = String(timeIntervalRaw).toLowerCase().replace(/ly$/, "");
             setChartTimeInterval(timeInterval);
 
             labels.forEach((label, index) => {
+              // Determine timestamp for this label:
+              // - If label already contains a date (e.g. "2025-10-29 16:00"), parse it directly
+              // - Else if API provided a time_range.start_time, base timestamps on that + index hours
+              // - Fallback: use today's date with the hour from the label
               let ts;
-              // if label contains full date -> parse as UTC
               if (/^\d{4}-\d{2}-\d{2}/.test(label) || /^\d{4}\/\d{2}\/\d{2}/.test(label)) {
-                ts = dayjs.utc(label).startOf("hour");
+                ts = dayjs(label).startOf('hour');
               } else if (startTime) {
-                ts = startTime.startOf("hour").add(index, "hour");
+                ts = startTime.startOf('hour').add(index, 'hour');
               } else {
-                const hour = parseInt(String(label).split(":")[0], 10) || 0;
-                ts = dayjs.utc().startOf("day").hour(hour);
+                const hour = parseInt(String(label).split(':')[0], 10) || 0;
+                ts = dayjs().startOf('day').hour(hour);
               }
-
               const timeKey = ts.format("YYYY-MM-DD HH:00:00");
 
               grouped[timeKey] = {
@@ -454,7 +456,7 @@ export default function Dashboard() {
               Object.entries(grouped)
                 .map(([k, v]) => ({
                   // produce epoch ms from UTC timeKey
-                  t: dayjs.utc(k).valueOf(),
+                  t: dayjs(k).valueOf(),
                   ...v,
                 }))
                 .sort((a, b) => a.t - b.t)
