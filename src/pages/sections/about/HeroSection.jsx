@@ -57,7 +57,7 @@ const HeroSection = () => {
 
   return (
     <>
-      <Box sx={{ position: "relative", overflow: "hidden", minHeight: "70vh" }}>
+      <Box sx={{ position: "relative", overflow: "hidden", minHeight: "90vh", display: 'flex', alignItems: 'center' }}>
         {/* Background Gradient Animation */}
         <motion.div
           initial={{ backgroundPosition: "0% 50%" }}
@@ -79,7 +79,7 @@ const HeroSection = () => {
         <Container
           maxWidth="lg"
           sx={{
-            py: { xs: 8, md: 10 },
+            py: { xs: 6, md: 8 },
             position: "relative",
             zIndex: 1,
           }}
@@ -98,12 +98,12 @@ const HeroSection = () => {
                   <Typography
                     variant="h4"
                     fontWeight={700}
-                    gutterBottom
-                    sx={{ fontSize: { xs: "1.8rem", md: "2.4rem" } }}
+                    sx={{ fontSize: { xs: "2rem", md: "2.8rem" }, lineHeight: 1.2 }}
                   >
                     {currentSlide.title}
                   </Typography>
                   <Typography
+                    gutterBottom
                     variant="body1"
                     color="text.secondary"
                     sx={{ mb: 3 }}
@@ -119,6 +119,9 @@ const HeroSection = () => {
                         py: 1.5,
                         borderRadius: 8,
                         backgroundColor: "#1976d2",
+                        '&:hover': {
+                          backgroundColor: '#1565c0',
+                        }
                       }}
                       onClick={() => window.open(currentSlide.link, "_blank")} 
                     >
@@ -129,7 +132,7 @@ const HeroSection = () => {
               </AnimatePresence>
 
               {/* Pagination Dots */}
-              <Box mt={4} display="flex" alignItems="center">
+              <Box mt={5} display="flex" alignItems="center">
                 {slides.map((_, i) => (
                   <motion.div
                     key={i}
@@ -138,27 +141,17 @@ const HeroSection = () => {
                   >
                     <IconButton
                       onClick={() => setIndex(i)}
+                      size="small"
                       sx={{
-                        width: 14,
-                        height: 14,
-                        p: 0,
-                        borderRadius: "50%",
-                        border: "1px solid",
-                        borderColor:
-                          i === index ? "primary.main" : "grey.400",
-                        bgcolor:
-                          i === index ? "primary.main" : "transparent",
+                        width: i === index ? 14 : 10,
+                        height: i === index ? 14 : 10,
+                        bgcolor: i === index ? "primary.main" : "grey.400",
                         transition: "all 0.3s",
+                        '&:hover': {
+                          bgcolor: i === index ? 'primary.dark' : 'grey.600',
+                        }
                       }}
-                    >
-                      <FiberManualRecordIcon
-                        fontSize="small"
-                        sx={{
-                          fontSize: 10,
-                          color: i === index ? "#fff" : "transparent",
-                        }}
-                      />
-                    </IconButton>
+                    />
                   </motion.div>
                 ))}
               </Box>
@@ -171,7 +164,7 @@ const HeroSection = () => {
                   position: "relative",
                   width: "100%",
                   maxWidth: 500,
-                  height: { xs: 250, md: 350 },
+                  height: { xs: 300, md: 400 },
                   mx: "auto",
                   display: "flex",
                   alignItems: "center",
@@ -200,17 +193,6 @@ const HeroSection = () => {
             </Grid>
           </Grid>
         </Container>
-      </Box>
-
-      {/* Bridging Line */}
-      <Box py={2} textAlign="center" bgcolor="#f5f5f5">
-        <Typography
-          variant="h6"
-          fontWeight="bold"
-          sx={{ fontSize: { xs: "1rem", md: "1.25rem" }, color: "#333" }}
-        >
-          Bridging the Gap Between Business and Technology
-        </Typography>
       </Box>
     </>
   );

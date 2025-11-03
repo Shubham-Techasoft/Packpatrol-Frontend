@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Container, Grid, Typography, Card, CardContent } from "@mui/material";
+import { Box, Container, Grid, Typography, Card, Avatar } from "@mui/material";
 import { motion } from "framer-motion";
 import servicesData from "./Services";
 import SectionTitle from "../../../components/shared/SectionTitle";
@@ -19,7 +19,7 @@ const cardVariants = {
 
 const ServicesSection = () => {
   return (
-    <Box py={4} px={2} bgcolor="#f9f9f9">
+    <Box py={{ xs: 6, md: 10 }} px={2} bgcolor="white">
       <Container maxWidth="lg">
         <SectionTitle title="Our Services" subtitle="What We Offer" />
 
@@ -36,18 +36,25 @@ const ServicesSection = () => {
                 <Card
                   elevation={4}
                   sx={{
-                    p: 3,
+                    p: { xs: 2, md: 3 },
                     height: "100%",
                     textAlign: "center",
                     borderRadius: 4,
-                    transition: "transform 0.3s",
-                    "&:hover": { transform: "translateY(-8px)", boxShadow: 6 },
+                    transition: "transform 0.3s, box-shadow 0.3s",
+                    "&:hover": { transform: "translateY(-8px)", boxShadow: 8 },
                   }}
                 >
-                  <Typography variant="h3" mb={2}>
-                    {service.icon}
-                  </Typography>
-                  <Typography variant="h6" gutterBottom>
+                  <Avatar
+                    sx={{
+                      width: 64,
+                      height: 64,
+                      bgcolor: "primary.main",
+                      color: "white",
+                      mx: "auto",
+                      mb: 2,
+                    }}
+                  >{service.icon}</Avatar>
+                  <Typography variant="h6" fontWeight={600} gutterBottom>
                     {service.title}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">

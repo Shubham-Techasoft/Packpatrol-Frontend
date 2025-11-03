@@ -1,9 +1,24 @@
 import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
-  Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Paper, Typography, CircularProgress, Box, Grid, TextField, MenuItem, Pagination
+  Paper,
+  Typography,
+  CircularProgress,
+  Box,
+  Grid,
+  TextField,
+  MenuItem,
+  Pagination,
+  Card,
+  CardContent,
+  Chip,
+  Avatar,
+  Divider,
 } from "@mui/material";
+import PersonIcon from "@mui/icons-material/Person";
+import EmailIcon from "@mui/icons-material/Email";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import HistoryIcon from "@mui/icons-material/History";
 import axios from "axios";
 import { isAuthenticated, isSuperAdmin } from "../utils/auth";
 import {base_URL} from "../utils/api";
@@ -70,10 +85,24 @@ const UsersPage = () => {
     currentPage * USERS_PER_PAGE
   );
  
+  const getRoleChipColor = (role) => {
+    switch (role) {
+      case "superadmin":
+        return "success";
+      case "admin":
+        return "warning";
+      case "manager":
+        return "secondary";
+      case "user":
+        return "primary";
+      default:
+        return "info";
+    }
+  };
+
   return (
-    <Box sx={{ px: 4, py: 5 }}>
-    <Paper
-      elevation={4}
+    <Box sx={{ px: 4, py: 5, pb: 10, minHeight: '100vh', background: 'linear-gradient(to bottom, #f0f4f8, #e3f2fd)' }}>
+      <Paper
       sx={{
         padding: 4,
         borderRadius: 4,
@@ -81,16 +110,18 @@ const UsersPage = () => {
         boxShadow: "0px 10px 30px rgba(0, 0, 0, 0.08)",
       }}
     >
-      <Typography
-        variant="h4"
-        gutterBottom
-        sx={{ fontWeight: 600, color: "#1976d2" }}
-      >
-        Active Users Tracking
-      </Typography>
-      <Typography variant="subtitle1" gutterBottom sx={{ mb: 3, color: "#666" }}>
-        View and filter all active users by role and name
-      </Typography>
+        <Box sx={{ textAlign: 'center', mb: 4 }}>
+          <Typography
+            variant="h4"
+            gutterBottom
+            sx={{ fontWeight: 700, color: "#004d7a" }}
+          >
+            User Management
+          </Typography>
+          <Typography variant="subtitle1" color="text.secondary">
+            Browse, search, and filter all active users in the system.
+          </Typography>
+        </Box>
 
       {/* Filters */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -121,67 +152,78 @@ const UsersPage = () => {
         </Grid>
       </Grid>
 
-      {/* Table */}
+      {/* User Cards */}
       {loading ? (
-        <CircularProgress />
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+          <CircularProgress />
+        </Box>
       ) : (
         <>
-          <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
-            <Table>
-              <TableHead sx={{ backgroundColor: "#e3f2fd" }}>
-                <TableRow>
-                  <TableCell><strong>Name</strong></TableCell>
-                  <TableCell><strong>Email</strong></TableCell>
-                  <TableCell><strong>Designation</strong></TableCell>
-                  <TableCell><strong>Date Joined</strong></TableCell>
-                  <TableCell><strong>Last Login</strong></TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {paginatedUsers.map((user, index) => (
-                  <TableRow
-                    key={user.id}
-                    sx={{
-                      backgroundColor: index % 2 === 0 ? "#f9f9f9" : "white",
-                      "&:hover": {
-                        backgroundColor: "#f1faff",
-                      },
-                    }}
-                  >
-                    <TableCell>{`${user.first_name} ${user.last_name}`}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell sx={{ textTransform: "capitalize" }}>
-                      {user.designation || (user.email === "TechasoftAdmin@techasoft.com" ? "superadmin" : "-")}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(user.date_joined).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      {user.last_login
-                        ? new Date(user.last_login).toLocaleString()
-                        : "Never"}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <Grid container spacing={3}>
+            {paginatedUsers.map((user) => {
+              const role = user.designation || (user.email === "TechasoftAdmin@techasoft.com" ? "superadmin" : "user");
+              return (
+                <Grid item xs={12} sm={6} md={4} key={user.id}>
+                  <Card sx={{ borderRadius: 3, height: '100%', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s, box-shadow 0.2s', '&:hover': { transform: 'translateY(-4px)', boxShadow: 6 } }}>
+                    <CardContent sx={{ flexGrow: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <Avatar sx={{ bgcolor: '#1976d2', mr: 2 }}>
+                          <PersonIcon />
+                        </Avatar>
+                        <Box>
+                          <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
+                            {`${user.first_name} ${user.last_name}`}
+                          </Typography>
+                          <Chip
+                            label={role}
+                            color={getRoleChipColor(role)}
+                            size="small"
+                            sx={{ textTransform: 'capitalize', fontWeight: 'bold' }}
+                          />
+                        </Box>
+                      </Box>
+                      <Divider sx={{ my: 1.5 }} />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <EmailIcon fontSize="small" color="action" />
+                        <Typography variant="body2" color="text.secondary" noWrap>
+                          {user.email}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <CalendarTodayIcon fontSize="small" color="action" />
+                        <Typography variant="body2" color="text.secondary">
+                          Joined: {new Date(user.date_joined).toLocaleDateString()}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <HistoryIcon fontSize="small" color="action" />
+                        <Typography variant="body2" color="text.secondary">
+                          Last Login: {user.last_login ? new Date(user.last_login).toLocaleString() : "Never"}
+                        </Typography>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              );
+            })}
+          </Grid>
 
           {/* Pagination */}
-          <Box sx={{ mt: 4, display: "flex", justifyContent: "center" }}>
-            <Pagination
-              count={totalPages}
-              page={currentPage}
-              onChange={(e, value) => setCurrentPage(value)}
-              shape="rounded"
-              color="primary"
-            />
-          </Box>
+          {totalPages > 1 && (
+            <Box sx={{ mt: 4, display: "flex", justifyContent: "center" }}>
+              <Pagination
+                count={totalPages}
+                page={currentPage}
+                onChange={(e, value) => setCurrentPage(value)}
+                shape="rounded"
+                color="primary"
+              />
+            </Box>
+          )}
         </>
       )}
     </Paper>
   </Box>
-   
   );
 };
 

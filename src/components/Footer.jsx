@@ -1,20 +1,17 @@
 import * as React from "react";
 import Box from "@mui/material/Box";
 import CssBaseline from "@mui/material/CssBaseline";
-import BottomNavigation from "@mui/material/BottomNavigation";
-import BottomNavigationAction from "@mui/material/BottomNavigationAction";
 import RestoreIcon from "@mui/icons-material/Restore";
-import FavoriteIcon from "@mui/icons-material/Favorite";
 import ArchiveIcon from "@mui/icons-material/Archive";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import RecentActivitiesDialog from "./RecentActivitiesDialog";
-import FavoritesDialog from "./FavoritesDialog";
-import GalleryDialog from "../pages/GalleryPage";
+import Button from "@mui/material/Button";
+import { useTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 
 export default function Footer({ onRecentOpen, onApplyLog }) {
   const navigate = useNavigate();
+  const theme = useTheme();
 
   const [value, setValue] = React.useState(0);
   // const [galleryImages, setGalleryImages] = React.useState([]);
@@ -40,57 +37,80 @@ export default function Footer({ onRecentOpen, onApplyLog }) {
   // const handleGalleryClose = () => setGalleryOpen(false);
 
   return (
-    <Box sx={{ pb: {xs: 5, sm: 4, md: 2} , backgroundColor: "#f5f5f5"}}>
+    <Box sx={{ pb: { xs: "30px", sm: "20px" }, borderRadius:0}}>
       <CssBaseline />
-      <Paper
-        sx={{ position: "fixed", bottom: 0, left: 0, right: 0 }}
+      <Paper 
+        component="footer"
+        sx={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          py: 1,
+          px: { xs: 2, sm: 3 },
+          background: "linear-gradient(90deg, #002049ff 0%, #182848 100%)",
+          color: "white",
+          zIndex: theme.zIndex.appBar,
+          flexDirection: { xs: "column-reverse", sm: "row" },
+          gap: { xs: 1, sm: 2 },
+          borderRadius: 0,
+          borderTop: "1px solid rgba(255, 255, 255, 0.2)",
+        }}
         elevation={3}
       >
-        <BottomNavigation
-          style={{ backgroundColor: "#f5f5f5" }}
-          showLabels
-          value={value}
-          onChange={(event, newValue) => {
-            console.log("this is newValue in footer: ", newValue);
-            setValue(newValue);
-            if (newValue === 0) {
-              // handleRecentOpen();
-              onRecentOpen?.();
-              // trigger dialog in App.jsx → Home.jsx
-            } else if (newValue === 1) {
-              navigate("/gallery");
-            }
-          }}
-        >
-          <BottomNavigationAction label="Recents" icon={<RestoreIcon sx={{width:"20px", height:"20px"}}/>} />
-          {/* <BottomNavigationAction label="Favorites" icon={<FavoriteIcon />} /> */}
-          <BottomNavigationAction label="Archive" icon={<ArchiveIcon sx={{width:"20px", height:"20px"}} />} />
-        </BottomNavigation>
-
         <Typography
           variant="body2"
-          align="center"
-          // sx={{ py: 1, backgroundColor: "#f5f5f5" }}
-          sx={{ bgcolor: "rgb(209, 233, 237)", fontSize: { xs: '0.5rem', sm: '0.7rem', md: '0.8rem' }, padding: { xs: '2px 0', sm: '4px 0', md: '5px 0' } }}
+          sx={{
+            color: "rgba(255, 255, 255, 0.9)",
+            fontSize: { xs: "0.7rem", sm: "0.8rem" },
+          }}
         >
           &copy; {new Date().getFullYear()} Techasoft Pvt Ltd. All rights
           reserved.
         </Typography>
+
+        <Box sx={{ display: "flex", gap: { xs: 1, sm: 2 } }}>
+          <Button
+            variant="text"
+            size="small"
+            startIcon={<RestoreIcon />}
+            onClick={onRecentOpen}
+            sx={{
+              color: "white",
+              textTransform: "none",
+              bgcolor: "rgba(0, 148, 177, 0.7)", // A subtle teal
+              py: 0.5,
+              px: 1.5,
+              "&:hover": {
+                bgcolor: "rgba(0, 148, 177, 1)", // Brighter on hover
+              },
+            }}
+          >
+            Recents
+          </Button>
+          <Button
+            variant="text"
+            size="small"
+            startIcon={<ArchiveIcon />}
+            onClick={() => navigate("/gallery")}
+            sx={{
+              color: "white",
+              textTransform: "none",
+              bgcolor: "rgba(0, 148, 177, 0.7)",
+              py: 0.5,
+              px: 1.5,
+              "&:hover": {
+                bgcolor: "rgba(0, 148, 177, 1)",
+              },
+            }}
+          >
+            Gallery
+          </Button>
+        </Box>
       </Paper>
-      {/* <RecentActivitiesDialog
-        open={recentOpen}
-        handleClose={handleRecentClose}
-        onApplyLog={onApplyLog}
-      /> */}
-      {/* <FavoritesDialog
-        open={favoritesOpen}
-        handleClose={handleFavoritesClose}
-      /> */}
-      {/* <GalleryDialog
-        open={galleryOpen}
-        handleClose={handleGalleryClose}
-        images={galleryImages}
-      /> */}
     </Box>
   );
 }

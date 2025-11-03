@@ -32,10 +32,10 @@ const WhyChooseUsSection = () => {
 
   return (
     <Box
-      py={8}
+      py={{ xs: 6, md: 10 }}
       px={2}
       sx={{
-        background: `linear-gradient(to right, ${theme.palette.primary.light}33 0%, #ffffff 40%)`,
+        background: `linear-gradient(135deg, ${theme.palette.grey[50]} 0%, ${theme.palette.common.white} 70%)`,
       }}
     >
       <Container maxWidth="lg">
@@ -44,7 +44,7 @@ const WhyChooseUsSection = () => {
             variant="h4"
             fontWeight={700}
             color="primary"
-            gutterBottom
+            
             sx={{ fontSize: { xs: "2rem", md: "2.5rem" } }}
           >
             Why Choose Us
@@ -52,7 +52,7 @@ const WhyChooseUsSection = () => {
           <Typography
             variant="subtitle1"
             color="text.secondary"
-            sx={{ maxWidth: "600px", mx: "auto", fontSize: "1rem" }}
+            sx={{ maxWidth: "600px", mx: "auto", fontSize: "1.1rem" }}
           >
             What Sets Us Apart
           </Typography>
@@ -77,7 +77,7 @@ const WhyChooseUsSection = () => {
                     bgcolor: "#fff",
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 1.5,
+                    gap: 2,
                     minHeight: 120,
                     transition: "transform 0.3s ease, box-shadow 0.3s ease",
                     cursor: 'default',
@@ -89,7 +89,7 @@ const WhyChooseUsSection = () => {
                   }}
                 >
                   <CheckCircleIcon
-                    sx={{ color: theme.palette.primary.main, fontSize: 28, flexShrink: 0 }}
+                    sx={{ color: theme.palette.primary.main, fontSize: 32, flexShrink: 0 }}
                   />
                   <Typography
                     variant="body1"

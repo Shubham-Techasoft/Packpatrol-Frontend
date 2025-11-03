@@ -1043,24 +1043,23 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         flexGrow: 1,
         // height: "80vh",
         padding: 2,
-        bgcolor: "rgb(209, 233, 237)",
-        mb: {sx: 18, sm: 0},
-        height: {sx:"100%", md: "80vh"}
+        bgcolor: "#f0f0f9",
+        height: {md: "85vh", xs: "100%"},
       }}
     >
-      <Grid container spacing={1.5} sx={{ height: "100%" }}>
+      <Grid container spacing={1.5} sx={{ height: "100%"}}>
         {/* Left side - Image + Header */}
         <Grid item xs={12} md={8} sx={{ height: "100%" }}>
           <StyledPaper
             sx={{
               display: "flex",
               flexDirection: "column",
-              justifyContent: "flex-start",
+              justifyContent: "space-between",
               alignItems: "center",
               padding: 0.5,
               height: "100%",
-              backgroundColor: "#f5f5f5",
-              boxShadow: "0 4px 20px rgba(196, 201, 255, 0.08)",
+              backgroundColor: "#ffffffff",
+              boxShadow: "0 0 20px -5px rgba(106, 107, 107, 1)",
               borderRadius: 3,
             }}
           >
@@ -1074,6 +1073,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                 width: "100%",
                 paddingTop: 0.5,
                 flexDirection: { xs: 'column', sm: 'row' },
+                margin: "auto"
               }}
               >
               <Box
@@ -1222,10 +1222,10 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           item
           xs={12}
           md={4}
-          sx={{ height: "75vh", display: "flex", flexDirection: "column",}}
+          sx={{ height: "80.5vh", display: "flex", flexDirection: "column",}}
         >
           {/* Live Updates */}
-          <StyledPaper sx={{ flex: 7, overflowY: "auto", bgcolor: "#f5f5f5" }}>
+          <StyledPaper sx={{ flex: 7, overflowY: "auto", bgcolor: "#ffffff", boxShadow: "0 0 20px -5px rgba(106, 107, 107, 1)", borderRadius: 2}}>
             <Box sx={{ mb: -1 }}>
               <Typography variant="h6" component="h4" gutterBottom>
                 Live Updates
@@ -1268,7 +1268,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
           {/* Machine Control */}
 
-          <StyledPaper sx={{ flex: 3, p: 2, mt: 2, bgcolor: "#f5f5f5", mb: {xs: 5, sm: 5, md: 0} }}>
+          <StyledPaper sx={{ flex: 3, p: 2, mt: 2, bgcolor: "#ffffff", mb: {xs: 5, sm: 5, md: 0}, boxShadow: "0 0 20px -5px rgba(106, 107, 107, 1)", borderRadius: 2}}>
             <Box
               sx={{
                 display: "flex",

@@ -1,12 +1,14 @@
 import React from "react";
-import { Box, Container } from "@mui/material";
+import { Box, Container, Typography } from "@mui/material";
 import { motion } from "framer-motion";
 import { heroImages } from "../../../assets/assets";
+import SectionTitle from "../../../components/shared/SectionTitle";
 
 const IndustriesSection = () => {
   return (
-    <Box py={10} bgcolor="#f9f9f9">
+    <Box py={{ xs: 6, md: 10 }} bgcolor="#f8f9fa">
       <Container maxWidth="lg">
+        <SectionTitle title="Industries We Serve" subtitle="Delivering excellence across diverse sectors" />
         <motion.img
           src={heroImages[0]}
           alt="Industries"

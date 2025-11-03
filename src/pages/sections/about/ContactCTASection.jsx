@@ -78,13 +78,16 @@ const ContactCTASection = () => {
   };
 
   return (
-    <Box sx={{ py: 10, backgroundColor: "#f5f5f5", mt: 10 }}>
+    <Box sx={{ py: { xs: 6, md: 10 }, backgroundColor: "white" }}>
       <Container maxWidth="lg">
         <Grid container spacing={6} alignItems="center">
           {/* Left: Form */}
           <Grid item xs={12} md={6}>
-            <Typography variant="h5" mb={2} fontWeight="600">
-              Share your query and contact
+            <Typography variant="h4" mb={1} fontWeight="700" color="primary">
+              Get In Touch
+            </Typography>
+            <Typography variant="body1" color="text.secondary" mb={3}>
+              Have a project in mind? We’d love to hear from you.
             </Typography>
             <Paper elevation={3} sx={{ p: 4, borderRadius: 3 }}>
               <Grid container spacing={3}>
@@ -142,18 +145,19 @@ const ContactCTASection = () => {
 
                 {messageSent && (
                   <Grid item xs={12} >
-                  <Typography
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                    <Typography
                     variant="body1"
                     sx={{
                       mt: 2,
                       textAlign: "center",
                       color: "green",
                       fontWeight: 500,
-                      transition: "opacity 0.3s ease",
                     }}
                   >
                     ✅ Message sent successfully!
                   </Typography>
+                  </motion.div>
                   </Grid>
                 )}
               </Grid>
@@ -165,7 +169,7 @@ const ContactCTASection = () => {
             <motion.img
               src={heroImages[3]}
               alt="Contact"
-              style={{ maxWidth: "100%", height: "auto", borderRadius: 12 }}
+              style={{ maxWidth: "90%", height: "auto", borderRadius: 12, display: 'block', margin: '0 auto' }}
               variants={floatAnimation}
               animate="animate"
             />

@@ -31,9 +31,9 @@ const MilestonesSection = () => {
   return (
     <Box
       sx={{
-        py: 12,
+        py: { xs: 6, md: 10 },
         px: 2,
-        background: `linear-gradient(180deg, #ffffff 0%, #f9fbfc 100%)`,
+        bgcolor: 'white',
       }}
     >
       <Container maxWidth="lg">
@@ -43,7 +43,6 @@ const MilestonesSection = () => {
             variant="h4"
             fontWeight={700}
             color="primary"
-            gutterBottom
             sx={{ fontSize: { xs: "2rem", md: "2.5rem" } }}
           >
             Our Milestones
@@ -54,7 +53,7 @@ const MilestonesSection = () => {
             sx={{
               maxWidth: "600px",
               mx: "auto",
-              fontSize: "1rem",
+              fontSize: "1.1rem",
             }}
           >
             A quick look at what we've accomplished over the years
@@ -86,12 +85,12 @@ const MilestonesSection = () => {
                   elevation={3}
                   sx={{
                     p: 4,
-                    textAlign: "center",
-                    borderRadius: 5,
+                    textAlign: 'center',
+                    borderRadius: 4,
                     bgcolor: "#ffffff",
                     transition: "all 0.3s ease",
                     "&:hover": {
-                      transform: "translateY(-6px)",
+                      transform: "translateY(-8px)",
                       boxShadow: `0 8px 16px rgba(0, 0, 0, 0.08)`,
                     },
                   }}
@@ -100,19 +99,19 @@ const MilestonesSection = () => {
                     variant="h2"
                     component="div"
                     mb={1}
-                    sx={{ fontSize: "3rem" }}
+                    sx={{ fontSize: "3.5rem" }}
                   >
                     {item.icon}
                   </Typography>
                   <Typography
                     variant="h4"
-                    fontWeight="bold"
+                    fontWeight={700}
                     color="primary"
                     gutterBottom
                   >
                     {item.value}
                   </Typography>
-                  <Typography variant="subtitle2" color="text.secondary">
+                  <Typography variant="subtitle1" color="text.secondary" fontWeight={500}>
                     {item.label}
                   </Typography>
                 </Card>

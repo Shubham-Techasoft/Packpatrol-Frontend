@@ -89,8 +89,9 @@ const pages = [
         position="sticky"
         sx={{
           backdropFilter: "blur(10px)",
-          backgroundColor: "rgba(25, 118, 210, 0.85)",
+          backgroundColor: "#062249",
           boxShadow: "0 8px 16px rgba(0,0,0,0.1)",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.2)",
         }}
       >
         <Container maxWidth="xl">
@@ -100,7 +101,7 @@ const pages = [
               component="img"
               src={logo}
               alt="Techasoft Pvt Ltd Logo"
-              sx={{ display: { xs: "none", md: "flex" }, height: 40, mr: 2 }}
+              sx={{ display: { xs: "none", md: "flex" }, height: 40, mr: 2, boxShadow: "0px 0px 15px -2px rgba(255, 255, 255, 0.5)", borderRadius: "50%" }}
             />
             <Typography
               variant="h6"
@@ -226,16 +227,13 @@ const pages = [
               {isAuthenticated() && isSuperAdmin() && (
                 <Button
                   variant="contained"
-                  color="warning"
                   sx={{
                     borderRadius: 3,
                     px: 3,
                     fontWeight: 500,
-                    boxShadow: "0px 4px 20px rgba(255, 152, 0, 0.5)",
                     transition: "all 0.3s ease-in-out",
-                    ":hover": {
-                      backgroundColor: "#ffb74d",
-                    },
+                    // suggest beast color based on header bg color
+                    backgroundColor: "#148538ff",
                   }}
                   onClick={() => setOpenSignUp(true)}
                 >
@@ -253,9 +251,17 @@ const pages = [
                       color="success"
                       overlap="circular"
                       variant="dot"
+                      sx={{
+                        "& .MuiBadge-badge": {
+                          border: "1px solid white",
+                          scale: "1.5",
+                          transform: "translate(25%, 25%)",
+                          borderRadius: "50%",
+                        },
+                      }}
                       anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
                     >
-                      <Avatar alt="User Avatar" src="src/assets/avatar-3.png" />
+                      <Avatar alt="User Avatar" src="src/assets/avatar-3.png" sx={{filter: "grayscale(1) invert(1) brightness(2)", scale: "1.2",}}/>
                     </Badge>
                   </IconButton>
                 </Tooltip>

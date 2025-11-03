@@ -848,7 +848,7 @@ export default function Dashboard() {
     <Box
       sx={{
         p: 4,
-        bgcolor: "rgb(209, 233, 237)",
+        bgcolor: "#f0f0f9",
         minHeight: "100vh",
         pb: 10,
         overflowY: "auto",
@@ -870,7 +870,14 @@ export default function Dashboard() {
                 key={filter}
                 variant={timeFilter === filter ? "contained" : "outlined"}
                 onClick={() => setTimeFilter(filter)}
-                color="primary"
+                sx={{
+                  color: timeFilter === filter ? "#fff" : "#062249",
+                  borderColor: "#062249",
+                  bgcolor: timeFilter === filter ? "#062249" : "transparent",
+                  "&:hover": {
+                    bgcolor: "#062249",
+                    color: "#fff",
+                }}}
               >
                 {filter === "24h"
                   ? "24 Hours"

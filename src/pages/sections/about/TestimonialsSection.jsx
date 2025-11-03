@@ -13,8 +13,8 @@ const TestimonialsSection = () => {
   return (
     <Box
       sx={{
-        py: 8,
-        background: `linear-gradient(to right, #e3f2fd 0%, #ffffff 40%)`,
+        py: { xs: 6, md: 10 },
+        background: `linear-gradient(135deg, ${'#e3f2fd'} 0%, ${'#f8f9fa'} 70%)`,
         position: 'relative',
         zIndex: 0,
       }}
@@ -26,7 +26,7 @@ const TestimonialsSection = () => {
         />
 
         {/* Navigation Arrows */}
-        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mb: 3 }}>
+        <Box sx={{ display: { xs: 'none', md: 'flex' }, justifyContent: 'center', gap: 2, mb: 3 }}>
           <IconButton
             className="custom-swiper-prev"
             sx={{
@@ -62,7 +62,7 @@ const TestimonialsSection = () => {
         <Swiper
           modules={[Navigation, Pagination]}
           spaceBetween={30}
-          slidesPerView={3}
+          slidesPerView={1}
           navigation={{
             prevEl: '.custom-swiper-prev',
             nextEl: '.custom-swiper-next',

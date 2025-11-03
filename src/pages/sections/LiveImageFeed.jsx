@@ -72,14 +72,14 @@ export default function LiveImageFeed({ status, imagePath, connectionStatus, sta
     <Box
       sx={{
         width: "100%",
-        margin: "auto",
+        // margin: "auto",
         borderRadius: 2,
         overflow: "hidden",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
         height: "58vh",
-        backgroundColor: "#f7f7f7",
+        backgroundColor: "#f0f0f9",
         position: "relative",
       }}
     >
