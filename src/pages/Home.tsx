@@ -106,6 +106,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
   const [sseError, setSseError] = React.useState<Event | Error | null>(null);
   const lastMessageTimeRef = React.useRef<number | null>(null);
   const isStoppingRef = React.useRef< boolean | null>(false);
+  const autoStopHandledRef = React.useRef(false);
 
   // IMPORTANT DON'T REMOVE
   React.useEffect(() => {
@@ -640,13 +641,21 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
 
             // Use the new 'machine_running' field from the backend
             if (data?.machine_running === false) {
-              console.log("🛑 Machine status is false, stopping machine automatically!");
-              console.log("=> Machine Status Description:", data?.message || "No description provided");
-              isStoppingRef.current = true;
-              handleSubmit("stop");
-              return; // Stop processing this message
+              // ✅ PREVENT DUPLICATE HANDLING
+              if (!autoStopHandledRef.current) {
+                console.log("🛑 Machine status is false, stopping machine automatically!");
+                autoStopHandledRef.current = true; // Mark as handled
+                isStoppingRef.current = true;
+                handleSubmit("stop");
+              } else {
+                console.log("⏭️ Auto-stop already handled, skipping...");
+              }
+              return;
             }
 
+            if (data?.machine_running === true) {
+              autoStopHandledRef.current = false;
+            }
 
             // Update realtime data only if machine is still running
             if (status === "running") {
@@ -808,6 +817,8 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         alert("Please fill in all fields before starting the machine.");
         return;
       }
+    }else{
+      isStoppingRef.current = true;
     }
 
     const endpoint = `${base_URL}/api/machines/${selectedMachine}/${actionType}_run/`;
@@ -875,9 +886,9 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           isStoppingRef.current = false;
           
           // Show appropriate success message
-          if (data.status === "already_stopped") {
+          if (data.status === "already_stopped" && isStoppingRef.current === false && status === "stopped") {
             alert("ℹ️ Machine was already stopped.");
-          } else {
+          }else if (data.status === "stopped_successfully") {
             alert("✅ Machine stopped successfully!");
           }
         } else {
@@ -1440,23 +1451,26 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
                   <button
                     type="button"
                     onClick={() => handleSubmit("stop")}
+                    disabled={isStoppingRef.current==true? true : false}
                     style={{
                       width: "100%",
                       padding: 12,
-                      // backgroundColor: "red",
-                      background: "linear-gradient(135deg, #FF416C, #FF4B2B)",
+                      background: (isStoppingRef.current==true?true:false)
+                        ? "#ccc"
+                        : "linear-gradient(135deg, #FF416C, #FF4B2B)",
                       color: "white",
                       border: "none",
-                      cursor: "pointer",
+                      cursor: (isStoppingRef.current==true?true:false) ? "not-allowed" : "pointer",
                       borderRadius: 8,
                       textAlign: "center",
                       boxShadow: "none !important",
                       fontSize: "1rem",
                       fontFamily: "Arial, sans-serif",
                       letterSpacing: "0.1em",
+                      transition: "background 0.3s ease",
                     }}
                   >
-                    Stop
+                    {isStoppingRef.current==false? "Stop" : "Stopping"}
                   </button>
                 )}
               </Box>
