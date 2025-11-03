@@ -9,6 +9,7 @@ import {
   FormControl,
   FormControlLabel,
   FormHelperText,
+  Divider,
   Grid,
   InputLabel,
   MenuItem,
@@ -104,7 +105,8 @@ const AddMachineStepper = ({
 
       // 3. Filter models linked to this variant
       let models = allModels
-        .filter((mdl) => mdl.variant === variantId)
+        // Currently no variant field in models
+        // .filter((mdl) => mdl.variant === variantId) // TODO: filter by variant when actually added in tabel data
         .map((mdl) => ({
           id: mdl.id,
           name: mdl.name || "",
@@ -1025,11 +1027,12 @@ const AddMachineStepper = ({
 
   // model and variant form
   const renderStepOne = () => (
-    <Box p={2}>
-      <Typography variant="h6">ML Model / Variant</Typography>
+    <Box p={1}>
+      <Typography variant="h5" gutterBottom sx={{ fontWeight:"700"}}>ML Model & Variant</Typography>
 
       {/* Use Existing Variant Toggle */}
-      <FormControlLabel
+      <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: 'action.hover' }}>
+        <FormControlLabel
         control={
           <Checkbox
             checked={useExistingVariant}
@@ -1038,10 +1041,11 @@ const AddMachineStepper = ({
         }
         label="Use Existing Variant"
       />
+      </Paper>
 
       {/* Existing variant dropdown */}
       {useExistingVariant && (
-        <FormControl fullWidth sx={{ mt: 2 }}>
+        <FormControl fullWidth>
           <InputLabel>Select Existing Variant</InputLabel>
           <Select
             value={selectedVariantId}
@@ -1060,10 +1064,10 @@ const AddMachineStepper = ({
       {/* Variant creation form */}
       {!useExistingVariant && !isManagerUser && (
         <>
-          <Typography variant="h6" mt={4}>
-            Variant
+          <Typography variant="h6" gutterBottom sx={{ color:"#007a91ff", fontWeight:"bold", mb: 1 }}>
+            Create New Variant
           </Typography>
-          <Grid container spacing={2} mt={1}>
+          <Grid container spacing={2} sx={{ mb: 4 }}>
             <Grid item xs={4}>
               <TextField
                 fullWidth
@@ -1107,12 +1111,14 @@ const AddMachineStepper = ({
       {/* ML Models Section */}
       {!useExistingVariant && variant.models.length > 0 && (
         <>
-          <Typography variant="h6" mt={4}>
+          <Divider sx={{ my: 3 }} />
+          <Typography variant="h6" gutterBottom sx={{ color:"#007a91ff", fontWeight:"bold", mb: 1 }}>
             ML Models
           </Typography>
 
           {variant.models.map((model, idx) => (
-            <Grid container spacing={2} mt={1} key={idx}>
+            <Paper variant="outlined" sx={variant.activeModelIndex === idx?{p: 2, mt: 2, position: 'relative', bgcolor: '#f3fcffff', border: '1px solid #0094b1ff'} :{ p: 2, mt: 2, position: 'relative', border: '1px solid #a9a9a9ff'}} key={idx} >
+              <Grid container spacing={2}>
               {!isManagerUser && (
                 <>
                   <Grid item xs={6}>
@@ -1157,7 +1163,7 @@ const AddMachineStepper = ({
 
                   {!useExistingVariant && (
                     <Grid item xs={12}>
-                      <Button variant="outlined" fullWidth component="label">
+                      <Button variant="outlined" fullWidth component="label" sx={{bgcolor:"#0094b1ff",color:"white",'&:hover': {bgcolor: "#007a91ff"}}}>
                         Upload Model
                         <input
                           type="file"
@@ -1181,27 +1187,28 @@ const AddMachineStepper = ({
                 />
               </Grid>
 
-              {/* Active model selector */}
-              <Grid item xs={2}>
-                <FormControlLabel
-                  control={
-                    <Radio
-                      checked={variant.activeModelIndex === idx}
-                      onChange={() => {
-                        setActiveModelIndex(idx);
-                        setSelectedModelId(variant.models[idx].id);
-                      }}
-                    />
-                  }
-                  label="Active"
-                />
+                {/* Active model selector */}
+                <Grid item xs={6} sx={{ display: 'flex', alignItems: 'center' }}>
+                  <FormControlLabel
+                    control={
+                      <Radio
+                        checked={variant.activeModelIndex === idx}
+                        onChange={() => {
+                          setActiveModelIndex(idx);
+                          setSelectedModelId(variant.models[idx].id);
+                        }}
+                      />
+                    }
+                    label="Set as Active Model"
+                  />
+                </Grid>
               </Grid>
-            </Grid>
+            </Paper>
           ))}
 
           {/* Add new model button */}
           {!isManagerUser && !useExistingVariant && (
-            <Button onClick={addModel} sx={{ mt: 2 }}>
+            <Button onClick={addModel} sx={{ mt: 2 }} variant="contained">
               + Add Model
             </Button>
           )}
@@ -1212,10 +1219,13 @@ const AddMachineStepper = ({
 
   // machine and camera form
   const renderStepTwo = () => (
-    <Box p={2}>
+    <Box p={1}>
+      <Typography variant="h5" gutterBottom sx={{ fontWeight:"700"}}>Machine & Camera</Typography>
+      <Typography variant="h6" sx={{ mt: 1, mb: 2, color:"#007a91ff", fontWeight:"bold"}}>Machine Details</Typography>
       <Grid container spacing={2}>
         {!isManagerUser && (
           <>
+            
             <Grid item xs={6}>
               <TextField
                 label="Machine Name"
@@ -1226,6 +1236,28 @@ const AddMachineStepper = ({
                 // disabled={isManager}
               />
             </Grid>
+            <Grid item xs={6} /> 
+            {/* Empty grid item for spacing */}
+
+            <Grid item xs={12}>
+              <TextField
+                label="Video Folder Path"
+                name="video_folder_path"
+                fullWidth
+                value={machine.video_folder_path}
+                onChange={handleMachineChange}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Watchdog OBS Folder Path"
+                name="watchdog_obs_folder_path"
+                fullWidth
+                value={machine.watchdog_obs_folder_path}
+                onChange={handleMachineChange}
+              />
+            </Grid>
+
             <Grid item xs={6}>
               <TextField
                 label="Camera Serial Number"
@@ -1238,15 +1270,30 @@ const AddMachineStepper = ({
             </Grid>
             <Grid item xs={6}>
               <TextField
+                label="Watchdog File Expiry Time (in seconds)"
+                name="watchdog_file_expi_time"
+                fullWidth
+                value={machine.watchdog_file_expi_time}
+                onChange={handleMachineChange}
+              />
+            </Grid>
+          </>
+        )}
+        </Grid>
+        <Divider sx={{ mt: 3, mb: 2}} />
+        <Typography variant="h6" sx={{ mb: 2, color:"#007a91ff", fontWeight:"bold"}}>Camera Settings</Typography>
+        <Grid container spacing={2}>
+            <Grid item xs={6}>
+              <TextField
                 label="Camera Name"
                 name="camera_name"
                 fullWidth
                 value={machine.camera_name}
                 onChange={handleMachineChange}
-                // disabled={isManager}
+                disabled={isManagerUser}
               />
             </Grid>
-
+            <Grid item xs={6} />
             {mode === "edit" && (
               <Grid item xs={12}>
                 <Typography
@@ -1259,7 +1306,7 @@ const AddMachineStepper = ({
             )}
 
             <Grid item xs={12}>
-              <Button fullWidth variant="outlined" component="label">
+              <Button fullWidth variant="outlined" component="label" sx={{bgcolor:"#0094b1ff",color:"white",'&:hover': {bgcolor: "#007a91ff"}}}>
                 Upload Features File
                 <input
                   type="file"
@@ -1269,10 +1316,8 @@ const AddMachineStepper = ({
                 />
               </Button>
             </Grid>
-          </>
-        )}
 
-        {/* ✅ Manager CAN EDIT these camera fields  */}
+        {/* Camera hardware settings */}
         <Grid item xs={6}>
           <TextField
             label="Frame Height"
@@ -1280,7 +1325,7 @@ const AddMachineStepper = ({
             fullWidth
             value={machine.frame_height}
             onChange={handleMachineChange}
-            disabled={!isManager ? false : false}
+            disabled={isManagerUser && mode === 'edit'}
           />
         </Grid>
         <Grid item xs={6}>
@@ -1290,7 +1335,7 @@ const AddMachineStepper = ({
             fullWidth
             value={machine.frame_width}
             onChange={handleMachineChange}
-            disabled={!isManager ? false : false}
+            disabled={isManagerUser && mode === 'edit'}
           />
         </Grid>
         <Grid item xs={6}>
@@ -1300,7 +1345,7 @@ const AddMachineStepper = ({
             fullWidth
             value={machine.offset_x}
             onChange={handleMachineChange}
-            // disabled={!isManager ? false : false}
+            disabled={isManagerUser && mode === 'edit'}
           />
         </Grid>
         <Grid item xs={6}>
@@ -1310,7 +1355,7 @@ const AddMachineStepper = ({
             fullWidth
             value={machine.offset_y}
             onChange={handleMachineChange}
-            // disabled={!isManager ? false : false}
+            disabled={isManagerUser && mode === 'edit'}
           />
         </Grid>
         <Grid item xs={6}>
@@ -1320,7 +1365,7 @@ const AddMachineStepper = ({
             fullWidth
             value={machine.exposure_time}
             onChange={handleMachineChange}
-            // disabled={!isManager ? false : false}
+            disabled={isManagerUser && mode === 'edit'}
           />
         </Grid>
         <Grid item xs={6}>
@@ -1330,56 +1375,19 @@ const AddMachineStepper = ({
             fullWidth
             value={machine.acquisition_frame_rate}
             onChange={handleMachineChange}
-            // disabled={!isManager ? false : false}
+            disabled={isManagerUser && mode === 'edit'}
           />
         </Grid>
-
-        {/* 🔒 Manager should not edit this */}
-        {!isManagerUser && (
-          <>
-            <Grid item xs={12}>
-              <TextField
-                label="Trigger Mode"
-                name="trigger_mode"
-                fullWidth
-                value={machine.trigger_mode}
-                onChange={handleMachineChange}
-                // disabled={isManager}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Video Folder Path"
-                name="video_folder_path"
-                fullWidth
-                value={machine.video_folder_path}
-                onChange={handleMachineChange}
-                // disabled={isManager}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Watchdog OBS Folder Path"
-                name="watchdog_obs_folder_path"
-                fullWidth
-                value={machine.watchdog_obs_folder_path}
-                onChange={handleMachineChange}
-                // disabled={isManager}
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <TextField
-                label="Watchdog File Expiry Time (in seconds)"
-                name="watchdog_file_expi_time"
-                fullWidth
-                value={machine.watchdog_file_expi_time}
-                onChange={handleMachineChange}
-                // disabled={isManager}
-              />
-            </Grid>
-          </>
-        )}
+        <Grid item xs={12}>
+          <TextField
+            label="Trigger Mode"
+            name="trigger_mode"
+            fullWidth
+            value={machine.trigger_mode}
+            onChange={handleMachineChange}
+            disabled={isManagerUser && mode === 'edit'}
+          />
+        </Grid>
       </Grid>
     </Box>
   );
@@ -1412,6 +1420,7 @@ const AddMachineStepper = ({
             </Typography>
           )}
 
+        <Divider sx={{ mt: 3, mb: 2, width: "100%", height: 1 }} />
         <Box mt={4} display="flex" justifyContent="flex-end" gap={2}>
           {/* Back Button */}
           {activeStep === 1 && (
