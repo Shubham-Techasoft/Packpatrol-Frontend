@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   AppBar,
@@ -30,7 +30,7 @@ function ResponsiveAppBar() {
   const [openLogin, setOpenLogin] = useState(false);
   const [openSignUp, setOpenSignUp] = useState(false);
 
-  const [auth, setAuth] = useState(isAuthenticated());
+  const [auth, setAuth] = useState<boolean | null>(null); 
   const [designation, setDesignation] = useState(
     localStorage.getItem("designation") || ""
   );
@@ -42,34 +42,36 @@ function ResponsiveAppBar() {
   //   window.addEventListener("storage", syncAuth);
   //   return () => window.removeEventListener("storage", syncAuth);
   // }, []);
+  // ✅ Check authentication on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const result = await isAuthenticated();
+      setAuth(result);
+      setDesignation(localStorage.getItem("designation") || "");
+    };
+    checkAuth();
+  }, []);
 
-  React.useEffect(() => {
-    const syncAuth = () => {
-      setAuth(isAuthenticated());
+  // ✅ Sync across tabs
+  useEffect(() => {
+    const syncAuth = async () => {
+      const res = await isAuthenticated();
+      setAuth(res);
       setDesignation(localStorage.getItem("designation") || "");
     };
 
-    syncAuth();
-
-    // Also call immediately after login
     window.addEventListener("storage", syncAuth);
-
-    return () =>
-      window.removeEventListener("storage", syncAuth);
+    return () => window.removeEventListener("storage", syncAuth);
   }, []);
 
-const pages = [
-  { name: "Home", path: "/" },
-  { name: "Dashboard", path: "/dashboard" },
-  ...(auth && isPrivilegedUser()
-    ? [{ name: "Dev Settings", path: "/dev-settings" }]
-    : []),
-  ...(auth && isSuperAdmin()
-    ? [{ name: "Users", path: "/users" }]
-    : []),
-  // 👇 Always keep "About" at the end
-  { name: "About", path: "/about" },
-];
+  // ✅ Dynamic pages based on auth
+  const pages = [
+    { name: "Home", path: "/" },
+    { name: "Dashboard", path: "/dashboard" },
+    ...(auth && isPrivilegedUser() ? [{ name: "Dev Settings", path: "/dev-settings" }] : []),
+    ...(auth && isSuperAdmin() ? [{ name: "Users", path: "/users" }] : []),
+    { name: "About", path: "/about" },
+  ];
 
   const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) =>
     setAnchorElNav(event.currentTarget);
@@ -96,13 +98,14 @@ const pages = [
       >
         <Container maxWidth="xl">
           <Toolbar disableGutters>
-            {/* Logo - Desktop */}
-            <Box
-              component="img"
-              src={logo}
-              alt="Techasoft Pvt Ltd Logo"
-              sx={{ display: { xs: "none", md: "flex" }, height: 40, mr: 2, boxShadow: "0px 0px 15px -2px rgba(255, 255, 255, 0.5)", borderRadius: "50%" }}
-            />
+            {/* Logo - Desktop - Use Box with img component to prevent fallback to Avatar text */}
+            <Box sx={{ display: { xs: "none", md: "flex" }, mr: 2 }}>
+              <img
+                src={logo}
+                alt="Techasoft Pvt Ltd Logo"
+                style={{ height: 40, borderRadius: "50%", boxShadow: "0px 0px 15px -2px rgba(255, 255, 255, 0.5)" }}
+              />
+            </Box>
             <Typography
               variant="h6"
               noWrap
@@ -148,12 +151,13 @@ const pages = [
             </Box>
 
             {/* Logo - Mobile */}
-            <Box
-              component="img"
-              src={logo}
-              alt="Techasoft Pvt Ltd Logo"
-              sx={{ display: { xs: "flex", md: "none" }, height: 40, mr: 1 }}
-            />
+            <Box sx={{ display: { xs: "flex", md: "none" }, mr: 1 }}>
+              <img
+                src={logo}
+                alt="Techasoft Pvt Ltd Logo"
+                style={{ height: 40, borderRadius: "50%" }}
+              />
+            </Box>
             <Typography
               variant="h5"
               noWrap
@@ -202,7 +206,7 @@ const pages = [
             <Box sx={{ display: "flex", alignItems: "center", gap: 2, mr: 2 }}>
               
              {/* login */}
-            {!auth && (
+            { auth == false && (
               <Button
                 variant="outlined"
                 color="inherit"
@@ -224,7 +228,7 @@ const pages = [
               )}
 
               {/* sign up */}
-              {isAuthenticated() && isSuperAdmin() && (
+              {auth && isSuperAdmin() && (
                 <Button
                   variant="contained"
                   sx={{
@@ -243,7 +247,7 @@ const pages = [
             </Box>
 
             {/* User Avatar */}
-            {isAuthenticated() && (
+            {auth && (
               <Box sx={{ flexGrow: 0 }}>
                 <Tooltip title="Open settings">
                   <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>

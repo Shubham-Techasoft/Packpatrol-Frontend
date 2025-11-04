@@ -114,27 +114,12 @@ const MachineGallery = () => {
     //   </Box>
     // </>
     <>
-      <AppBar
-        // position="sticky"
-        sx={{
-          background: "linear-gradient(to right, #4b6cb7, #182848)",
-          boxShadow: theme.shadows[4],
-        //   border: "2px solid red",
-        }}
-      >
-        <Toolbar>
+      <AppBar sx={{ background: "#062249", height:'fit-content', position:'static' }}>
+        <Toolbar sx={{ minHeight: "fit-content !important", padding: "0px 16px"}}>
           <IconButton color="inherit" onClick={() => navigate(-1)}>
-            <ArrowBackIcon />
+            <ArrowBackIcon sx={{fontSize:'smaller'}} />
           </IconButton>
-          <Typography
-            variant="h6"
-            sx={{
-              ml: 2,
-              flex: 1,
-              fontWeight: 600,
-              letterSpacing: "0.5px",
-            }}
-          >
+          <Typography sx={{ ml: 2, flex: 1 }} variant="h8">
             {machineName} Gallery
           </Typography>
         </Toolbar>

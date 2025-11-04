@@ -20,6 +20,7 @@ import {
   DialogContent,
   DialogActions,
   Chip,
+  Avatar,
   Autocomplete,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
@@ -211,36 +212,53 @@ const Profile = () => {
   };
 
   return (
-    <Box sx={{ maxWidth: 900, mx: "auto", mt: 6, px:2, pb:10 }}>
-      <Typography variant="h4" fontWeight={600} gutterBottom>
-        My Profile
-      </Typography>
+    <Box sx={{ px: 4, py: 5, pb: 10, minHeight: '100vh', background: 'linear-gradient(to bottom, #f0f4f8, #e3f2fd)' }}>
+      <Box sx={{ maxWidth: 1100, mx: "auto" }}>
+        <Box sx={{ textAlign: 'center', mb: 4 }}>
+          <Typography variant="h4" fontWeight={700} color="#004d7a" gutterBottom>
+            User Profile & Settings
+          </Typography>
+          <Typography variant="subtitle1" color="text.secondary">
+            Manage your account details and security settings.
+          </Typography>
+        </Box>
 
       {userInfo && (
   <Box
     sx={{
       display: "flex",
       flexDirection: { xs: "column", md: "row" },
-      gap: 4,
-      mt: 2,
+      gap: 3,
     }}
   >
     {/* 👤 Left Section: User Info + Change My Password */}
     <Box flex={1}>
-      <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
-        <Typography variant="h9" gutterBottom>
-          👤 User Info
-        </Typography>
-        <Typography>
-          <strong>Name:</strong> {userInfo.username}
-        </Typography>
-        <Typography>
-          <strong>Email:</strong> {userInfo.email}
-        </Typography>
-        <Typography display="flex" alignItems="center">
-          <strong>Role:</strong>&nbsp;
-          <Chip label={userInfo.designation || "Root_Admin"} size="small" />
-        </Typography>
+          <Paper elevation={3} sx={{ p: 3, borderRadius: 4, height: '100%' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <Avatar sx={{ width: 56, height: 56, mr: 2, bgcolor: 'primary.main' }}>
+                {userInfo.username.charAt(0).toUpperCase()}
+              </Avatar>
+              <Box>
+                <Typography variant="h6" fontWeight={600}>
+                  {userInfo.username}
+                </Typography>
+                <Chip
+                  label={userInfo.designation || "Root Admin"}
+                  size="small"
+                  color={
+                    userInfo.designation === "admin"
+                      ? "warning"
+                      : userInfo.designation === "manager"
+                      ? "info"
+                      : "success"
+                  }
+                  sx={{ textTransform: 'capitalize', fontWeight: 'bold' }}
+                />
+              </Box>
+            </Box>
+            <Typography variant="body2" color="text.secondary">
+              {userInfo.email}
+            </Typography>
 
         <Divider sx={{ my: 2 }} />
 
@@ -304,7 +322,7 @@ const Profile = () => {
               ),
             }}
           />
-          <Button type="submit" variant="contained" fullWidth sx={{ mt: 1 }}>
+          <Button type="submit" variant="contained" fullWidth sx={{ mt: 2, py: 1.2 }}>
             Update Password
           </Button>
         </form>
@@ -314,7 +332,7 @@ const Profile = () => {
     {/* 🔐 Right Section: Reset Any User Password (Only Super Admin) */}
     {isSuperAdmin && (
       <Box flex={1}>
-        <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
+        <Paper elevation={3} sx={{ p: 3, borderRadius: 4, height: '100%' }}>
           <Typography variant="h6" gutterBottom>
             🔐 Reset Password for Any User
           </Typography>
@@ -392,7 +410,7 @@ const Profile = () => {
             <Button
               variant="contained"
               fullWidth
-              sx={{ mt: 2 }}
+              sx={{ mt: 2, py: 1.2 }}
               onClick={() => setConfirmDialog(true)}
             >
               Reset User Password
@@ -403,7 +421,7 @@ const Profile = () => {
     )}
   </Box>
 )}
-
+      </Box>
 
     
       {/* Confirm Modal */}
@@ -438,7 +456,7 @@ const Profile = () => {
           {snack.message}
         </Alert>
       </Snackbar>
-    </Box>
+    </Box>    
   );
 };
 

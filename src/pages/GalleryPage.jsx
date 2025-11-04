@@ -1,32 +1,29 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 import {
   AppBar,
   Toolbar,
   Typography,
   Box,
   Card,
-  CardContent,
   IconButton,
   CardActionArea,
   CircularProgress,
-} from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import {base_URL} from '../utils/api';
+  Chip,
+  Divider,
+  Grid,
+} from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import MemoryIcon from '@mui/icons-material/Memory';
+import CategoryIcon from '@mui/icons-material/Category';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { base_URL } from '../utils/api';
 
 const GalleryPage = () => {
   const navigate = useNavigate();
   const [machines, setMachines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [animate, setAnimate] = useState(false);
-
-  const gradients = [
-    "linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%)",
-    "linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%)",
-    "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
-    "linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%)",
-  ];
 
   useEffect(() => {
     setAnimate(true);
@@ -37,6 +34,7 @@ const GalleryPage = () => {
     try {
       const res = await axios.get(`${base_URL}/api/machines/`);
       setMachines(res.data);
+      console.log("Fetched machines:", res.data);
     } catch (err) {
       console.error("Failed to fetch machines", err);
     } finally {
@@ -46,13 +44,13 @@ const GalleryPage = () => {
 
   return (
     <>
-      <AppBar sx={{ background: "linear-gradient(to right, #4b6cb7, #182848)", height:'fit-content' }} position="static">
-        <Toolbar sx={{ minHeight: "fit-content !important", padding: "4px 16px" }}>
+      <AppBar sx={{ background: "#062249", height:'fit-content', position:'static' }}>
+        <Toolbar sx={{ minHeight: "fit-content !important", padding: "0px 16px"}}>
           <IconButton color="inherit" onClick={() => navigate(-1)}>
-            <ArrowBackIcon />
+            <ArrowBackIcon sx={{fontSize:'smaller'}} />
           </IconButton>
-          <Typography sx={{ ml: 2, flex: 1 }} variant="h6">
-            BACK
+          <Typography sx={{ ml: 2, flex: 1 }} variant="h8">
+            Machine Gallery
           </Typography>
         </Toolbar>
       </AppBar>
@@ -60,122 +58,107 @@ const GalleryPage = () => {
       <Box
         sx={{
           background: "#f5f7fa",
-          minHeight: "100vh",
+          minHeight: 'calc(100vh - 56px)',
           pt: 2,
           px: 4,
-          opacity: animate ? 1 : 0,
-          transform: animate ? "translateY(0px)" : "translateY(20px)",
-          transition: "all 0.8s ease-in-out",
+          opacity: animate ? 1 : 0, // Fade in
+          transform: animate ? 'translateY(0px)' : 'translateY(20px)', // Slide up
+          transition: 'all 0.8s ease-in-out',
         }}
       >
         <Box
           sx={{
-            mb: 6,
+            mb: 4,
             p: 3,
-            background: "rgba(255, 255, 255, 0.75)",
-            borderRadius: 4,
-            textAlign: "center",
+            background: "white",
+            borderRadius: '16px',
+            textAlign: 'center',
             boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
           }}
         >
-          <Typography variant="h4" fontWeight="bold" color="primary">
-            Choose Your Smart Machine
+          <Typography variant="h4" fontWeight="700" color="primary.dark">
+            Select a Machine to View Details
           </Typography>
-          <Typography variant="body1" sx={{ mt: 1 }}>
-            Select a machine below to view its capabilities and customize your experience.
+          <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
+            Click on a machine card to view its details and available variants.
           </Typography>
         </Box>
 
         {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
             <CircularProgress />
           </Box>
         ) : (
-          <Box
+          <Grid
+            container
+            spacing={4}
             sx={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-              gap: 4,
-              justifyContent: "center",
+              justifyContent: 'flex-start',
             }}
           >
-            {machines.map((machine, idx) => (
-              <Card
-                key={machine.id}
-                sx={{
-                  position: "relative",
-                  height: 300,
-                  borderRadius: 4,
-                  background: gradients[idx % gradients.length],
-                  color: "#fff",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
-                  overflow: "hidden",
-                  transition: "transform 0.3s ease, box-shadow 0.3s ease",
-                  "&:hover": {
-                    transform: "translateY(-8px)",
-                    boxShadow: "0 12px 30px rgba(0,0,0,0.2)",
-                  },
-                }}
-              >
-                <CardActionArea
-                  onClick={() => navigate(`/machine/${machine.id}`)}
+            {machines.map((machine) => (
+              <Grid item xs={12} sm={6} md={3.5} key={machine.id}>
+                <Card
                   sx={{
-                    height: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    textAlign: "center",
-                    flexDirection: "column",
-                    px: 2,
-                    py: 3,
-                    position: "relative",
+                    borderRadius: 4,
+                    boxShadow: 3,
+                    transition: 'all 0.3s ease',
+                    '&:hover': { transform: 'translateY(-5px)', boxShadow: 8 },
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
                   }}
                 >
-                  <CardContent>
-                    <Typography variant="h5" fontWeight="bold">
-                      {machine.name}
-                    </Typography>
-                  </CardContent>
-
-                  {/* Bottom reveal strip */}
-                  <Box
-                    className="glass-reveal"
-                    sx={{
-                      position: "absolute",
-                      bottom: 0,
-                      left: 0,
-                      width: "100%",
-                      height: 40,
-                      background: "rgba(255,255,255,0.4)",
-                      color: "#000",
-                      textAlign: "center",
-                      fontWeight: "bold",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backdropFilter: "blur(10px)",
-                      borderTopLeftRadius: 12,
-                      borderTopRightRadius: 12,
-                      zIndex: 5,
-                      transition: "height 0.4s ease",
-                      overflow: "hidden",
-                    }}
+                  <CardActionArea
+                    onClick={() => navigate(`/machine/${machine.id}`)}
+                    sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}
                   >
-                    Click to View Details
-                  </Box>
-
-                  {/* Hover expansion logic */}
-                  <style>
-                    {`
-                      .MuiCard-root:hover .glass-reveal {
-                        height: 200px;
-                      }
-                    `}
-                  </style>
-                </CardActionArea>
-              </Card>
+                    <Box
+                      sx={{
+                        p: 2.5,
+                        width: '100%',
+                        background: 'linear-gradient(135deg, #e3f2fd, #bbdefb)',
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <MemoryIcon color="primary" sx={{ fontSize: 40 }} />
+                          <Typography variant="h6" fontWeight="600" color="text.primary">
+                            {machine.name}
+                          </Typography>
+                        </Box>
+                        <Chip
+                          label={machine.is_operational ? 'Operational' : 'Offline'}
+                          color={machine.is_operational ? 'success' : 'default'}
+                          size="small"
+                          sx={{ fontWeight: 'bold' }}
+                        />
+                      </Box>
+                    </Box>
+                    <Box sx={{ p: 2.5, width: '100%', flexGrow: 1 }}>
+                      <Divider sx={{ mb: 2 }} />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', mb: 1 }}>
+                        <CategoryIcon fontSize="small" />
+                        <Typography variant="body2">
+                          <span style={{ fontWeight: 'bold' }}>{machine.variants_count || 0}</span> Variants
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+                        <Typography variant="body2">
+                          Active Variant: <span style={{ fontWeight: 'bold', color: 'text.primary' }}>{machine.active_variant_name || 'N/A'}</span>
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+                        <Typography variant="body2">
+                          Biscuit Type: <span style={{ fontWeight: 'bold', color: 'text.primary' }}>{machine.active_variant_biscuit_type || 'N/A'}</span>
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </CardActionArea>
+                </Card>
+              </Grid>
             ))}
-          </Box>
+          </Grid>
         )}
       </Box>
     </>

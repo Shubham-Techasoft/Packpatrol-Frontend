@@ -1044,7 +1044,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
         // height: "80vh",
         padding: 2,
         bgcolor: "#f0f0f9",
-        height: {md: "85vh", xs: "100%"},
+        height: {md: "88vh", xs: "100%"},
       }}
     >
       <Grid container spacing={1.5} sx={{ height: "100%"}}>
@@ -1222,7 +1222,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           item
           xs={12}
           md={4}
-          sx={{ height: "80.5vh", display: "flex", flexDirection: "column",}}
+          sx={{ height: "100%", display: "flex", flexDirection: "column",}}
         >
           {/* Live Updates */}
           <StyledPaper sx={{ flex: 7, overflowY: "auto", bgcolor: "#ffffff", boxShadow: "0 0 20px -5px rgba(106, 107, 107, 1)", borderRadius: 2}}>

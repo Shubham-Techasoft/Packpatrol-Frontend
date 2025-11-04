@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   AppBar,
   Toolbar,
@@ -17,8 +17,14 @@ import {
   Alert,
   Snackbar,
   Pagination,
+  Chip,
+  DialogTitle,
+  DialogActions,
+  Button,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import { useNavigate, useParams } from "react-router-dom";
 import {base_URL} from '../utils/api';
 
@@ -34,7 +40,7 @@ const VariantGallaryView = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [open, setOpen] = useState(false);
-  const [currentImage, setCurrentImage] = useState(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(null);
   const [total_images, setTotalImages] = useState(0);
   const [page, setPage] = useState(1);
   const [pageCount, setPageCount] = useState(0);
@@ -52,18 +58,34 @@ const VariantGallaryView = () => {
     setSnackbar((prev) => ({ ...prev, open: false }));
   };
 
-  const handleOpen = (img) => {
-    setCurrentImage(img);
+  const handleOpen = (index) => {
+    setCurrentImageIndex(index);
     setOpen(true);
   };
 
   const handleClose = () => {
     setOpen(false);
-    setCurrentImage(null);
+    setCurrentImageIndex(null);
   };
 
+  const handleNextImage = useCallback(() => {
+    if (currentImageIndex === null) return;
+    setCurrentImageIndex((prevIndex) =>
+      prevIndex === imagesList.length - 1 ? 0 : prevIndex + 1
+    );
+  }, [currentImageIndex, imagesList.length]);
+
+  const handlePrevImage = useCallback(() => {
+    if (currentImageIndex === null) return;
+    setCurrentImageIndex((prevIndex) =>
+      prevIndex === 0 ? imagesList.length - 1 : prevIndex - 1
+    );
+  }, [currentImageIndex, imagesList.length]);
+
+  const currentImage = currentImageIndex !== null ? imagesList[currentImageIndex] : null;
+
   // Fetch images from the new paginated API
-  const fetchImages = async (currentPage) => {
+  const fetchImages = useCallback(async (currentPage) => {
     try {
       setLoading(true);
       setError(null);
@@ -78,21 +100,18 @@ const VariantGallaryView = () => {
         throw new Error("Failed to fetch images from database");
       }
 
-      const data = await response.json(); // Expects { page, page_size, total_pages, total_images, results }
+      const data = await response.json();
       console.log("Gallery API response status:", data);
 
-      // Convert to image objects with enhanced metadata
-      const imageObjects = data.results.map((img) => {
-        return {
-          id: img.id,
-          url: img.image_url,
-          label: img.image_url.split("/").pop() || "Image",
-          timestamp: img.timestamp,
-          is_rejected: img.is_rejected,
-          stack_length: img.stack_length,
-          stack_count: img.stack_count,
-        };
-      });
+      const imageObjects = data.results.map((img) => ({
+        id: img.id,
+        url: img.image_url,
+        label: img.image_url.split("/").pop() || "Image",
+        timestamp: img.timestamp,
+        is_rejected: img.is_rejected,
+        stack_length: img.stack_length,
+        stack_count: img.stack_count,
+      }));
 
       setImagesList(imageObjects);
       setPage(data.page || 1);
@@ -110,12 +129,29 @@ const VariantGallaryView = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [machineId, variantId]);
 
   // Fetch images when component mounts or page changes
   useEffect(() => {
     fetchImages(page);
-  }, [page, machineName, variantName]);
+  }, [page, fetchImages]);
+
+  // Add keyboard navigation for the dialog
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (!open) return;
+      if (event.key === 'ArrowRight') {
+        handleNextImage();
+      } else if (event.key === 'ArrowLeft') {
+        handlePrevImage();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  });
 
   const handlePageChange = (event, value) => {
     setPage(value);
@@ -123,26 +159,12 @@ const VariantGallaryView = () => {
 
   return (
     <>
-      <AppBar
-        sx={{
-          background: "linear-gradient(to right, #4b6cb7, #182848)",
-          height: "fit-content",
-        }}
-        position="static"
-      >
-        <Toolbar sx={{ minHeight: "fit-content !important", padding: "4px 16px" }}>
+      <AppBar sx={{ background: "#062249", height:'fit-content', position:'static' }}>
+        <Toolbar sx={{ minHeight: "fit-content !important", padding: "0px 16px"}}>
           <IconButton color="inherit" onClick={() => navigate(-1)}>
-            <ArrowBackIcon />
+            <ArrowBackIcon sx={{fontSize:'smaller'}} />
           </IconButton>
-          <Typography
-            variant="h6"
-            sx={{
-              ml: 2,
-              flex: 1,
-              fontWeight: 600,
-              letterSpacing: "0.5px",
-            }}
-          >
+          <Typography sx={{ ml: 2, flex: 1 }} variant="h8">
             {variantName}'s Image Gallery
           </Typography>
           {!loading && (
@@ -185,11 +207,11 @@ const VariantGallaryView = () => {
           container
           spacing={4}
           maxWidth="xl"
-          sx={{ width: "100%", justifyContent: "start" }}
+          sx={{ width: "100%", justifyContent: "flex-start" }}
         >
           {!loading &&
             !error &&
-            imagesList.map((img) => (
+            imagesList.map((img, index) => (
               <Grid item xs={12} sm={6} md={4} lg={3} key={img.id}>
                 <Card
                   sx={{
@@ -201,10 +223,10 @@ const VariantGallaryView = () => {
                       transform: "scale(1.05)",
                       boxShadow: theme.shadows[8],
                     },
-                    border: img.is_rejected ? '2px solid #ff4444' : 'none',
-                    opacity: img.is_rejected ? 0.7 : 1,
+                    border: img.is_rejected ? '2px solid #d32f2f' : 'none',
+                    bgcolor: img.is_rejected ? '#ffdfe4ff' : 'background.paper',
                   }}
-                  onClick={() => handleOpen(img)}
+                  onClick={() => handleOpen(index)}
                 >
                   <CardMedia
                     component="img"
@@ -214,31 +236,36 @@ const VariantGallaryView = () => {
                     sx={{ borderTopLeftRadius: 4, borderTopRightRadius: 4 }}
                   />
                   <CardContent
-                    sx={{ padding: theme.spacing(2), textAlign: "center" }}
+                    sx={{ p: 2, textAlign: 'left' }}
                   >
-                    <Typography
-                      variant="subtitle1"
-                      fontWeight="bold"
-                      color="textSecondary"
-                      gutterBottom
-                    >
-                      {img.label}
-                    </Typography>
+                    {img.is_rejected ? (
+                      <Chip label="Rejected" color="error" size="small" sx={{ mb: 1, fontWeight: 'bold' }} />
+                    ): (
+                      <Chip label="Accepted" color="success" size="small" sx={{ mb: 1, fontWeight: 'bold' }} />
+                    )}
                     {img.timestamp && (
                         <Typography variant="caption" color="textSecondary" display="block">
-                          {new Date(img.timestamp).toUTCString()}
+                          {new Date(img.timestamp).toLocaleString()}
                         </Typography>
                     )}
-                    {img.stack_count > 1 && (
-                      <Typography variant="caption" color="primary" display="block">
-                        Stack: {img.stack_count}
-                      </Typography>
-                    )}
-                    {img.is_rejected && (
-                      <Typography variant="caption" color="error" display="block">
-                        Rejected
-                      </Typography>
-                    )}
+                    <Box sx={{ mt: 1, display: 'flex', justifyContent: 'space-between' }}>
+                      <Box>
+                        <Typography variant="body2" fontWeight="500">
+                          Stack Count
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {img.stack_count}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="body2" fontWeight="500">
+                          Stack Length
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {img.stack_length?.toFixed(2)} mm
+                        </Typography>
+                      </Box>
+                    </Box>
                   </CardContent>
                 </Card>
               </Grid>
@@ -264,29 +291,50 @@ const VariantGallaryView = () => {
         )}
       </Box>
 
-      <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
-        <DialogContent
-          sx={{
-            p: 0,
-            backgroundColor: "rgba(0,0,0,0.9)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            minHeight: "80vh"
-          }}
-        >
-          {currentImage && (
+      <Dialog open={open} onClose={handleClose} maxWidth="xl" fullWidth PaperProps={{ sx: { bgcolor: 'transparent', boxShadow: 'none' } }}>
+        {currentImage && (
+          <Box sx={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100vh' }}>
+            <DialogTitle sx={{ color: 'white', bgcolor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography>{currentImage.label}</Typography>
+              <IconButton onClick={handleClose} sx={{ color: 'white' }}>
+                <ArrowBackIcon />
+              </IconButton>
+            </DialogTitle>
+            <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+              <IconButton onClick={handlePrevImage} sx={{ position: 'absolute', left: 16, color: 'white', bgcolor: 'rgba(0,0,0,0.5)', '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' } }}>
+                <ArrowBackIosIcon />
+              </IconButton>
             <img
               src={currentImage.url}
               alt={currentImage.label}
               style={{
                 maxWidth: "100%",
-                maxHeight: "80vh",
+                maxHeight: "calc(100vh - 128px)", // Adjust for title and actions height
                 objectFit: "contain",
               }}
             />
-          )}
-        </DialogContent>
+              <IconButton onClick={handleNextImage} sx={{ position: 'absolute', right: 16, color: 'white', bgcolor: 'rgba(0,0,0,0.5)', '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' } }}>
+                <ArrowForwardIosIcon />
+              </IconButton>
+            </Box>
+            <DialogActions sx={{ color: 'white', bgcolor: 'rgba(0,0,0,0.5)', justifyContent: 'center' }}>
+              <Grid container spacing={2} sx={{ textAlign: 'center', color: 'white' }}>
+                <Grid item xs={4}>
+                  <Typography variant="caption">Timestamp</Typography>
+                  <Typography>{new Date(currentImage.timestamp).toLocaleString()}</Typography>
+                </Grid>
+                <Grid item xs={4}>
+                  <Typography variant="caption">Stack Count</Typography>
+                  <Typography>{currentImage.stack_count}</Typography>
+                </Grid>
+                <Grid item xs={4}>
+                  <Typography variant="caption">Stack Length</Typography>
+                  <Typography>{currentImage.stack_length?.toFixed(2)} mm</Typography>
+                </Grid>
+              </Grid>
+            </DialogActions>
+          </Box>
+        )}
       </Dialog>
 
       <Snackbar

@@ -72,7 +72,7 @@ export default function LiveImageFeed({ status, imagePath, connectionStatus, sta
     <Box
       sx={{
         width: "100%",
-        // margin: "auto",
+        margin: "auto",
         borderRadius: 2,
         overflow: "hidden",
         display: "flex",

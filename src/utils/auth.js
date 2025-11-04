@@ -1,7 +1,7 @@
 import { jwtDecode } from "jwt-decode";
 
 // Check if user is authenticated based on token presence
-export const isAuthenticated = () => {
+export const isAuthenticated = async () => {
   const token = localStorage.getItem("access_token");
   return !!token && !isTokenExpired(token);
 };
