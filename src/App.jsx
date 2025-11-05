@@ -197,6 +197,7 @@ async function attemptRefresh(navigate) {
     alert("Session expired. Please log in again.");
     localStorage.clear();
     navigate("/");
+    window.location.reload();
     return false;
   }
 }

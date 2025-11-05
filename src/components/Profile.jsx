@@ -332,7 +332,7 @@ const Profile = () => {
     {/* 🔐 Right Section: Reset Any User Password (Only Super Admin) */}
     {isSuperAdmin && (
       <Box flex={1}>
-        <Paper elevation={3} sx={{ p: 3, borderRadius: 4, height: '100%' }}>
+        <Paper elevation={3} sx={{ p: 3, borderRadius: 4, height: 'fit-content' }}>
           <Typography variant="h6" gutterBottom>
             🔐 Reset Password for Any User
           </Typography>

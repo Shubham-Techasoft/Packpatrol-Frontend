@@ -349,64 +349,71 @@ export default function Dashboard() {
 
   // production-time graph
   React.useEffect(() => {
-    const auth = isAuthenticated();
-    setRestricted(!auth);
-    setLoading(true);
+    const fetchData = async () => {
+      const auth = await isAuthenticated();
+      if (!auth) {
+        setRestricted(true);
+        setLoading(false);
+        return;
+      }
+      setRestricted(false);
+      setLoading(true);
 
-    // Format date params consistently
-    const formatDateParam = (date) => {
-      const utcOffsetDate = dayjs(date).format('YYYY-MM-DDTHH:mm:ss[Z]');
-      console.log('UTC Offset:', utcOffsetDate);
-      return utcOffsetDate;
-    };
+      // Format date params consistently
+      const formatDateParam = (date) => {
+        const utcOffsetDate = dayjs(date).format('YYYY-MM-DDTHH:mm:ss[Z]');
+        console.log('UTC Offset:', utcOffsetDate);
+        return utcOffsetDate;
+      };
 
-    // Build API parameters
-    const params = new URLSearchParams();
-    
-    // Add machine filter if specific machine selected
-    if (selectedMachineId && selectedMachineId !== "all") {
-      params.append('machine_id', selectedMachineId);
-    }
+      // Build API parameters
+      const params = new URLSearchParams();
+      
+      // Add machine filter if specific machine selected
+      if (selectedMachineId && selectedMachineId !== "all") {
+        params.append('machine_id', selectedMachineId);
+      }
 
-    // Add date range based on timeFilter
-    if (timeFilter === "Custom" && dateRange[0] && dateRange[1]) {
-      params.append('start_time', formatDateParam(dayjs(dateRange[0]).startOf('day')));
-      params.append('end_time', formatDateParam(dayjs(dateRange[1]).add(1, 'day').startOf('day')));
-    } else if (timeFilter === "7d") {
-      params.append('start_time', formatDateParam(dayjs().subtract(7, 'day')));
-      params.append('end_time', formatDateParam(dayjs().add(1, 'day').startOf('day')));
-    } else if (timeFilter === "30d") {
-      params.append('start_time', formatDateParam(dayjs().subtract(30, 'day')));
-      params.append('end_time', formatDateParam(dayjs().add(1, 'day').startOf('day')));
-    } else if (timeFilter === "24h") {
-      params.append('start_time', formatDateParam(dayjs().subtract(1, 'day')));
-      params.append('end_time', formatDateParam(dayjs().add(1, 'day').startOf('day')));
-    } else if (timeFilter === "all") {
-      params.append('start_time', formatDateParam(dayjs().subtract(100, 'year')));
-      params.append('end_time', formatDateParam(dayjs().add(1, 'day').startOf('day')));
-    }
+      // Add date range based on timeFilter
+      if (timeFilter === "Custom" && dateRange[0] && dateRange[1]) {
+        params.append('start_time', formatDateParam(dayjs(dateRange[0]).startOf('day')));
+        params.append('end_time', formatDateParam(dayjs(dateRange[1]).add(1, 'day').startOf('day')));
+      } else if (timeFilter === "7d") {
+        params.append('start_time', formatDateParam(dayjs().subtract(7, 'day')));
+        params.append('end_time', formatDateParam(dayjs().add(1, 'day').startOf('day')));
+      } else if (timeFilter === "30d") {
+        params.append('start_time', formatDateParam(dayjs().subtract(30, 'day')));
+        params.append('end_time', formatDateParam(dayjs().add(1, 'day').startOf('day')));
+      } else if (timeFilter === "24h") {
+        params.append('start_time', formatDateParam(dayjs().subtract(1, 'day')));
+        params.append('end_time', formatDateParam(dayjs().add(1, 'day').startOf('day')));
+      } else if (timeFilter === "all") {
+        params.append('start_time', formatDateParam(dayjs().subtract(100, 'year')));
+        params.append('end_time', formatDateParam(dayjs().add(1, 'day').startOf('day')));
+      }
 
-    // Ensure date params exist (fallback to 24h)
-    if (!params.get('start_time') || !params.get('end_time')) {
-      params.append('start_time', formatDateParam(dayjs().startOf('day')));
-      params.append('end_time', formatDateParam(dayjs().add(1, 'day').startOf('day')));
-    }
+      // Ensure date params exist (fallback to 24h)
+      if (!params.get('start_time') || !params.get('end_time')) {
+        params.append('start_time', formatDateParam(dayjs().startOf('day')));
+        params.append('end_time', formatDateParam(dayjs().add(1, 'day').startOf('day')));
+      }
 
-    const summaryUrl = `${base_URL}/api/machinerunlogs/dashboard_summary/?${params.toString()}`;
-    console.log('Fetching dashboard data:', summaryUrl);
+      const summaryUrl = `${base_URL}/api/machinerunlogs/dashboard_summary/?${params.toString()}`;
+      console.log('Fetching dashboard data:', summaryUrl);
 
-    Promise.all([
-      fetch(summaryUrl).then(res => res.json()),
-      fetch(`${base_URL}/api/machines/`).then(res => res.json())
-    ])
-      .then(([summary, machines]) => {
-        // Set performance stats from summary
-        const stats = summary.frame_statistics || {};
-        setPerformanceStats({
-          total_frames: stats.total_frames_processed || 0,
-          rejected_frames: stats.total_frames_rejected || 0,
-          rejection_rate_percent: stats.overall_rejection_rate || 0,
-        });
+      try {
+        const [summary, machines] = await Promise.all([
+          fetch(summaryUrl).then(res => res.json()),
+          fetch(`${base_URL}/api/machines/`).then(res => res.json())
+        ]);
+
+          // Set performance stats from summary
+          const stats = summary.frame_statistics || {};
+          setPerformanceStats({
+            total_frames: stats.total_frames_processed || 0,
+            rejected_frames: stats.total_frames_rejected || 0,
+            rejection_rate_percent: stats.overall_rejection_rate || 0,
+          });
 
         // Set logs from summary
         setLogs(summary.recent_runs || []);
@@ -473,15 +480,17 @@ export default function Dashboard() {
           liveFeed: activeCount > 0 ? "Running" : "Stopped"
         });
 
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Failed to load dashboard data:", err);
-        setPerformanceStats(null);
-        setChartData([]);
-        setLogs([]);
-        setLoading(false);
-      });
+      } catch (err) {
+          console.error("Failed to load dashboard data:", err);
+          setPerformanceStats(null);
+          setChartData([]);
+          setLogs([]);
+      } finally {
+          setLoading(false);
+      }
+    };
+
+    fetchData();
   }, [timeFilter, restricted, selectedMachineId, dateRange, selectedMachine]);
 
   // fetch variants when machine changes
