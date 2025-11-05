@@ -21,10 +21,16 @@ import {
   DialogTitle,
   DialogActions,
   Button,
+  TextField,
+  InputAdornment,
+  MenuItem,
+  Select,
+  FormControl,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
+import SearchIcon from '@mui/icons-material/Search';
 import { useNavigate, useParams } from "react-router-dom";
 import {base_URL} from '../utils/api';
 
@@ -44,6 +50,9 @@ const VariantGallaryView = () => {
   const [total_images, setTotalImages] = useState(0);
   const [page, setPage] = useState(1);
   const [pageCount, setPageCount] = useState(0);
+  const [goToPage, setGoToPage] = useState("");
+  const [showGoToPage, setShowGoToPage] = useState(false);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -85,7 +94,7 @@ const VariantGallaryView = () => {
   const currentImage = currentImageIndex !== null ? imagesList[currentImageIndex] : null;
 
   // Fetch images from the new paginated API
-  const fetchImages = useCallback(async (currentPage) => {
+  const fetchImages = useCallback(async (currentPage, pageSize = itemsPerPage) => {
     try {
       setLoading(true);
       setError(null);
@@ -93,7 +102,7 @@ const VariantGallaryView = () => {
       showSnackbar("Loading images from database...", "info");
       
       const response = await fetch(
-        `${base_URL}/api/gallery/${machineId}/${variantId}?page=${currentPage}`
+        `${base_URL}/api/gallery/${machineId}/${variantId}?page=${currentPage}&page_size=${pageSize}`
       );
 
       if (!response.ok) {
@@ -129,12 +138,12 @@ const VariantGallaryView = () => {
     } finally {
       setLoading(false);
     }
-  }, [machineId, variantId]);
+  }, [machineId, variantId, itemsPerPage]);
 
   // Fetch images when component mounts or page changes
   useEffect(() => {
-    fetchImages(page);
-  }, [page, fetchImages]);
+    fetchImages(page, itemsPerPage);
+  }, [page, itemsPerPage, fetchImages]);
 
   // Add keyboard navigation for the dialog
   useEffect(() => {
@@ -155,6 +164,30 @@ const VariantGallaryView = () => {
 
   const handlePageChange = (event, value) => {
     setPage(value);
+    setGoToPage("");
+  };
+
+  const handleGoToPage = () => {
+    const pageNum = parseInt(goToPage);
+    if (pageNum >= 1 && pageNum <= pageCount) {
+      setPage(pageNum);
+      setGoToPage("");
+      setShowGoToPage(false);
+    } else {
+      showSnackbar(`Please enter a page number between 1 and ${pageCount}`, "error");
+    }
+  };
+
+  const handleGoToPageKeyPress = (event) => {
+    if (event.key === 'Enter') {
+      handleGoToPage();
+    }
+  };
+
+  const handleItemsPerPageChange = (event) => {
+    const newItemsPerPage = event.target.value;
+    setItemsPerPage(newItemsPerPage);
+    setPage(1); // Reset to first page when changing items per page
   };
 
   return (
@@ -186,6 +219,105 @@ const VariantGallaryView = () => {
           paddingBottom: "10vh",
         }}
       >
+        {/* Pagination Controls Header */}
+        {!loading && !error && pageCount > 1 && (
+          <Box sx={{ 
+            width: "100%", 
+            maxWidth: "xl", 
+            mb: 3, 
+            display: "flex", 
+            flexDirection: isSmallScreen ? "column" : "row",
+            justifyContent: "space-between", 
+            alignItems: isSmallScreen ? "stretch" : "center",
+            gap: 2,
+            p: 2,
+            bgcolor: "white",
+            borderRadius: 2,
+            boxShadow: 1
+          }}>
+            {/* Left side - Items per page selector */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Typography variant="body2" color="textSecondary">
+                Show:
+              </Typography>
+              <FormControl size="small" sx={{ minWidth: 80 }}>
+                <Select
+                  value={itemsPerPage}
+                  onChange={handleItemsPerPageChange}
+                  displayEmpty
+                >
+                  <MenuItem value={10}>10</MenuItem>
+                  <MenuItem value={20}>20</MenuItem>
+                  <MenuItem value={50}>50</MenuItem>
+                  <MenuItem value={100}>100</MenuItem>
+                </Select>
+              </FormControl>
+              <Typography variant="body2" color="textSecondary">
+                per page
+              </Typography>
+            </Box>
+
+            {/* Center - Page info and Go to page */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Typography variant="body2" color="textSecondary">
+                Page {page} of {pageCount} • {total_images} total images
+              </Typography>
+              
+              {showGoToPage ? (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <TextField
+                    size="small"
+                    value={goToPage}
+                    onChange={(e) => setGoToPage(e.target.value.replace(/[^0-9]/g, ''))}
+                    onKeyPress={handleGoToPageKeyPress}
+                    placeholder={`1-${pageCount}`}
+                    sx={{ width: 80 }}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton 
+                            size="small" 
+                            onClick={handleGoToPage}
+                            disabled={!goToPage}
+                          >
+                            <SearchIcon />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  <Button 
+                    size="small" 
+                    onClick={() => setShowGoToPage(false)}
+                  >
+                    Cancel
+                  </Button>
+                </Box>
+              ) : (
+                <Button 
+                  size="small" 
+                  variant="outlined" 
+                  onClick={() => setShowGoToPage(true)}
+                >
+                  Go to Page
+                </Button>
+              )}
+            </Box>
+
+            {/* Right side - Main pagination */}
+            <Pagination
+              count={pageCount}
+              page={page}
+              onChange={handlePageChange}
+              color="primary"
+              shape="rounded"
+              showFirstButton
+              showLastButton
+              size={isSmallScreen ? "small" : "medium"}
+            />
+          </Box>
+        )}
+
         {loading && <CircularProgress sx={{ mt: 5 }} />}
         {error && (
           <Alert severity="error" sx={{ mt: 5, maxWidth: 500 }}>
@@ -272,20 +404,16 @@ const VariantGallaryView = () => {
             ))}
         </Grid>
 
-        {/* Pagination controls */}
-        {!loading && !error && pageCount > 1 && (
+        {/* Bottom Pagination for mobile */}
+        {!loading && !error && pageCount > 1 && isSmallScreen && (
           <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-            <Typography variant="body2" color="textSecondary">
-              Page {page} of {pageCount}
-            </Typography>
             <Pagination
               count={pageCount}
               page={page}
               onChange={handlePageChange}
               color="primary"
               shape="rounded"
-              showFirstButton
-              showLastButton
+              size="small"
             />
           </Box>
         )}
