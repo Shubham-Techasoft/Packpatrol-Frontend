@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import logo from "../assets/logo-1.png";
+import userAvatar from "../assets/avatar-3.png";
 import CombinedSignInPage from "./LoginDailog";
 import CombinedSignUpPage from "./SignupDailog";
 import { isAuthenticated, logout, isSuperAdmin } from "../utils/auth";
@@ -265,7 +266,7 @@ function ResponsiveAppBar() {
                       }}
                       anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
                     >
-                      <Avatar alt="User Avatar" src="src/assets/avatar-3.png" sx={{filter: "grayscale(1) invert(1) brightness(2)", scale: "1.2",}}/>
+                      <Avatar alt="User Avatar" src={userAvatar} sx={{filter: "grayscale(1) invert(1) brightness(2)", scale: "1.2",}}/>
                     </Badge>
                   </IconButton>
                 </Tooltip>
