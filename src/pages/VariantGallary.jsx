@@ -43,14 +43,14 @@ const formatTimestamp = (isoString) => {
 
   try {
     const date = new Date(isoString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const year = date.getFullYear();
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const year = date.getUTCFullYear();
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const month = monthNames[date.getMonth()];
+    const month = monthNames[date.getUTCMonth()];
 
-    const hours = date.getHours();
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
+    const hours = date.getUTCHours();
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(date.getUTCSeconds()).padStart(2, '0');
     const ampm = hours >= 12 ? 'PM' : 'AM';
     const formattedHour = hours % 12 || 12;
 
