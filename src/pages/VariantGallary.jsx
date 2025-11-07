@@ -36,6 +36,30 @@ import {base_URL} from '../utils/api';
 
 const IMAGES_PER_PAGE = 20;
 
+const formatTimestamp = (isoString) => {
+  if (!isoString) {
+    return "N/A";
+  }
+
+  try {
+    const date = new Date(isoString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const month = monthNames[date.getMonth()];
+
+    const hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const formattedHour = hours % 12 || 12; // Convert 0 to 12 for 12 AM
+
+    return `Date: ${day}-${month}-${year} Time: ${formattedHour}:${minutes}:${seconds} ${ampm}`;
+  } catch (e) {
+    return isoString; // Fallback to original string if parsing fails
+  }
+};
+
 const VariantGallaryView = () => {
   const navigate = useNavigate();
   const theme = useTheme();
@@ -370,14 +394,14 @@ const VariantGallaryView = () => {
                   <CardContent
                     sx={{ p: 2, textAlign: 'left' }}
                   >
-                    {img.is_rejected ? (
+                    {img.is_rejected ? ( // This line is for context, no change here
                       <Chip label="Rejected" color="error" size="small" sx={{ mb: 1, fontWeight: 'bold' }} />
-                    ): (
+                    ) : (
                       <Chip label="Accepted" color="success" size="small" sx={{ mb: 1, fontWeight: 'bold' }} />
                     )}
                     {img.timestamp && (
                         <Typography variant="caption" color="textSecondary" display="block">
-                          {new Date(img.timestamp)} IST
+                          {formatTimestamp(img.timestamp)}
                         </Typography>
                     )}
                     <Box sx={{ mt: 1, display: 'flex', justifyContent: 'space-between' }}>
@@ -449,7 +473,7 @@ const VariantGallaryView = () => {
               <Grid container spacing={2} sx={{ textAlign: 'center', color: 'white' }}>
                 <Grid item xs={4}>
                   <Typography variant="caption">Timestamp</Typography>
-                  <Typography>{new Date(currentImage.timestamp).toLocaleString()}</Typography>
+                  <Typography>{formatTimestamp(currentImage.timestamp)}</Typography>
                 </Grid>
                 <Grid item xs={4}>
                   <Typography variant="caption">Stack Count</Typography>
