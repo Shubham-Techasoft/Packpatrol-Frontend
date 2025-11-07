@@ -1114,7 +1114,7 @@ const AddMachineStepper = ({
       {!useExistingVariant && !isManagerUser && (
         <>
           <Typography variant="h6" gutterBottom sx={{ color:"#007a91ff", fontWeight:"bold", mb: 1 }}>
-            Create New Variant
+            {mode=== "edit" ? "Edit Variant" :"Create New Variant"}
           </Typography>
           <Grid container spacing={2} sx={{ mb: 4 }}>
             <Grid item xs={4}>
