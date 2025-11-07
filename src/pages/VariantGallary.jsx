@@ -271,7 +271,7 @@ const VariantGallaryView = () => {
                     onChange={(e) => setGoToPage(e.target.value.replace(/[^0-9]/g, ''))}
                     onKeyPress={handleGoToPageKeyPress}
                     placeholder={`1-${pageCount}`}
-                    sx={{ width: 80 }}
+                    sx={{ width: 'fit-content' }}
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">

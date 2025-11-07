@@ -161,6 +161,7 @@ const AddMachineStepper = ({
           },
         });
         const data = await res.json();
+        console.log("Fetched existing variants:", data);
         setExistingVariants(data);
       } catch (err) {
         console.error("Failed to load existing variants", err);
@@ -337,6 +338,21 @@ const AddMachineStepper = ({
         selectedVariantId
       );
 
+      // Validation check for new variant and model
+      if (!useExistingVariant) {
+        if (!variant.name || !variant.biscuit_type) {
+          alert("When creating a new variant, please provide a Variant Name and Biscuit Type.");
+          return;
+        }
+        const hasValidModel = variant.models.some(m => m.name && m.version && m.model_file);
+        if (!hasValidModel) {
+          alert("Please provide a Model Name, Version, and upload a Model File for the new variant.");
+          return;
+        }
+      } else if (!selectedVariantId) {
+        alert("Please select an existing variant or create a new one.");
+        return;
+      }
       // 1) Create Camera
       console.log("📸 Creating camera...");
       const camFormData = new FormData();
@@ -444,6 +460,7 @@ const AddMachineStepper = ({
           }
         );
         const variantsList = await variantsRes.json();
+        console.log("📋 Variants list: ", variantsList);
         const createdVariant = variantsList.find(
           (v) => v.name === variant.name
         );
@@ -871,16 +888,19 @@ const AddMachineStepper = ({
 
             const newVariant = await res.json();
             
-  if (!newVariant.id) {
-    console.error("❌ Variant created but no ID returned:", newVariant);
-    alert("❌ Variant creation failed: Backend did not return an ID");
-    return;
-  }
+            if (!newVariant.id) {
+              console.error("❌ Variant created but no ID returned:", newVariant);
+              alert("❌ Variant creation failed: Backend did not return an ID");
+              return;
+            }
 
-  variantId = newVariant.id;
-  console.log("✅ Variant created with ID:", variantId);
+            variantId = newVariant.id;
+            console.log("✅ Variant created with ID:", variantId);
 
             // ✅ Patch machine to include this new variant
+            const existingVariantIds = editData?.machine?.variants?.map(v => v.id) || [];
+            const allVariantIds = [...existingVariantIds, variantId];
+
             const linkRes = await fetch(
               `${base_URL}/api/machines/${machineId}/`,
               {
@@ -891,6 +911,7 @@ const AddMachineStepper = ({
                 },
                 body: JSON.stringify({
                   variant_ids: [variantId],
+                  // variant_ids: allVariantIds,
                   active_variant_id: variantId,
                 }),
               }
@@ -981,6 +1002,34 @@ const AddMachineStepper = ({
             alert(`❌ Variant creation failed: ${errorText}`);
             return;
           }
+        }
+      }
+
+      // 4.5 Handle adding an existing variant to the machine
+      if (useExistingVariant && selectedVariantId) {
+        const isVariantAlreadyAdded = editData?.machine?.variants?.some(v => String(v.id) === String(selectedVariantId));
+
+        if (!isVariantAlreadyAdded) {
+          console.log(`➕ Adding existing variant ${selectedVariantId} to machine ${machineId}`);
+          const addVariantRes = await fetch(`${base_URL}/api/machines/${machineId}/add_variant/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({ variant_id: selectedVariantId }),
+          });
+
+          if (!addVariantRes.ok) {
+            const errorText = await addVariantRes.text();
+            console.error('❌ Failed to add variant to machine:', errorText);
+            alert(`Failed to add existing variant to machine: ${errorText}`);
+            // We don't necessarily want to stop the whole edit process here, so we'll just log it.
+          } else {
+            console.log('✅ Successfully added variant to machine.');
+          }
+        } else {
+          console.log('ℹ️ Variant is already associated with the machine, skipping add.');
         }
       }
 
@@ -1118,6 +1167,7 @@ const AddMachineStepper = ({
 
           {variant.models.map((model, idx) => (
             <Paper variant="outlined" sx={variant.activeModelIndex === idx?{p: 2, mt: 2, position: 'relative', bgcolor: '#f3fcffff', border: '1px solid #0094b1ff'} :{ p: 2, mt: 2, position: 'relative', border: '1px solid #a9a9a9ff'}} key={idx} >
+
               <Grid container spacing={2}>
               {!isManagerUser && (
                 <>
@@ -1395,7 +1445,7 @@ const AddMachineStepper = ({
   const hasExistingModelOrVariants =
     mode === "edit" && (!!variant.name || (variant.models?.length || 0) > 0);
   // (!!mlModel.name || !!mlModel.version || variants.length > 0);
-
+  console.log(variant);
   return (
     <>
       <Paper elevation={4} sx={{ p: 3 }}>

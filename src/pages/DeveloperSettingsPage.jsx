@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
 import {
   Box,
   Typography,
@@ -23,6 +24,8 @@ import AddIcon from "@mui/icons-material/Add";
 import SettingsIcon from '@mui/icons-material/Settings';
 import MemoryIcon from "@mui/icons-material/Memory";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import CategoryIcon from '@mui/icons-material/Category';
 // import AddMachineForm from "./AddMachineForm";
 import {base_URL} from '../utils/api';
 
@@ -38,6 +41,18 @@ const DeveloperSettings = () => {
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [selectedMachine, setSelectedMachine] = React.useState(null);
   const [openConfirmDialog, setOpenConfirmDialog] = React.useState(false);
+  const [variantDialogOpen, setVariantDialogOpen] = React.useState(false);
+  const [newVariant, setNewVariant] = React.useState({
+    name: "",
+    biscuit_type: "",
+    description: "",
+    model_threshold: 0.5, // Default value
+    model_verbose: true, // Default value
+    model_name: "",
+    model_version: "",
+    model_file: null,
+    variant_config_file: null,
+  });
 
   const [editData, setEditData] = useState(null);
   const [mode, setMode] = useState("add");
@@ -102,6 +117,8 @@ const DeveloperSettings = () => {
         }
       );
       const machineData = await machineRes.json();
+      console.log("Fetched machine data:", machineData);
+
 
       // 2.  Fix camera null (fetch if it's ID string or missing)
       // if (!machineData.camera || typeof machineData.camera === "string") {
@@ -208,6 +225,7 @@ const DeveloperSettings = () => {
           credentials: "include",
         }
       );
+      console.log("Response:", response);
 
       if (response.ok) {
         setMachines((prev) => prev.filter((m) => m.id !== selectedMachine.id));
@@ -222,6 +240,113 @@ const DeveloperSettings = () => {
     }
   };
 
+  const handleAddVariant = async () => {
+    if (
+      !newVariant.name &&
+      !newVariant.biscuit_type &&
+      !newVariant.model_name &&
+      !newVariant.model_version &&
+      !newVariant.model_file
+    ) {
+      alert("Please fill all required fields: Variant Name, Biscuit Type, Model Name, Model Version, and upload a Model File.");
+      return;
+    }
+    else if (!newVariant.model_file) {
+      alert("Please upload a model file.");
+      return;
+    }
+
+    const token = localStorage.getItem("access_token");
+    let variantId = null;
+    let createdModel = null;
+
+    try {
+      // Step 1: Create the Variant
+      const variantFormData = new FormData();
+      variantFormData.append("name", newVariant.name);
+      variantFormData.append("biscuit_type", newVariant.biscuit_type);
+      variantFormData.append("description", newVariant.description);
+      variantFormData.append("model_threshold", newVariant.model_threshold);
+      variantFormData.append("model_verbose", newVariant.model_verbose);
+
+      if (newVariant.variant_config_file) {
+        variantFormData.append(
+          "variant_config_file",
+          newVariant.variant_config_file
+        );
+      }
+
+      const variantRes = await fetch(`${base_URL}/api/machinevariants/`, {
+        method: "POST",
+        headers: {
+          // "Content-Type" is set automatically by the browser for FormData
+          Authorization: `Bearer ${token}`,
+        },
+        body: variantFormData,
+      });
+
+      if (!variantRes.ok) {
+        const errorData = await variantRes.json();
+        throw new Error(errorData.detail || "Failed to create variant.");
+      }
+
+      const createdVariant = await variantRes.json();
+      variantId = createdVariant.id;
+      console.log("✅ Variant created successfully:", createdVariant);
+
+      // Step 2: Create and link ML Model if provided
+      const mlFormData = new FormData();
+      mlFormData.append("name", newVariant.model_name);
+      mlFormData.append("version", newVariant.model_version);
+      mlFormData.append("model_file", newVariant.model_file);
+      mlFormData.append("variant", variantId);
+      mlFormData.append("is_active", true); // Set as active immediately
+
+      const mlRes = await fetch(`${base_URL}/api/mlmodels/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: mlFormData,
+      });
+
+      if (!mlRes.ok) {
+        const errorData = await mlRes.json();
+        throw new Error(errorData.detail || "Failed to create ML model.");
+      }
+      createdModel = await mlRes.json();
+      console.log("✅ ML Model created and linked:", createdModel);
+
+      // Step 3: Set the new model as active for the variant
+      await fetch(`${base_URL}/api/machinevariants/${variantId}/set_active_model/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ model_id: createdModel.id }),
+      });
+      console.log("✅ Set active model for the new variant.");
+
+      alert(`Variant "${createdVariant.name}" created successfully!`);
+      handleCloseVariantDialog();
+    } catch (error) {
+      console.error("❌ Error creating variant:", error);
+      alert(`Error: ${error.message}`);
+    }
+  };
+
+  const handleCloseVariantDialog = () => {
+    setVariantDialogOpen(false);
+    setNewVariant({
+      name: "",
+      biscuit_type: "",
+      description: "",
+      model_threshold: 0.5,
+      model_verbose: true,
+      model_name: "",
+      model_version: "",
+      model_file: null,
+      variant_config_file: null,
+    });
+  };
   return (
     <Box sx={{ display: "flex", flexDirection: { xs: 'column', sm: 'row' }, minHeight: "100vh", bgcolor: "#f0f4f8" }}>
       {/* Sidebar */}
@@ -247,29 +372,52 @@ const DeveloperSettings = () => {
 
         {/* Add Machine Button */}
         {!managerView && (
-          <Button
-            startIcon={<AddIcon />}
-            variant="contained"
-            fullWidth
-            onClick={handleOpen}
-            sx={{
-              mb: 3,
-              bgcolor: "rgba(255, 255, 255, 0.1)",
-              color: "common.white",
-              fontWeight: 600,
-              fontSize: { xs: '0.8rem', sm: "0.8rem",md: '0.9rem' } ,
-              borderRadius: 2,
-              border: "1px solid rgba(255, 255, 255, 0.2)",
-              "&:hover": {
-                bgcolor: "rgba(255, 255, 255, 0.2)",
-                borderColor: "rgba(255, 255, 255, 0.5)",
-                transform: "translateY(-1px)",
-              },
-              padding: { xs: '6px 12px', sm: '5px 16px', md: '10px 20px' }
-            }}
-          >
-            Add Machine
-          </Button>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
+            <Button
+              startIcon={<AddIcon />}
+              variant="contained"
+              fullWidth
+              onClick={handleOpen}
+              sx={{
+                bgcolor: "rgba(255, 255, 255, 0.1)",
+                color: "common.white",
+                fontWeight: 600,
+                fontSize: { xs: '0.8rem', sm: "0.8rem", md: '0.9rem' },
+                borderRadius: 2,
+                border: "1px solid rgba(255, 255, 255, 0.2)",
+                "&:hover": {
+                  bgcolor: "rgba(255, 255, 255, 0.2)",
+                  borderColor: "rgba(255, 255, 255, 0.5)",
+                  transform: "translateY(-1px)",
+                },
+                padding: { xs: '6px 12px', sm: '5px 16px', md: '10px 20px' }
+              }}
+            >
+              Add Machine
+            </Button>
+            <Button
+              startIcon={<CategoryIcon />}
+              variant="contained"
+              fullWidth
+              onClick={() => setVariantDialogOpen(true)}
+              sx={{
+                bgcolor: "rgba(255, 255, 255, 0.1)",
+                color: "common.white",
+                fontWeight: 600,
+                fontSize: { xs: '0.8rem', sm: "0.8rem", md: '0.9rem' },
+                borderRadius: 2,
+                border: "1px solid rgba(255, 255, 255, 0.2)",
+                "&:hover": {
+                  bgcolor: "rgba(255, 255, 255, 0.2)",
+                  borderColor: "rgba(255, 255, 255, 0.5)",
+                  transform: "translateY(-1px)",
+                },
+                padding: { xs: '6px 12px', sm: '5px 16px', md: '10px 20px' }
+              }}
+            >
+              Add Variant
+            </Button>
+          </Box>
         )}
 
         <Divider sx={{ mb: 2, borderColor: "rgba(255, 255, 255, 0.15)" }} />
@@ -436,6 +584,120 @@ const DeveloperSettings = () => {
             onMachineCreated={fetchMachines}
           />
         </DialogContent>
+      </Dialog>
+
+      {/* Add Variant Dialog */}
+      <Dialog open={variantDialogOpen} onClose={handleCloseVariantDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold', color:"#022149"}}>Create New Variant</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2, color:'#7e7e7eff'}}>
+            Create a new product type that can be assigned to machines. ML models can be added later.
+          </Typography>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Variant Name"
+            fullWidth
+            variant="outlined"
+            value={newVariant.name}
+            onChange={(e) => setNewVariant({ ...newVariant, name: e.target.value })}
+            required
+          />
+          <TextField
+            margin="dense"
+            label="Biscuit Type"
+            fullWidth
+            variant="outlined"
+            value={newVariant.biscuit_type}
+            onChange={(e) => setNewVariant({ ...newVariant, biscuit_type: e.target.value })}
+            required
+          />
+          <TextField
+            margin="dense"
+            label="Description"
+            fullWidth
+            multiline
+            rows={3}
+            variant="outlined"
+            value={newVariant.description}
+            onChange={(e) => setNewVariant({ ...newVariant, description: e.target.value })}
+          />
+          <TextField
+            margin="dense"
+            label="Model Threshold"
+            type="number"
+            fullWidth
+            variant="outlined"
+            value={newVariant.model_threshold}
+            onChange={(e) => setNewVariant({ ...newVariant, model_threshold: parseFloat(e.target.value) || 0 })}
+            helperText="Detection sensitivity (e.g., 0.65)"
+          />
+          <Button
+            variant="outlined"
+            component="label"
+            fullWidth
+            sx={{ mt: 2, color:'#ffffff', border:"none", bgcolor: '#022149' }}
+          >
+            {newVariant.variant_config_file ? `Config: ${newVariant.variant_config_file.name}` : "Upload Variant Config File"}
+            <input
+              type="file"
+              hidden
+              onChange={(e) =>
+                setNewVariant({ ...newVariant, variant_config_file: e.target.files[0] })
+              }
+            />
+          </Button>
+
+          {/* required ML Model Section */}
+          <Accordion sx={{ mt: 2, boxShadow: 'none', border: '1px solid rgba(0, 0, 0, 0.12)', '&:before': { display: 'none' } }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography>Add Initial ML Model (Required)</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                If you provide a model, it will be automatically linked to this new variant.
+              </Typography>
+              <TextField
+                margin="dense"
+                label="Model Name"
+                fullWidth
+                variant="outlined"
+                value={newVariant.model_name}
+                onChange={(e) => setNewVariant({ ...newVariant, model_name: e.target.value })}
+                required
+              />
+              <TextField
+                margin="dense"
+                label="Model Version"
+                fullWidth
+                variant="outlined"
+                value={newVariant.model_version}
+                onChange={(e) => setNewVariant({ ...newVariant, model_version: e.target.value })}
+                required
+              />
+              <Button
+                variant="outlined"
+                component="label"
+                fullWidth
+                sx={{ mt: 2, color:'#ffffff', border:"none", bgcolor: '#022149' }}
+              >
+                {newVariant.model_file ? `File: ${newVariant.model_file.name}` : "Upload Model File"}
+                <input
+                  type="file"
+                  hidden
+                  onChange={(e) =>
+                    setNewVariant({ ...newVariant, model_file: e.target.files[0] })
+                  }
+                />
+              </Button>
+            </AccordionDetails>
+          </Accordion>
+
+        </DialogContent>
+        <DialogActions sx={{ p: '0 24px 16px' }}>
+          <Button onClick={handleCloseVariantDialog} >Cancel</Button>
+          <Button onClick={handleAddVariant} variant="contained" sx={{ bgcolor: '#022149' }}>Create Variant</Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );
