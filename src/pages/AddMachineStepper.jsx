@@ -60,7 +60,7 @@ const AddMachineStepper = ({
   const [existingVariants, setExistingVariants] = useState([]);
   const [selectedVariantId, setSelectedVariantId] = useState("");
   const [selectedModelId, setSelectedModelId] = useState(null);
-
+  
   const [machine, setMachine] = useState({
     name: "",
     camera_serial_numbers: "",
@@ -78,7 +78,25 @@ const AddMachineStepper = ({
     watchdog_obs_folder_path: "",
   });
 
+  // New state for edit mode variant selection
+  const [editingVariantId, setEditingVariantId] = useState("");
+  const [machineVariants, setMachineVariants] = useState([]);
+
   const isManagerUser = isManager();
+
+  // Load machine variants when in edit mode
+  useEffect(() => {
+    if (mode === "edit" && editData?.machine?.variants) {
+      setMachineVariants(editData.machine.variants);
+      
+      // Set the first variant as default for editing
+      if (editData.machine.variants.length > 0) {
+        const firstVariant = editData.machine.variants[0];
+        setEditingVariantId(firstVariant.id);
+        loadVariantForEdit(firstVariant.id);
+      }
+    }
+  }, [mode, editData]);
 
   const loadVariantForEdit = async (variantId) => {
     try {
@@ -105,8 +123,7 @@ const AddMachineStepper = ({
 
       // 3. Filter models linked to this variant
       let models = allModels
-        // Currently no variant field in models
-        // .filter((mdl) => mdl.variant === variantId) // TODO: filter by variant when actually added in tabel data
+        // .filter((mdl) => mdl.variant === variantId)
         .map((mdl) => ({
           id: mdl.id,
           name: mdl.name || "",
@@ -149,6 +166,12 @@ const AddMachineStepper = ({
     } catch (e) {
       console.error("❌ Failed to load variant + models:", e);
     }
+  };
+
+  // Handle variant selection change in edit mode
+  const handleEditingVariantChange = async (variantId) => {
+    setEditingVariantId(variantId);
+    await loadVariantForEdit(variantId);
   };
 
   // fetch existig variants
@@ -1078,7 +1101,6 @@ const AddMachineStepper = ({
   const renderStepOne = () => (
     <Box p={1}>
       <Typography variant="h5" gutterBottom sx={{ fontWeight:"700"}}>ML Model & Variant</Typography>
-
       {/* Use Existing Variant Toggle */}
       <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: 'action.hover' }}>
         <FormControlLabel
@@ -1088,7 +1110,7 @@ const AddMachineStepper = ({
             onChange={onToggleUseExisting}
           />
         }
-        label="Use Existing Variant"
+        label="Add/Select Existing Variant to Machine"
       />
       </Paper>
 
@@ -1113,8 +1135,33 @@ const AddMachineStepper = ({
       {/* Variant creation form */}
       {!useExistingVariant && !isManagerUser && (
         <>
+        {/* Variant Selection Dropdown for Edit Mode */}
+        {mode === "edit" && machineVariants.length > 0 && (
+          <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: 'background.default' }}>
+            <Typography variant="h6" gutterBottom sx={{ color: "#007a91ff", fontWeight: "bold" }}>
+              Select Variant to Edit
+            </Typography>
+            <FormControl fullWidth>
+              <InputLabel>Choose Variant</InputLabel>
+              <Select
+                value={editingVariantId}
+                onChange={(e) => handleEditingVariantChange(e.target.value)}
+                label="Choose Variant"
+              >
+                {machineVariants.map((v) => (
+                  <MenuItem key={v.id} value={v.id}>
+                    {v.name} ({v.biscuit_type}) - Active Model: {v.active_ml_model?.name || "N/A"}
+                  </MenuItem>
+                ))}
+              </Select>
+              <FormHelperText>
+                Select which variant you want to edit. You can edit one variant at a time.
+              </FormHelperText>
+            </FormControl>
+          </Paper>
+        )}
           <Typography variant="h6" gutterBottom sx={{ color:"#007a91ff", fontWeight:"bold", mb: 1 }}>
-            {mode=== "edit" ? "Edit Variant" :"Create New Variant"}
+            {mode === "edit" && editingVariantId ? "Edit Variant" : "Create New Variant"}
           </Typography>
           <Grid container spacing={2} sx={{ mb: 4 }}>
             <Grid item xs={4}>
@@ -1158,11 +1205,11 @@ const AddMachineStepper = ({
       )}
 
       {/* ML Models Section */}
-      {!useExistingVariant && variant.models.length > 0 && (
+      {!useExistingVariant && (mode === 'add' ? variant.models.length > 0 : true) && (
         <>
           <Divider sx={{ my: 3 }} />
           <Typography variant="h6" gutterBottom sx={{ color:"#007a91ff", fontWeight:"bold", mb: 1 }}>
-            ML Models
+            ML Models {mode === "edit" && editingVariantId && `- ${variant.name}`}
           </Typography>
 
           {variant.models.map((model, idx) => (
@@ -1222,6 +1269,11 @@ const AddMachineStepper = ({
                           onChange={(e) => handleModelChange(e, idx)}
                         />
                       </Button>
+                      {model.model_file && (
+                        <Typography variant="body2" sx={{ mt: 1, color: 'green' }}>
+                          ✓ File selected: {model.model_file.name}
+                        </Typography>
+                      )}
                     </Grid>
                   )}
                 </>
@@ -1264,6 +1316,7 @@ const AddMachineStepper = ({
           )}
         </>
       )}
+
     </Box>
   );
 
@@ -1445,7 +1498,7 @@ const AddMachineStepper = ({
   const hasExistingModelOrVariants =
     mode === "edit" && (!!variant.name || (variant.models?.length || 0) > 0);
   // (!!mlModel.name || !!mlModel.version || variants.length > 0);
-  console.log(variant);
+  // console.log(variant);
   return (
     <>
       <Paper elevation={4} sx={{ p: 3 }}>

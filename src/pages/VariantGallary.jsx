@@ -377,7 +377,7 @@ const VariantGallaryView = () => {
                     )}
                     {img.timestamp && (
                         <Typography variant="caption" color="textSecondary" display="block">
-                          {new Date(img.timestamp).toLocaleString()}
+                          {new Date(img.timestamp)} IST
                         </Typography>
                     )}
                     <Box sx={{ mt: 1, display: 'flex', justifyContent: 'space-between' }}>
