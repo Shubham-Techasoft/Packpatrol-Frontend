@@ -52,9 +52,14 @@ const formatTimestamp = (isoString) => {
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const seconds = String(date.getSeconds()).padStart(2, '0');
     const ampm = hours >= 12 ? 'PM' : 'AM';
-    const formattedHour = hours % 12 || 12; // Convert 0 to 12 for 12 AM
+    const formattedHour = hours % 12 || 12;
 
-    return `Date: ${day}-${month}-${year} Time: ${formattedHour}:${minutes}:${seconds} ${ampm}`;
+    return (
+      <>
+        <span style={{ fontWeight: 'bold' }}>Date:</span> {`${day}-${month}-${year}`}{' '}
+        <span style={{ fontWeight: 'bold' }}>Time:</span> {`${formattedHour}:${minutes}:${seconds} ${ampm}`}
+      </>
+    );
   } catch (e) {
     return isoString; // Fallback to original string if parsing fails
   }
