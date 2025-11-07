@@ -755,94 +755,78 @@ const AddMachineStepper = ({
             mlModel.recommended_threshold !==
               editData.mlModel.recommended_threshold) ||
           mlModel.model_file instanceof File);
+      
+      const currentActiveMlModelInState = variant.models[variant.activeModelIndex];
 
       console.log("🔹 mlModelChanged?", mlModelChanged);
+      console.log("🔹 Editing existing ML model:", currentActiveMlModelInState?.id);
 
-      if (mlModelChanged) {
-        if (editData?.mlModel?.id) {
-          console.log("🔹 Editing existing ML model:", editData.mlModel.id);
+      // ✅ CHECK 1: Only update ML model if fields actually changed
+      if (mlModelChanged && currentActiveMlModelInState?.id) {
+        const originalModel = editData?.mlModel;
+        const currentModel = currentActiveMlModelInState;
+        
+        // Check if any field actually changed
+        const modelFieldsChanged = 
+          originalModel?.name !== currentModel?.name ||
+          originalModel?.version !== currentModel?.version ||
+          originalModel?.description !== currentModel?.description ||
+          originalModel?.recommended_threshold !== currentModel?.recommended_threshold;
+        
+        console.log("🔹 Model fields actually changed?", modelFieldsChanged);
 
-          // Always send name + version (they must stay a unique pair)
-          const mlPayload = {
-            name: mlModel.name || editData.mlModel.name,
-            version: mlModel.version || editData.mlModel.version,
-          };
+        if (modelFieldsChanged) {
+          // Check if the new name+version combination already exists
+          const checkResponse = await fetch(`${base_URL}/api/mlmodels/?name=${encodeURIComponent(currentModel.name)}&version=${encodeURIComponent(currentModel.version)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const existingModels = await checkResponse.json();
+          
+          // Filter out the current model from existing models
+          const conflictingModels = existingModels.filter(model => 
+            model.id !== currentModel.id && 
+            model.name === currentModel.name && 
+            model.version === currentModel.version
+          );
 
-          if (
-            mlModel.description &&
-            mlModel.description !== editData.mlModel.description
-          ) {
-            mlPayload.description = mlModel.description;
+          if (conflictingModels.length > 0) {
+            console.log("❌ ML Model name+version already exists:", conflictingModels);
+            alert(`Cannot update ML Model: A model with name "${currentModel.name}" and version "${currentModel.version}" already exists. Please use a different name or version.`);
+            return;
           }
-          if (
-            mlModel.recommended_threshold !== undefined &&
-            mlModel.recommended_threshold !==
-              editData.mlModel.recommended_threshold
-          ) {
-            mlPayload.recommended_threshold = mlModel.recommended_threshold;
+
+          // Proceed with PATCH if no conflicts
+          console.log("🔹 PATCH ML Model JSON payload:", {
+            name: currentModel.name,
+            version: currentModel.version,
+            description: currentModel.description,
+            recommended_threshold: currentModel.recommended_threshold
+          });
+
+          const mlModelUpdateResponse = await fetch(`${base_URL}/api/mlmodels/${currentModel.id}/`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              name: currentModel.name,
+              version: currentModel.version,
+              description: currentModel.description,
+              recommended_threshold: currentModel.recommended_threshold
+            }),
+          });
+
+          if (!mlModelUpdateResponse.ok) {
+            const errorData = await mlModelUpdateResponse.json();
+            console.log("🔹 PATCH ML Model response status:", mlModelUpdateResponse.status);
+            console.log("🔹 PATCH ML Model response body:", errorData);
+            throw new Error(`ML Model update failed: ${JSON.stringify(errorData)}`);
           }
-          if (
-            mlModel.is_active !== undefined &&
-            mlModel.is_active !== editData.mlModel.is_active
-          ) {
-            mlPayload.is_active = mlModel.is_active;
-          }
 
-          // Check if we have a new file
-          if (mlModel.model_file instanceof File) {
-            console.log("🔹 ML model has new file, using FormData upload");
-
-            const formData = new FormData();
-            formData.append("model_file", mlModel.model_file);
-            Object.entries(mlPayload).forEach(([key, value]) =>
-              formData.append(key, value)
-            );
-
-            console.log("🔹 FormData keys:", Array.from(formData.keys()));
-
-            const mlRes = await fetch(
-              `${base_URL}/api/mlmodels/${editData.mlModel.id}/`,
-              {
-                method: "PATCH",
-                headers: { Authorization: `Bearer ${token}` },
-                body: formData,
-              }
-            );
-
-            console.log("🔹 PATCH ML Model response status:", mlRes.status);
-            console.log("🔹 PATCH ML Model response body:", await mlRes.text());
-          } else {
-            console.log("🔹 ML model file not changed, sending JSON only");
-
-            delete mlPayload.model_file;
-
-            console.log("🔹 PATCH ML Model JSON payload:", mlPayload);
-
-            const mlRes = await fetch(
-              `${base_URL}/api/mlmodels/${editData.mlModel.id}/`,
-              {
-                method: "PATCH",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(mlPayload),
-              }
-            );
-
-            console.log("🔹 PATCH ML Model response status:", mlRes.status);
-            const mlResText = await mlRes.text();
-            console.log("🔹 PATCH ML Model response body:", mlResText);
-
-            if (mlRes.ok) {
-              const mlModelData = JSON.parse(mlResText);
-              console.log("✅ ML Model updated:", mlModelData);
-            } else {
-              console.error("❌ ML Model update failed");
-            }
-          }
+          console.log("✅ ML Model updated successfully");
         } else {
-          console.log("⚠️ ML Model is new, will use POST (FormData)");
+          console.log("🔹 No changes to ML Model fields, skipping update");
         }
       }
 
@@ -1028,6 +1012,67 @@ const AddMachineStepper = ({
         }
       }
 
+      // ✅ ADD THE setActiveModelSafely FUNCTION RIGHT HERE (before using it):
+      const setActiveModelSafely = async (variantId, mlModelId, token) => {
+        console.log("🔹 Setting active model - Variant:", variantId, "ML Model:", mlModelId);
+        
+        try {
+          // 1. Verify ML model exists and is active
+          const verifyResponse = await fetch(`${base_URL}/api/mlmodels/${mlModelId}/`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          
+          if (!verifyResponse.ok) {
+            throw new Error(`ML Model ${mlModelId} not found (HTTP ${verifyResponse.status})`);
+          }
+          
+          const mlModel = await verifyResponse.json();
+          console.log("🔹 ML Model details:", mlModel);
+          
+          // 2. Reactivate if necessary
+          if (!mlModel.is_active) {
+            console.log("🔄 Reactivating inactive ML model...");
+            const activateResponse = await fetch(`${base_URL}/api/mlmodels/${mlModelId}/`, {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ is_active: true }),
+            });
+            
+            if (!activateResponse.ok) {
+              throw new Error("Failed to reactivate ML Model");
+            }
+            console.log("✅ ML Model reactivated");
+          }
+          
+          // 3. Set as active model
+          console.log("🔹 Calling set_active_model API...");
+          const response = await fetch(`${base_URL}/api/machinevariants/${variantId}/set_active_model/`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ model_id: mlModelId }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error("❌ set_active_model API error:", errorData);
+            throw new Error(errorData.detail || `Failed to set active model (HTTP ${response.status})`);
+          }
+
+          console.log("✅ Active model set successfully");
+          return true;
+          
+        } catch (error) {
+          console.error("❌ Failed to set active model:", error);
+          throw error;
+        }
+      };
+
       // 4.5 Handle adding an existing variant to the machine
       if (useExistingVariant && selectedVariantId) {
         const isVariantAlreadyAdded = editData?.machine?.variants?.some(v => String(v.id) === String(selectedVariantId));
@@ -1056,44 +1101,21 @@ const AddMachineStepper = ({
         }
       }
 
+      // ✅ THEN ADD THE USAGE RIGHT AFTER THE FUNCTION:
+      if (editData.machine.active_variant?.id && currentActiveMlModelInState?.id) {
+        await setActiveModelSafely(
+          editData.machine.active_variant.id, 
+          currentActiveMlModelInState.id, 
+          token
+        );
+      }
+
       alert("✅ Machine updated successfully!");
       if (onMachineCreated) onMachineCreated();
       if (onClose) onClose();
     } catch (error) {
       console.error("❌ Error updating machine:", error);
       alert(`❌ Failed to update machine: ${error.message}`);
-    }
-
-    // 5️⃣ Update active model if switched in UI
-    if (variantId && variant?.activeModelIndex !== undefined) {
-      const chosenModel = variant.models?.[variant.activeModelIndex];
-      if (chosenModel && chosenModel.id) {
-        console.log("🔹 Setting active model via API:", chosenModel);
-
-        const activeRes = await fetch(
-          `${base_URL}/api/machinevariants/${variantId}/set_active_model/`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              model_id: chosenModel.id,
-              is_active: true,
-            }),
-          }
-        );
-
-        const activeResText = await activeRes.text();
-        if (activeRes.ok) {
-          const activeData = JSON.parse(activeResText);
-          console.log("✅ Active model updated:", activeData);
-        } else {
-          console.error("❌ Failed to set active model:", activeResText);
-          alert("❌ Failed to update active model: " + activeResText);
-        }
-      }
     }
   };
 
