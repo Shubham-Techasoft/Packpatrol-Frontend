@@ -59,7 +59,6 @@ const AddMachineStepper = ({
   const [useExistingVariant, setUseExistingVariant] = useState(false);
   const [existingVariants, setExistingVariants] = useState([]);
   const [selectedVariantId, setSelectedVariantId] = useState("");
-  const [selectedModelId, setSelectedModelId] = useState(null);
   
   const [machine, setMachine] = useState({
     name: "",
@@ -81,14 +80,58 @@ const AddMachineStepper = ({
   // New state for edit mode variant selection
   const [editingVariantId, setEditingVariantId] = useState("");
   const [machineVariants, setMachineVariants] = useState([]);
-
+  const [selectedModelId, setSelectedModelId] = useState(null);
   const isManagerUser = isManager();
+
+  const loadVariantForEdit = async (variantId) => {
+      try {
+        const res = await fetch(`${base_URL}/api/machinevariants/${variantId}/`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+        });
+
+        if (!res.ok) throw new Error(await res.text());
+        const variantData = await res.json();
+
+        // Load models for this variant
+        const modelsRes = await fetch(`${base_URL}/api/mlmodels/?variant=${variantId}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+        });
+
+        const modelsData = await modelsRes.json();
+
+        // Find active model index
+        const activeIndex = modelsData.findIndex(model =>
+          model.id === variantData.active_ml_model?.id
+        );
+
+        setVariant({
+          id: variantData.id,
+          name: variantData.name,
+          description: variantData.description,
+          biscuit_type: variantData.biscuit_type,
+          models: modelsData,
+          activeModelIndex: activeIndex >= 0 ? activeIndex : 0,
+        });
+
+        // Set the selected model ID
+        if (variantData.active_ml_model?.id) {
+          setSelectedModelId(variantData.active_ml_model.id);
+        }
+      } catch (error) {
+        console.error("❌ Failed to load variant:", error);
+      }
+    };
+  // Handle variant selection change in edit mode
+  const handleEditingVariantChange = async (variantId) => {
+    setEditingVariantId(variantId);
+    await loadVariantForEdit(variantId);
+  };
 
   // Load machine variants when in edit mode
   useEffect(() => {
     if (mode === "edit" && editData?.machine?.variants) {
       setMachineVariants(editData.machine.variants);
-      
+
       // Set the first variant as default for editing
       if (editData.machine.variants.length > 0) {
         const firstVariant = editData.machine.variants[0];
@@ -97,83 +140,6 @@ const AddMachineStepper = ({
       }
     }
   }, [mode, editData]);
-
-  const loadVariantForEdit = async (variantId) => {
-    try {
-      // 1. Fetch variant
-      const res = await fetch(
-        `${base_URL}/api/machinevariants/${variantId}/`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        }
-      );
-      if (!res.ok) throw new Error(await res.text());
-      const full = await res.json();
-
-      // 2. Fetch all models
-      const modelsRes = await fetch(`${base_URL}/api/mlmodels/`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-        },
-      });
-      if (!modelsRes.ok) throw new Error(await modelsRes.text());
-      const allModels = await modelsRes.json();
-
-      // 3. Filter models linked to this variant
-      let models = allModels
-        // .filter((mdl) => mdl.variant === variantId)
-        .map((mdl) => ({
-          id: mdl.id,
-          name: mdl.name || "",
-          version: mdl.version || "",
-          description: mdl.description || "",
-          recommended_threshold: mdl.recommended_threshold ?? "",
-          model_file: null,
-        }));
-
-      // 4. If no models found, use active_ml_model
-      if (models.length === 0 && full.active_ml_model) {
-        models = [
-          {
-            id: full.active_ml_model.id,
-            name: full.active_ml_model.name || "",
-            version: full.active_ml_model.version || "",
-            description: full.active_ml_model.description || "",
-            recommended_threshold:
-              full.active_ml_model.recommended_threshold ?? "",
-            model_file: null,
-          },
-        ];
-      }
-
-      // 5. Find active model index
-      const activeId = full.active_ml_model?.id || null;
-      const activeIndex = models.findIndex((m) => m.id === activeId);
-
-      // 6. Set state
-      setVariant({
-        id: full.id,
-        name: full.name || "",
-        description: full.description || "",
-        biscuit_type: full.biscuit_type || "",
-        models,
-        activeModelIndex: activeIndex >= 0 ? activeIndex : 0,
-      });
-
-      if (activeId) setSelectedModelId(activeId);
-    } catch (e) {
-      console.error("❌ Failed to load variant + models:", e);
-    }
-  };
-
-  // Handle variant selection change in edit mode
-  const handleEditingVariantChange = async (variantId) => {
-    setEditingVariantId(variantId);
-    await loadVariantForEdit(variantId);
-  };
-
   // fetch existig variants
   useEffect(() => {
     const fetchExistingVariants = async () => {
@@ -270,10 +236,6 @@ const AddMachineStepper = ({
     }));
   };
 
-  // Set active model (radio)
-  const setActiveModelIndex = (idx) => {
-    setVariant((prev) => ({ ...prev, activeModelIndex: idx }));
-  };
 
   // Toggle "Use Existing Variant" and reset local variant state
   const onToggleUseExisting = () => {
@@ -349,7 +311,10 @@ const AddMachineStepper = ({
   // machine creation function
   const handleCreate = async () => {
     let cameraId = null;
-
+    if (useExistingVariant && selectedVariantId && !selectedModelId) {
+      alert("Please select an active model for the variant.");
+      return;
+    }
     try {
       console.log("🚀 Starting machine creation...");
       console.log("Machine data: ", machine);
@@ -540,12 +505,11 @@ const AddMachineStepper = ({
           }
         }
         // Step 2c: Set active model for Variant
-        if (createdModels.length > 0) {
-          const activeModel = createdModels[variant.activeModelIndex || 0];
-          console.log("🔹 Candidate active model:", activeModel);
-
+        if (useExistingVariant && selectedVariantId && selectedModelId) {
+          console.log("🔄 Setting active model for existing variant:", selectedModelId);
+          
           const activeRes = await fetch(
-            `${base_URL}/api/machinevariants/${variantId}/set_active_model/`,
+            `${base_URL}/api/machinevariants/${selectedVariantId}/set_active_model/`,
             {
               method: "POST",
               headers: {
@@ -553,21 +517,18 @@ const AddMachineStepper = ({
                 Authorization: `Bearer ${localStorage.getItem("access_token")}`,
               },
               body: JSON.stringify({
-                model_id: activeModel.id,
-                biscuit_type: variant.biscuit_type || "",
-                name: variant.name,
-                is_active: true,
+                model_id: selectedModelId,
               }),
             }
           );
 
           if (!activeRes.ok) {
             const errText = await activeRes.text();
-            throw new Error("❌ Failed to set active model: " + errText);
+            console.error("❌ Failed to set active model:", errText);
+            // Don't throw error here - the machine is already created
+          } else {
+            console.log("✅ Active model set for variant:", activeData);
           }
-
-          const activeData = await activeRes.json();
-          console.log("✅ Active model set for variant:", activeData);
         }
       }
 
@@ -659,7 +620,10 @@ const AddMachineStepper = ({
   // handleEditSubmit function
   const handleEditSubmit = async () => {
     console.log("🚀 handleEditSubmit triggered");
-
+    // Add this in your edit submission
+    if (useExistingVariant && selectedVariantId && selectedModelId) {
+      await setActiveModelSafely(selectedVariantId, selectedModelId, token);
+    }
     const token = localStorage.getItem("access_token");
     const isManager = localStorage.getItem("designation") === "manager";
     const machineId = editData?.machine?.id;
@@ -1064,7 +1028,7 @@ const AddMachineStepper = ({
             throw new Error(errorData.detail || `Failed to set active model (HTTP ${response.status})`);
           }
 
-          console.log("✅ Active model set successfully");
+          console.log("✅ Active model set successfully! for varient:", variantId,"! with response:", response);
           return true;
           
         } catch (error) {
@@ -1102,9 +1066,9 @@ const AddMachineStepper = ({
       }
 
       // ✅ THEN ADD THE USAGE RIGHT AFTER THE FUNCTION:
-      if (editData.machine.active_variant?.id && currentActiveMlModelInState?.id) {
+      if (variant.id && currentActiveMlModelInState?.id) {
         await setActiveModelSafely(
-          editData.machine.active_variant.id, 
+          variant.id, 
           currentActiveMlModelInState.id, 
           token
         );
@@ -1118,6 +1082,14 @@ const AddMachineStepper = ({
       alert(`❌ Failed to update machine: ${error.message}`);
     }
   };
+    const handleActiveModelChange = (modelId, idx) => {
+      setSelectedModelId(modelId);
+
+      setVariant(prev => ({
+        ...prev,
+        activeModelIndex: idx
+      }));
+    };
 
   // model and variant form
   const renderStepOne = () => (
@@ -1316,11 +1288,12 @@ const AddMachineStepper = ({
                   <FormControlLabel
                     control={
                       <Radio
-                        checked={variant.activeModelIndex === idx}
-                        onChange={() => {
-                          setActiveModelIndex(idx);
-                          setSelectedModelId(variant.models[idx].id);
-                        }}
+                        checked={
+                          useExistingVariant 
+                            ? selectedModelId === model.id
+                            : variant.activeModelIndex === idx
+                        }
+                        onChange={() => handleActiveModelChange(model.id, idx)}
                       />
                     }
                     label="Set as Active Model"
