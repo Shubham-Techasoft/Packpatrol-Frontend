@@ -588,9 +588,9 @@ const DeveloperSettings = () => {
 
       {/* Add Variant Dialog */}
       <Dialog open={variantDialogOpen} onClose={handleCloseVariantDialog} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 'bold', color:"#022149"}}>Create New Variant</DialogTitle>
+        <DialogTitle variant="h4" sx={{ fontWeight: 'bold', color:'#022149', pb:1}}>Create New Variant</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" sx={{ mb: 2, color:'#7e7e7eff'}}>
+          <Typography variant="body2" sx={{ color:'#7e7e7eff'}}>
             Create a new product type that can be assigned to machines. ML models can be added later.
           </Typography>
           <TextField
@@ -622,16 +622,6 @@ const DeveloperSettings = () => {
             value={newVariant.description}
             onChange={(e) => setNewVariant({ ...newVariant, description: e.target.value })}
           />
-          <TextField
-            margin="dense"
-            label="Model Threshold"
-            type="number"
-            fullWidth
-            variant="outlined"
-            value={newVariant.model_threshold}
-            onChange={(e) => setNewVariant({ ...newVariant, model_threshold: parseFloat(e.target.value) || 0 })}
-            helperText="Detection sensitivity (e.g., 0.65)"
-          />
           <Button
             variant="outlined"
             component="label"
@@ -649,9 +639,9 @@ const DeveloperSettings = () => {
           </Button>
 
           {/* required ML Model Section */}
-          <Accordion sx={{ mt: 2, boxShadow: 'none', border: '1px solid rgba(0, 0, 0, 0.12)', '&:before': { display: 'none' } }}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography>Add Initial ML Model (Required)</Typography>
+          <Accordion sx={{ mt: 2, boxShadow: 'none', border: '3px solid #022149', borderRadius: 1, bgcolor: '#f5fdfdff', '&:before': { display: 'none' } }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon sx={{color:'#022149'}}/>}>
+              <Typography variant="h6" sx={{ fontWeight: 'bold', color:'#022149' }}>Add Initial ML Model (Required)</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
@@ -674,6 +664,16 @@ const DeveloperSettings = () => {
                 value={newVariant.model_version}
                 onChange={(e) => setNewVariant({ ...newVariant, model_version: e.target.value })}
                 required
+              />
+              <TextField
+                margin="dense"
+                label="Model Threshold"
+                type="number"
+                fullWidth
+                variant="outlined"
+                value={newVariant.model_threshold}
+                onChange={(e) => setNewVariant({ ...newVariant, model_threshold: parseFloat(e.target.value) || 0 })}
+                helperText="Detection sensitivity (e.g., 0.65)"
               />
               <Button
                 variant="outlined"
