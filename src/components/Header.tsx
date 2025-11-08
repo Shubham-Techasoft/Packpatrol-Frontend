@@ -205,6 +205,8 @@ function ResponsiveAppBar() {
                     borderRadius: 2,
                     textTransform: "capitalize",
                     fontSize: "smaller",
+                    display: 'flex',
+                    alignItems: 'center',
                     transition: "all 0.3s ease",
                     ":hover": {
                       transform: 'translateY(-2px)',
@@ -213,7 +215,7 @@ function ResponsiveAppBar() {
                   }}
                 >
                   {page.icon}
-                  {page.name}
+                  <span style={{ marginTop: '4px' }}>{page.name}</span>
                 </Button>
               ))}
             </Box>
