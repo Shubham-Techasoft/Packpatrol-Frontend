@@ -23,6 +23,7 @@ import DeveloperSettingsPage from "./pages/DeveloperSettingsPage";
 import MachineDetailsPage from "./pages/MachineDetailsPage";
 import FolderTree from "./components/FolderTree";
 import ProfilePage from "./components/Profile";
+import GettingStarted from "./pages/GettingStarted";
 import UsersPage from "./pages/UsersPage";
 
 import { isAuthenticated, isPrivilegedUser } from "./utils/auth";
@@ -88,6 +89,7 @@ function App() {
           <Route path="/machine/:machineName/:machineId/variant/:variantName/:variantId" element={<VariantGallary />} />
           {/* <Route path="/machine/:machineId/variant/:variantId" element={<VariantGallaryView />} /> */}
           <Route path="/folder-structure" element={<FolderTree />} />
+          <Route path="/getting-started" element={<GettingStarted />} />
 
           {/* dev settings page */}
           <Route

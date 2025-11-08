@@ -21,6 +21,16 @@ import userAvatar from "../assets/avatar-3.png";
 import CombinedSignInPage from "./LoginDailog";
 import CombinedSignUpPage from "./SignupDailog";
 import { isAuthenticated, logout, isSuperAdmin } from "../utils/auth";
+// import some good icon for logout, login and profile
+import LogoutIcon from "@mui/icons-material/Logout";
+import LoginIcon from "@mui/icons-material/Login";
+import ProfileIcon from "@mui/icons-material/Person";
+import HomeIcon from '@mui/icons-material/Home';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import SettingsIcon from '@mui/icons-material/Settings';
+import GroupIcon from '@mui/icons-material/Group';
+import InfoIcon from '@mui/icons-material/Info';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { isPrivilegedUser } from "../utils/auth";
 
 const settings = ["Profile", "Logout"];
@@ -67,11 +77,12 @@ function ResponsiveAppBar() {
 
   // ✅ Dynamic pages based on auth
   const pages = [
-    { name: "Home", path: "/" },
-    { name: "Dashboard", path: "/dashboard" },
-    ...(auth && isPrivilegedUser() ? [{ name: "Dev Settings", path: "/dev-settings" }] : []),
-    ...(auth && isSuperAdmin() ? [{ name: "Users", path: "/users" }] : []),
-    { name: "About", path: "/about" },
+    { name: "Home", path: "/", icon: <HomeIcon sx={{ mr: 0.25, fontSize: "20px" }} /> },
+    { name: "Dashboard", path: "/dashboard", icon: <DashboardIcon sx={{ mr: 0.25, fontSize: "20px" }} /> },
+    ...(auth && isPrivilegedUser() ? [{ name: "Dev Settings", path: "/dev-settings", icon: <SettingsIcon sx={{ mr: 0.25, fontSize: "20px" }} /> }] : []),
+    ...(auth && isSuperAdmin() ? [{ name: "Users", path: "/users", icon: <GroupIcon sx={{ mr: 0.25, fontSize: "20px" }} /> }] : []),
+    { name: "About", path: "/about", icon: <InfoIcon sx={{ mr: 0.25, fontSize: "20px" }} /> },
+    { name: "Help", path: "/getting-started", icon: <MenuBookIcon sx={{ mr: 0.25, fontSize: "20px" }} /> },
   ];
 
   const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) =>
@@ -121,7 +132,7 @@ function ResponsiveAppBar() {
                 textDecoration: "none",
               }}
             >
-              Techasoft Pvt Ltd
+              Techasoft Pvt. Ltd.
             </Typography>
 
             {/* Mobile Menu Button */}
@@ -145,7 +156,10 @@ function ResponsiveAppBar() {
                     key={page.name}
                     onClick={() => handleCloseNavMenu(page.path)}
                   >
-                    <Typography textAlign="center">{page.name}</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', margin:"0 !important"}}>
+                      {page.icon}
+                      <Typography textAlign="center">{page.name}</Typography>
+                    </Box>
                   </MenuItem>
                 ))}
               </Menu>
@@ -185,18 +199,20 @@ function ResponsiveAppBar() {
                   onClick={() => handleCloseNavMenu(page.path)}
                   sx={{
                     my: 1,
-                    mx: 1,
+                    mx: 0.15,
                     color: "white",
                     fontWeight: 600,
                     borderRadius: 2,
                     textTransform: "capitalize",
-                    fontSize: "15px",
+                    fontSize: "smaller",
                     transition: "all 0.3s ease",
                     ":hover": {
+                      transform: 'translateY(-2px)',
                       backgroundColor: "rgba(255, 255, 255, 0.1)",
                     },
                   }}
                 >
+                  {page.icon}
                   {page.name}
                 </Button>
               ))}
@@ -213,7 +229,7 @@ function ResponsiveAppBar() {
                 color="inherit"
                 sx={{
                   borderRadius: 3,
-                  px: 3,
+                  padding:'5px 10px 5px 6px',
                   fontWeight: 500,
                   borderColor: "white",
                   transition: "all 0.3s ease-in-out",
@@ -224,6 +240,7 @@ function ResponsiveAppBar() {
                 }}
                 onClick={() => setOpenLogin(true)}
               >
+                <LoginIcon /> &nbsp;
                 Login
               </Button>
               )}
@@ -234,7 +251,7 @@ function ResponsiveAppBar() {
                   variant="contained"
                   sx={{
                     borderRadius: 3,
-                    px: 3,
+                    px: 1.5,
                     fontWeight: 500,
                     transition: "all 0.3s ease-in-out",
                     // suggest beast color based on header bg color
@@ -271,7 +288,7 @@ function ResponsiveAppBar() {
                   </IconButton>
                 </Tooltip>
                 <Menu
-                  sx={{ mt: "45px" }}
+                  sx={{ mt: "45px"}}
                   anchorEl={anchorElUser}
                   open={Boolean(anchorElUser)}
                   onClose={handleCloseUserMenu}
@@ -289,8 +306,11 @@ function ResponsiveAppBar() {
                           navigate("/profile");
                         } 
                       }}
-                    >
-                      <Typography textAlign="center">{setting}</Typography>
+                      sx={setting === "Logout" ? { color: "#990000", '&:hover': { bgcolor: '#ffdddd' } } : {}}
+                    > 
+                      {setting === "Logout" && <LogoutIcon />}
+                      {setting === "Profile" && <ProfileIcon />} &nbsp;
+                      <Typography textAlign="center" >{setting}</Typography>
                     </MenuItem>
                   ))}
                 </Menu>
