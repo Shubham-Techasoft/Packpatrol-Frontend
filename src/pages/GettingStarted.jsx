@@ -320,7 +320,7 @@ const GettingStarted = () => {
         <Typography variant="body1" component="div">
           <ol>
             <li>Go to <strong>Developer Settings → Add Machine</strong></li>
-            <li>Fill out:
+            <li>Fill out the required fields:
               <List dense>
                 <ListItem><ListItemText primary="Variant info" /></ListItem>
                 <ListItem><ListItemText primary="ML Model details" /></ListItem>
@@ -352,10 +352,14 @@ const GettingStarted = () => {
         <Typography variant="body1" component="div">
           <ol>
             <li>Developer Settings → Select a Machine → <strong>Edit</strong></li>
-            <li>Choose <strong>“Add Existing Variant”</strong></li>
-            <li>Confirm and save</li>
+            <li>Check the box for <strong>“Add/Select Existing Variant”</strong>.</li>
+            <li>Select the desired variant from the dropdown.</li>
+            <li><strong>Important:</strong> You must also select which ML Model this machine will use for that variant.</li>
+            <li>Confirm and save.</li>
           </ol>
-          <p>✅ The machine can now process the new variant!</p>
+          <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+            This allows different machines to use different model versions (e.g., `v1` vs. `v2`) for the same product.
+          </Typography>
         </Typography>
         <Divider sx={{ my: 2 }} />
 

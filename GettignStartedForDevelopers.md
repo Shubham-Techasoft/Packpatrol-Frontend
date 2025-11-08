@@ -40,8 +40,7 @@ Make sure you have the following:
    ```bash
    git clone <your-repository-url>
    cd packpatrol-frontend
-   ```
-   
+
 2. **Install Dependencies**
 
    ```bash
@@ -236,11 +235,13 @@ Drill down into machines and image-level inspection results.
 
 ### 🔁 Assign Existing Variant to Machine
 
-1. Developer Settings → Select a Machine → **Edit**
-2. Choose **“Add Existing Variant”**
-3. Confirm and save
+1.  Go to **Developer Settings** → Select a Machine → **Edit**.
+2.  Check the box for **“Add/Select Existing Variant”**.
+3.  Select the desired variant from the dropdown menu.
+4.  **Important:** You must also select which **ML Model** this machine will use for that variant.
+5.  Confirm and save your changes.
 
-✅ The machine can now process the new variant!
+> ✅ The machine can now process the new variant! This allows different machines to use different model versions (e.g., `v1` vs. `v2`) for the same product.
 
 ---
 
