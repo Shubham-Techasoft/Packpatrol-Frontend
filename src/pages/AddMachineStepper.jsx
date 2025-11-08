@@ -230,6 +230,7 @@ const AddMachineStepper = ({
           description: "",
           framework: "",
           model_file: null,
+          // No ID for new models - this indicates they need to be created
           recommended_threshold: "",
         },
       ],
@@ -617,18 +618,61 @@ const AddMachineStepper = ({
     }
   };
 
+  // ✅ NEW: Separate function to create ML models and return their IDs
+  const createNewMLModels = async (variantId, token) => {
+    let updatedModels = [...variant.models];
+    let modelsChanged = false;
+
+    for (let i = 0; i < variant.models.length; i++) {
+      const model = variant.models[i];
+      
+      // Check if this is a NEW model (no ID) that has required fields
+      if (!model.id && model.name && model.version && model.model_file) {
+        console.log(`🆕 Creating new ML Model: ${model.name} v${model.version}`);
+        
+        const mlFormData = new FormData();
+        mlFormData.append("name", model.name);
+        mlFormData.append("version", model.version);
+        mlFormData.append("description", model.description || "");
+        mlFormData.append("recommended_threshold", model.recommended_threshold || 0);
+        mlFormData.append("model_file", model.model_file);
+        mlFormData.append("is_active", true);
+        
+        // If we have a variant ID, link the model to it
+        if (variantId) {
+          mlFormData.append("variant", variantId);
+        }
+
+        const mlRes = await fetch(`${base_URL}/api/mlmodels/`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: mlFormData,
+        });
+
+        if (mlRes.ok) {
+          const mlData = await mlRes.json();
+          console.log("✅ New ML Model created:", mlData);
+          updatedModels[i] = { ...updatedModels[i], id: mlData.id };
+          modelsChanged = true;
+        } else {
+          const errorText = await mlRes.text();
+          console.error("❌ New ML Model creation failed:", errorText);
+          throw new Error(`Failed to create ML Model: ${errorText}`);
+        }
+      }
+    }
+    return { modelsChanged, updatedModels };
+  };
+
   // handleEditSubmit function
   const handleEditSubmit = async () => {
     console.log("🚀 handleEditSubmit triggered");
-    // Add this in your edit submission
-    if (useExistingVariant && selectedVariantId && selectedModelId) {
-      await setActiveModelSafely(selectedVariantId, selectedModelId, token);
-    }
+
     const token = localStorage.getItem("access_token");
     const isManager = localStorage.getItem("designation") === "manager";
     const machineId = editData?.machine?.id;
     const cameraId = editData?.machine?.camera?.id;
-    let variantId = editData?.machine?.variants?.[0]?.id || null;
+    let variantId = editingVariantId || editData?.machine?.variants?.[0]?.id || null;
 
     const mlModel =
       !useExistingVariant && variant.models?.length > 0
@@ -644,6 +688,67 @@ const AddMachineStepper = ({
           : [];
 
     try {
+      // ✅ DEFINE the setActiveModelSafely function at the top of the try block
+      const setActiveModelSafely = async (variantId, mlModelId, token) => {
+        console.log("🔹 Setting active model - Variant:", variantId, "ML Model:", mlModelId);
+        
+        try {
+          // 1. Verify ML model exists and is active
+          const verifyResponse = await fetch(`${base_URL}/api/mlmodels/${mlModelId}/`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          
+          if (!verifyResponse.ok) {
+            throw new Error(`ML Model ${mlModelId} not found (HTTP ${verifyResponse.status})`);
+          }
+          
+          const mlModel = await verifyResponse.json();
+          console.log("🔹 ML Model details:", mlModel);
+          
+          // 2. Reactivate if necessary
+          if (!mlModel.is_active) {
+            console.log("🔄 Reactivating inactive ML model...");
+            const activateResponse = await fetch(`${base_URL}/api/mlmodels/${mlModelId}/`, {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ is_active: true }),
+            });
+            
+            if (!activateResponse.ok) {
+              throw new Error("Failed to reactivate ML Model");
+            }
+            console.log("✅ ML Model reactivated");
+          }
+          
+          // 3. Set as active model
+          console.log("🔹 Calling set_active_model API...");
+          const response = await fetch(`${base_URL}/api/machinevariants/${variantId}/set_active_model/`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ model_id: mlModelId }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error("❌ set_active_model API error:", errorData);
+            throw new Error(errorData.detail || `Failed to set active model (HTTP ${response.status})`);
+          }
+
+          console.log("✅ Active model set successfully! for varient:", variantId,"! with response:", response);
+          return true;
+          
+        } catch (error) {
+          console.error("❌ Failed to set active model:", error);
+          throw error;
+        }
+      };
+
       // 1️⃣ Update Camera
       const camPayload = isManager
         ? {
@@ -723,10 +828,10 @@ const AddMachineStepper = ({
       const currentActiveMlModelInState = variant.models[variant.activeModelIndex];
 
       console.log("🔹 mlModelChanged?", mlModelChanged);
-      console.log("🔹 Editing existing ML model:", currentActiveMlModelInState?.id);
+      console.log("🔹 Current active ML model in state:", currentActiveMlModelInState);
 
       // ✅ CHECK 1: Only update ML model if fields actually changed
-      if (mlModelChanged && currentActiveMlModelInState?.id) {
+      if (mlModelChanged && currentActiveMlModelInState?.id && !useExistingVariant) {
         const originalModel = editData?.mlModel;
         const currentModel = currentActiveMlModelInState;
         
@@ -793,6 +898,30 @@ const AddMachineStepper = ({
           console.log("🔹 No changes to ML Model fields, skipping update");
         }
       }
+
+      // ✅ NEW: Handle creating new ML models in edit mode - DO THIS FIRST
+      let currentModels = variant.models;
+      if (!useExistingVariant && variant.models && variant.models.length > 0) {
+        const { modelsChanged, updatedModels } = await createNewMLModels(variantId, token);
+        if (modelsChanged) {
+          // CRITICAL: Update state and use the new models array for subsequent logic
+          setVariant(prev => ({ ...prev, models: updatedModels }));
+          currentModels = updatedModels;
+        }
+      }
+
+      // ✅ NOW set active model - it will have the new ID if one was created
+      if (useExistingVariant && selectedVariantId && selectedModelId) {
+        await setActiveModelSafely(selectedVariantId, selectedModelId, token);
+      } else if (variantId && currentModels[variant.activeModelIndex]?.id) {
+        // Use the potentially updated `currentModels` array here
+        await setActiveModelSafely(
+          variantId, 
+          currentModels[variant.activeModelIndex].id, 
+          token
+        );
+      }
+
 
       // 4️⃣ Update existing variants or create new ones
       for (const variant of variants) {
@@ -976,67 +1105,6 @@ const AddMachineStepper = ({
         }
       }
 
-      // ✅ ADD THE setActiveModelSafely FUNCTION RIGHT HERE (before using it):
-      const setActiveModelSafely = async (variantId, mlModelId, token) => {
-        console.log("🔹 Setting active model - Variant:", variantId, "ML Model:", mlModelId);
-        
-        try {
-          // 1. Verify ML model exists and is active
-          const verifyResponse = await fetch(`${base_URL}/api/mlmodels/${mlModelId}/`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          
-          if (!verifyResponse.ok) {
-            throw new Error(`ML Model ${mlModelId} not found (HTTP ${verifyResponse.status})`);
-          }
-          
-          const mlModel = await verifyResponse.json();
-          console.log("🔹 ML Model details:", mlModel);
-          
-          // 2. Reactivate if necessary
-          if (!mlModel.is_active) {
-            console.log("🔄 Reactivating inactive ML model...");
-            const activateResponse = await fetch(`${base_URL}/api/mlmodels/${mlModelId}/`, {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({ is_active: true }),
-            });
-            
-            if (!activateResponse.ok) {
-              throw new Error("Failed to reactivate ML Model");
-            }
-            console.log("✅ ML Model reactivated");
-          }
-          
-          // 3. Set as active model
-          console.log("🔹 Calling set_active_model API...");
-          const response = await fetch(`${base_URL}/api/machinevariants/${variantId}/set_active_model/`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ model_id: mlModelId }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            console.error("❌ set_active_model API error:", errorData);
-            throw new Error(errorData.detail || `Failed to set active model (HTTP ${response.status})`);
-          }
-
-          console.log("✅ Active model set successfully! for varient:", variantId,"! with response:", response);
-          return true;
-          
-        } catch (error) {
-          console.error("❌ Failed to set active model:", error);
-          throw error;
-        }
-      };
-
       // 4.5 Handle adding an existing variant to the machine
       if (useExistingVariant && selectedVariantId) {
         const isVariantAlreadyAdded = editData?.machine?.variants?.some(v => String(v.id) === String(selectedVariantId));
@@ -1065,15 +1133,6 @@ const AddMachineStepper = ({
         }
       }
 
-      // ✅ THEN ADD THE USAGE RIGHT AFTER THE FUNCTION:
-      if (variant.id && currentActiveMlModelInState?.id) {
-        await setActiveModelSafely(
-          variant.id, 
-          currentActiveMlModelInState.id, 
-          token
-        );
-      }
-
       alert("✅ Machine updated successfully!");
       if (onMachineCreated) onMachineCreated();
       if (onClose) onClose();
@@ -1092,12 +1151,15 @@ const AddMachineStepper = ({
     };
 
   // model and variant form
-  const renderStepOne = () => (
-    <Box p={1}>
-      <Typography variant="h5" gutterBottom sx={{ fontWeight:"700"}}>ML Model & Variant</Typography>
-      {/* Use Existing Variant Toggle */}
-      <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: 'action.hover' }}>
-        <FormControlLabel
+const renderStepOne = () => (
+  <Box p={1}>
+    <Typography variant="h5" gutterBottom sx={{ fontWeight: "700" }}>
+      ML Model & Variant
+    </Typography>
+    
+    {/* Use Existing Variant Toggle */}
+    <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: 'action.hover' }}>
+      <FormControlLabel
         control={
           <Checkbox
             checked={useExistingVariant}
@@ -1106,29 +1168,29 @@ const AddMachineStepper = ({
         }
         label="Add/Select Existing Variant to Machine"
       />
-      </Paper>
+    </Paper>
 
-      {/* Existing variant dropdown */}
-      {useExistingVariant && (
-        <FormControl fullWidth>
-          <InputLabel>Select Existing Variant</InputLabel>
-          <Select
-            value={selectedVariantId}
-            onChange={(e) => setSelectedVariantId(String(e.target.value))}
-            label="Select Existing Variant"
-          >
-            {existingVariants.map((v) => (
-              <MenuItem key={v.id} value={String(v.id)}>
-                {v.name} (Model: {v.active_ml_model?.name || "N/A"})
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      )}
+    {/* Existing variant dropdown */}
+    {useExistingVariant && (
+      <FormControl fullWidth>
+        <InputLabel>Select Existing Variant</InputLabel>
+        <Select
+          value={selectedVariantId}
+          onChange={(e) => setSelectedVariantId(String(e.target.value))}
+          label="Select Existing Variant"
+        >
+          {existingVariants.map((v) => (
+            <MenuItem key={v.id} value={String(v.id)}>
+              {v.name} (Model: {v.active_ml_model?.name || "N/A"})
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    )}
 
-      {/* Variant creation form */}
-      {!useExistingVariant && !isManagerUser && (
-        <>
+    {/* Variant creation form */}
+    {!useExistingVariant && !isManagerUser && (
+      <>
         {/* Variant Selection Dropdown for Edit Mode */}
         {mode === "edit" && machineVariants.length > 0 && (
           <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: 'background.default' }}>
@@ -1154,80 +1216,173 @@ const AddMachineStepper = ({
             </FormControl>
           </Paper>
         )}
-          <Typography variant="h6" gutterBottom sx={{ color:"#007a91ff", fontWeight:"bold", mb: 1 }}>
-            {mode === "edit" && editingVariantId ? "Edit Variant" : "Create New Variant"}
-          </Typography>
-          <Grid container spacing={2} sx={{ mb: 4 }}>
-            <Grid item xs={4}>
-              <TextField
-                fullWidth
-                label="Variant Name"
-                value={variant.name}
-                onChange={(e) =>
-                  setVariant((prev) => ({ ...prev, name: e.target.value }))
-                }
-              />
-            </Grid>
-            <Grid item xs={4}>
-              <TextField
-                fullWidth
-                label="Biscuit Type"
-                value={variant.biscuit_type || ""}
-                onChange={(e) =>
-                  setVariant((prev) => ({
-                    ...prev,
-                    biscuit_type: e.target.value,
-                  }))
-                }
-              />
-            </Grid>
-            <Grid item xs={4}>
-              <TextField
-                fullWidth
-                label="Description"
-                value={variant.description}
-                onChange={(e) =>
-                  setVariant((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-              />
-            </Grid>
+        <Divider sx={{ my: 2 , border:'2px solid #062249'}} />
+        <Typography variant="h5" gutterBottom sx={{ color: '#062249', fontWeight: "bold", mb: 2}}>
+          {mode === "edit" && editingVariantId ? "Edit Variant" : "Create New Variant"}
+        </Typography>
+        <Grid container spacing={2} sx={{ mb: 4 }}>
+          <Grid item xs={4}>
+            <TextField
+              fullWidth
+              label="Variant Name"
+              value={variant.name}
+              onChange={(e) =>
+                setVariant((prev) => ({ ...prev, name: e.target.value }))
+              }
+            />
           </Grid>
-        </>
-      )}
+          <Grid item xs={4}>
+            <TextField
+              fullWidth
+              label="Biscuit Type"
+              value={variant.biscuit_type || ""}
+              onChange={(e) =>
+                setVariant((prev) => ({
+                  ...prev,
+                  biscuit_type: e.target.value,
+                }))
+              }
+            />
+          </Grid>
+          <Grid item xs={4}>
+            <TextField
+              fullWidth
+              label="Description"
+              value={variant.description}
+              onChange={(e) =>
+                setVariant((prev) => ({
+                  ...prev,
+                  description: e.target.value,
+                }))
+              }
+            />
+          </Grid>
+        </Grid>
+      </>
+    )}
 
-      {/* ML Models Section */}
-      {!useExistingVariant && (mode === 'add' ? variant.models.length > 0 : true) && (
-        <>
-          <Divider sx={{ my: 3 }} />
-          <Typography variant="h6" gutterBottom sx={{ color:"#007a91ff", fontWeight:"bold", mb: 1 }}>
+    {/* ML Models Section */}
+    {!useExistingVariant && (mode === 'add' ? variant.models.length > 0 : true) && (
+      <>
+        <Divider sx={{ my: 3 }} />
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2}}>
+          <Typography variant="h5" sx={{ color: "#007a91ff", fontWeight: "bold" }}>
             ML Models {mode === "edit" && editingVariantId && `- ${variant.name}`}
           </Typography>
+          
+          {/* Add new model button moved to top */}
+          {!isManagerUser && !useExistingVariant && (
+            <Button 
+              onClick={addModel} 
+              variant="contained" 
+              startIcon={<span>+</span>}
+              size="small"
+              sx={{
+                bgcolor: "#062249",
+                fontWeight: "bold",
+                color: "white",
+                '&:hover': { bgcolor: "#083068ff" },
+                px: 2
+              }}
+            >
+              Add Model
+            </Button>
+          )}
+        </Box>
 
-          {variant.models.map((model, idx) => (
-            <Paper variant="outlined" sx={variant.activeModelIndex === idx?{p: 2, mt: 2, position: 'relative', bgcolor: '#f3fcffff', border: '1px solid #0094b1ff'} :{ p: 2, mt: 2, position: 'relative', border: '1px solid #a9a9a9ff'}} key={idx} >
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          {variant.models.length} model(s) configured. Each model represents a different version or configuration.
+        </Typography>
 
-              <Grid container spacing={2}>
+        {variant.models.map((model, idx) => (
+          <Paper 
+            variant="outlined" 
+            sx={{
+              p: 3, 
+              mb: 3,
+              position: 'relative',
+              bgcolor: variant.activeModelIndex === idx ? '#f3fcffff' : '#fafafa',
+              border: variant.activeModelIndex === idx ? '3px solid #0094b1ff' : '2px solid #c4c4c4ff',
+              borderLeft: !model.id ? '4px solid #4CAF50' : undefined,
+              '&:hover': {
+                boxShadow: 5,
+                borderColor: variant.activeModelIndex === idx ? '#0094b1ff' : '#bdbdbd'
+              }
+            }} 
+            key={idx}
+          >
+            {/* Model Header */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+              <Box>
+                <Typography variant="h7" component="h3" sx={{ fontWeight: 600 }}>
+                  {model.name || `Model ${idx + 1}`}
+                  {model.version && ` v${model.version}`}
+                </Typography>
+                {model.description && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {model.description}
+                  </Typography>
+                )}
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {/* New Model Badge */}
+                {!model.id && (
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      bgcolor: '#4CAF50', 
+                      color: 'white', 
+                      px: 1, 
+                      py: 0.5, 
+                      borderRadius: 1,
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    NEW
+                  </Typography>
+                )}
+                
+                {/* Active Model Badge */}
+                {(useExistingVariant ? selectedModelId === model.id : variant.activeModelIndex === idx) && (
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      bgcolor: '#006d83ff', 
+                      color: 'white', 
+                      px: 1, 
+                      py: 0.5, 
+                      borderRadius: 1,
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    ACTIVE
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+
+            <Grid container spacing={3}>
               {!isManagerUser && (
                 <>
-                  <Grid item xs={6}>
+                  <Grid item xs={12} sm={6}>
                     <TextField
                       label="Model Name"
                       fullWidth
                       name="name"
                       value={model.name}
                       onChange={(e) => handleModelChange(e, idx)}
+                      placeholder="Enter model name"
                     />
                   </Grid>
-                  <Grid item xs={6}>
+                  <Grid item xs={12} sm={6}>
                     <TextField
                       label="Version"
                       fullWidth
                       name="version"
                       value={model.version}
                       onChange={(e) => handleModelChange(e, idx)}
+                      placeholder="e.g., 1.0.0"
                     />
                   </Grid>
                   <Grid item xs={12}>
@@ -1235,9 +1390,11 @@ const AddMachineStepper = ({
                       label="Description"
                       fullWidth
                       multiline
+                      rows={2}
                       name="description"
                       value={model.description}
                       onChange={(e) => handleModelChange(e, idx)}
+                      placeholder="Describe this model version..."
                     />
                   </Grid>
 
@@ -1245,75 +1402,108 @@ const AddMachineStepper = ({
                     <Grid item xs={12}>
                       <Typography
                         variant="body2"
-                        sx={{ mb: 1, color: "orange", fontStyle: "italic" }}
+                        sx={{ color: "#990000", fontStyle: "italic" }}
                       >
-                        ⚠️ Leave model file empty to retain the existing values.
+                        <b>Note:</b> On update, the existing model file will be replaced!
                       </Typography>
                     </Grid>
                   )}
 
                   {!useExistingVariant && (
                     <Grid item xs={12}>
-                      <Button variant="outlined" fullWidth component="label" sx={{bgcolor:"#0094b1ff",color:"white",'&:hover': {bgcolor: "#007a91ff"}}}>
-                        Upload Model
-                        <input
-                          type="file"
-                          hidden
-                          name="model_file"
-                          onChange={(e) => handleModelChange(e, idx)}
-                        />
-                      </Button>
-                      {model.model_file && (
-                        <Typography variant="body2" sx={{ mt: 1, color: 'green' }}>
-                          ✓ File selected: {model.model_file.name}
-                        </Typography>
-                      )}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Button 
+                          variant="outlined" 
+                          component="label" 
+                          sx={{
+                            bgcolor: "#062249",
+                            color: "white",
+                            '&:hover': { bgcolor: "#083068ff" }
+                          }}
+                        >
+                          {model.model_file ? 'Change Model File' : 'Upload Model File'}
+                          <input
+                            type="file"
+                            hidden
+                            name="model_file"
+                            onChange={(e) => handleModelChange(e, idx)}
+                          />
+                        </Button>
+                        {model.model_file && (
+                          <Typography variant="body1" sx={{ color: 'green', fontWeight: 500 }}>
+                            <b>✓</b>{' '}
+                            {typeof model.model_file === 'string'
+                              ? model.model_file.split('/').pop()
+                              : model.model_file.name}
+                          </Typography>
+                        )}
+                      </Box>
                     </Grid>
                   )}
                 </>
               )}
 
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   label="Recommended Threshold"
                   fullWidth
                   name="recommended_threshold"
                   value={model.recommended_threshold ?? ""}
                   onChange={(e) => handleModelChange(e, idx)}
+                  placeholder="0.0 - 1.0"
                 />
               </Grid>
 
-                {/* Active model selector */}
-                <Grid item xs={6} sx={{ display: 'flex', alignItems: 'center' }}>
-                  <FormControlLabel
-                    control={
-                      <Radio
-                        checked={
-                          useExistingVariant 
-                            ? selectedModelId === model.id
-                            : variant.activeModelIndex === idx
-                        }
-                        onChange={() => handleActiveModelChange(model.id, idx)}
-                      />
-                    }
-                    label="Set as Active Model"
-                  />
-                </Grid>
+              {/* Active model selector */}
+              <Grid item xs={12} sm={6} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                <FormControlLabel
+                  control={
+                    <Radio
+                      checked={
+                        useExistingVariant 
+                          ? selectedModelId === model.id
+                          : variant.activeModelIndex === idx
+                      }
+                      onChange={() => handleActiveModelChange(model.id, idx)}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                      Set as Active Model
+                    </Typography>
+                  }
+                />
               </Grid>
-            </Paper>
-          ))}
+            </Grid>
 
-          {/* Add new model button */}
-          {!isManagerUser && !useExistingVariant && (
-            <Button onClick={addModel} sx={{ mt: 2 }} variant="contained">
-              + Add Model
+            {/* Model Index Indicator */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, pt: 1, borderTop: '2px dashed #ccc' }}>
+              <Typography variant="caption" color="text.secondary">
+                Model {idx + 1} of {variant.models.length}
+              </Typography>
+            </Box>
+          </Paper>
+        ))}
+
+        {/* Bottom Add Model Button (alternative placement) */}
+        {!isManagerUser && !useExistingVariant && variant.models.length > 0 && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
+            <Button 
+              onClick={addModel} 
+              variant="outlined" 
+              startIcon={<span>+</span>}
+              fullWidth
+              sx={{ minWidth: 200, bgcolor: "#062249", color: "white", fontWeight: 700, '&:hover': { bgcolor: "#083068ff"} }}
+            >
+              Add Another Model
             </Button>
-          )}
-        </>
-      )}
-
-    </Box>
-  );
+          </Box>
+        )}
+      </>
+    )}
+  </Box>
+);
 
   // machine and camera form
   const renderStepTwo = () => (
@@ -1404,7 +1594,7 @@ const AddMachineStepper = ({
             )}
 
             <Grid item xs={12}>
-              <Button fullWidth variant="outlined" component="label" sx={{bgcolor:"#0094b1ff",color:"white",'&:hover': {bgcolor: "#007a91ff"}}}>
+              <Button fullWidth variant="outlined" component="label" sx={{bgcolor:"#062249",color:"white",'&:hover': {bgcolor: "#083068ff"}}}>
                 Upload Features File
                 <input
                   type="file"
@@ -1522,14 +1712,14 @@ const AddMachineStepper = ({
         <Box mt={4} display="flex" justifyContent="flex-end" gap={2}>
           {/* Back Button */}
           {activeStep === 1 && (
-            <Button variant="outlined" onClick={() => setActiveStep(0)}>
+            <Button variant="outlined" onClick={() => setActiveStep(0)} sx={{border: '2px solid #062249', color: '#062249','&:hover': {bgcolor: '#e2e2e2ff'}}}>
               Back
             </Button>
           )}
 
           {/* skip button */}
           {activeStep === 0 && !(isManagerUser && mode === "edit") && (
-            <Button variant="outlined" onClick={() => setSkipDialogOpen(true)}>
+            <Button variant="outlined" onClick={() => setSkipDialogOpen(true)} sx={{border: '2px solid #062249', color: '#062249','&:hover': {bgcolor: '#e2e2e2ff'}}}>
               Skip
             </Button>
           )}
@@ -1539,11 +1729,12 @@ const AddMachineStepper = ({
             <Button
               variant="contained"
               onClick={mode === "edit" ? handleEditSubmit : handleCreate}
+              sx={{color:"white", bgcolor:"#006a0bff", border: '2px solid #006a0bff', '&:hover': {bgcolor: '#008a0eff', border: '2px solid #008a0eff'}}}
             >
               {mode === "edit" ? "Confirm Edit" : "Submit"}
             </Button>
           ) : (
-            <Button variant="contained" onClick={() => setActiveStep(1)}>
+            <Button variant="contained" onClick={() => setActiveStep(1)} sx={{bgcolor: '#062249', '&:hover': {bgcolor: '#083068ff'}}}>
               Next
             </Button>
           )}
@@ -1571,7 +1762,7 @@ const AddMachineStepper = ({
               handleDeleteMachine(editMachine.id);
               setIsEditDialogOpen(false);
             }}
-            color="error"
+            sx={{color: 'red'}}
           >
             Delete
           </Button>

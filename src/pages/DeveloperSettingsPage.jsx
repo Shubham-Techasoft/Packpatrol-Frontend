@@ -23,9 +23,11 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import SettingsIcon from '@mui/icons-material/Settings';
 import MemoryIcon from "@mui/icons-material/Memory";
+import PsychologyIcon from "@mui/icons-material/Psychology";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CategoryIcon from '@mui/icons-material/Category';
+import DeleteIcon from "@mui/icons-material/Delete";
 import { base_URL } from '../utils/api';
 import AddMachineStepper from "./AddMachineStepper";
 import { isManager } from "../utils/auth";
@@ -39,6 +41,14 @@ const DeveloperSettings = () => {
   const [selectedMachine, setSelectedMachine] = React.useState(null);
   const [openConfirmDialog, setOpenConfirmDialog] = React.useState(false);
   const [variantDialogOpen, setVariantDialogOpen] = React.useState(false);
+  const [variants, setVariants] = useState([]);
+  const [selectedVariant, setSelectedVariant] = useState(null);
+  const [variantDeleteDialog, setVariantDeleteDialog] = useState(false);
+  
+  // Add these states
+  const [mlModels, setMlModels] = useState([]);
+  const [selectedMLModel, setSelectedMLModel] = useState(null);
+  const [mlModelDeleteDialog, setMlModelDeleteDialog] = useState(false);
   
   // ✅ SEPARATE STATE: Variant data
   const [newVariant, setNewVariant] = React.useState({
@@ -82,8 +92,30 @@ const DeveloperSettings = () => {
     }
   };
 
+  // Add this function to fetch variants
+  const fetchVariants = async () => {
+    try {
+      const res = await axios.get(`${base_URL}/api/machinevariants/`);
+      setVariants(res.data);
+    } catch (err) {
+      console.error("Error fetching variants:", err);
+    }
+  };
+
+  // Fetch ML models
+  const fetchMLModels = async () => {
+    try {
+      const res = await axios.get(`${base_URL}/api/mlmodels/`);
+      setMlModels(res.data);
+    } catch (err) {
+      console.error("Error fetching ML models:", err);
+    }
+  };
+
   useEffect(() => {
     fetchMachines();
+    fetchVariants(); // Fetch variants too
+    fetchMLModels();
   }, []);
 
   const handleOpen = () => {
@@ -243,6 +275,64 @@ const DeveloperSettings = () => {
     }
   };
 
+  // Add delete variant function
+  const handleDeleteVariant = async () => {
+    if (!selectedVariant) return;
+    
+    const token = localStorage.getItem("access_token");
+    try {
+      const response = await fetch(
+        `${base_URL}/api/machinevariants/${selectedVariant.id}/`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      
+      if (response.ok) {
+        setVariants(prev => prev.filter(v => v.id !== selectedVariant.id));
+        setVariantDeleteDialog(false);
+        alert("Variant deleted successfully!");
+      } else {
+        alert("Failed to delete variant");
+      }
+    } catch (error) {
+      console.error("Error deleting variant:", error);
+      alert("Error deleting variant");
+    }
+  };
+
+  // Delete ML model function
+  const handleDeleteMLModel = async () => {
+    if (!selectedMLModel) return;
+    
+    const token = localStorage.getItem("access_token");
+    try {
+      const response = await fetch(
+        `${base_URL}/api/mlmodels/${selectedMLModel.id}/`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      
+      if (response.ok) {
+        setMlModels(prev => prev.filter(m => m.id !== selectedMLModel.id));
+        setMlModelDeleteDialog(false);
+        alert("ML Model deleted successfully!");
+      } else {
+        alert("Failed to delete ML Model");
+      }
+    } catch (error) {
+      console.error("Error deleting ML Model:", error);
+      alert("Error deleting ML Model");
+    }
+  };
+
   const handleAddVariant = async () => {
     // ✅ SEPARATE VALIDATION
     if (!newVariant.name || !newVariant.biscuit_type) {
@@ -363,11 +453,11 @@ const DeveloperSettings = () => {
   };
 
   return (
-    <Box sx={{ display: "flex", flexDirection: { xs: 'column', sm: 'row' }, minHeight: "100vh", bgcolor: "#f0f4f8" }}>
+    <Box sx={{ display: "flex", flexDirection: { xs: 'column', sm: 'row' }, minHeight: "100vh", bgcolor: "#f0f4f8"}}>
       {/* Sidebar - keep as is */}
-      <Box sx={{ width: { xs: "100%", sm: "22%" }, background: "linear-gradient(180deg, #002049ff 0%, #182848 100%)", color: "common.white", p: { xs: 2, sm: 1.5, md: 3 }, flexShrink: 0 }}>
+      <Box sx={{ width: { xs: "100%", sm: "22%" }, background: "linear-gradient(180deg, #002049ff 0%, #182848 100%)", color: "common.white", p: { xs: 2, sm: 1.5, md: 3 }, flexShrink: 0, minWidth: "220px"}}>
         <Typography variant="h5" fontWeight={600} mb={3} display="flex" sx={{ fontSize: { xs: '1rem', md: '1.5rem' } }} alignItems="center">
-          <MemoryIcon sx={{ mr: 1 }} /> Developer Panel
+          Developer Panel
         </Typography>
 
         {!managerView && (
@@ -381,7 +471,7 @@ const DeveloperSettings = () => {
           </Box>
         )}
 
-        <Divider sx={{ mb: 2, borderColor: "rgba(255, 255, 255, 0.15)" }} />
+        <Divider sx={{ mb: 2, borderColor: "rgba(255, 255, 255, 0.52)" }} />
         <Typography variant="subtitle1" gutterBottom fontWeight={600} sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
           Machines
         </Typography>
@@ -393,6 +483,65 @@ const DeveloperSettings = () => {
                 <MemoryIcon />
               </ListItemIcon>
               <ListItemText primaryTypographyProps={{ sx: { fontSize: { xs: '0.875rem', md: '1rem' } } }} primary={machine.name} />
+            </ListItem>
+          ))}
+        </List>
+
+        <Divider sx={{ mb: 2, borderColor: "rgba(255, 255, 255, 0.52)" }} />
+
+        {/* Variants Section */}
+        <Typography variant="subtitle1" gutterBottom fontWeight={600} sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
+          Variants
+        </Typography>
+        <List>
+          {variants.map((variant) => (
+            <ListItem key={variant.id} disablePadding sx={{ mb: 1.5 }}>
+              <ListItemIcon sx={{ color: "#fff", minWidth: 36 }}>
+                <CategoryIcon />
+              </ListItemIcon>
+              <ListItemText 
+                primaryTypographyProps={{ sx: { fontSize: { xs: '0.875rem', md: '1rem' } } }} 
+                primary={variant.name} 
+              />
+              <IconButton 
+                size="small" 
+                sx={{ color: "#fff", '&:hover': { color: 'red' } }}
+                onClick={() => {
+                  setSelectedVariant(variant);
+                  setVariantDeleteDialog(true);
+                }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </ListItem>
+          ))}
+        </List>
+
+        {/* ML Models Section */}
+        <Divider sx={{ mb: 2, borderColor: "rgba(255, 255, 255, 0.52)" }} />
+        <Typography variant="subtitle1" gutterBottom fontWeight={600} sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
+          ML Models
+        </Typography>
+        <List>
+          {mlModels.map((model) => (
+            <ListItem key={model.id} disablePadding sx={{ mb: 1.5,}}>
+              <ListItemIcon sx={{ color: "#fff", minWidth: 36 }}>
+                <PsychologyIcon />
+              </ListItemIcon>
+              <ListItemText 
+                primaryTypographyProps={{ sx: { fontSize: { xs: '0.875rem', md: '1rem', wordBreak: "break-all" } } }} 
+                primary={`${model.name} v${model.version}`} 
+              />
+              <IconButton 
+                size="small" 
+                sx={{ color: "#fff", '&:hover': { color: 'red' } }}
+                onClick={() => {
+                  setSelectedMLModel(model);
+                  setMlModelDeleteDialog(true);
+                }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
             </ListItem>
           ))}
         </List>
@@ -563,6 +712,40 @@ const DeveloperSettings = () => {
         <DialogActions sx={{ p: '0 24px 16px' }}>
           <Button onClick={handleCloseVariantDialog}>Cancel</Button>
           <Button onClick={handleAddVariant} variant="contained" sx={{ bgcolor: '#022149' }}>Create Variant</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Variant Delete Confirmation Dialog */}
+      <Dialog open={variantDeleteDialog} onClose={() => setVariantDeleteDialog(false)}>
+        <DialogTitle>Delete Variant</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete variant <strong>"{selectedVariant?.name}"</strong>?<br/>
+            Many Machines may be still using this Variant.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVariantDeleteDialog(false)}>Cancel</Button>
+          <Button onClick={handleDeleteVariant} color="error" variant="contained">
+            Delete Variant
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ML Model Delete Confirmation Dialog */}
+      <Dialog open={mlModelDeleteDialog} onClose={() => setMlModelDeleteDialog(false)}>
+        <DialogTitle>Delete ML Model</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete ML Model <strong>"{selectedMLModel?.name} v{selectedMLModel?.version}"</strong>?<br/>
+            Many Vairants may be still using this ML Model.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMlModelDeleteDialog(false)}>Cancel</Button>
+          <Button onClick={handleDeleteMLModel} color="error" variant="contained">
+            Delete ML Model
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

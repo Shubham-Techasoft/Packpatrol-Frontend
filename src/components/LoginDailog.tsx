@@ -1,5 +1,7 @@
 import * as React from "react";
 import {
+  Alert,
+  Avatar,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -10,10 +12,14 @@ import {
   Typography,
   InputAdornment,
   Slide,
+  CircularProgress,
+  Grid,
+  Link,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import { useNavigate } from "react-router-dom";
 import { base_URL } from "../utils/api";
 
@@ -137,14 +143,13 @@ const CombinedSignInPage: React.FC<CombinedSignInPageProps> = ({
       }}
       PaperProps={{
         sx: {
-          borderRadius: 4,
+          borderRadius: 3,
           px: 3,
           py: 2,
         },
       }}
     >
       <DialogTitle sx={{ fontWeight: "bold", fontSize: "1.5rem" }}>
-        Sign In
         <IconButton
           aria-label="close"
           onClick={onClose}
@@ -155,11 +160,21 @@ const CombinedSignInPage: React.FC<CombinedSignInPageProps> = ({
       </DialogTitle>
 
       <DialogContent>
-        <Box component="form" onSubmit={handleLogin} sx={{ mt: 1 }}>
-          <Typography variant="body1" mb={2}>
-            Welcome back! Please sign in.
+        <Box
+          sx={{
+            marginTop: 2,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
+          <Avatar sx={{ m: 1, bgcolor: "#008e57ff", height:'100px', width:'100px'}}>
+            <LockOutlinedIcon sx={{fontSize:'3rem', color:'white'}}/>
+          </Avatar>
+          <Typography component="h1" variant="h4" fontWeight="bold">
+            Sign in
           </Typography>
-
+          <Box component="form" onSubmit={handleLogin} noValidate sx={{ mt: 1 }}>
           <TextField
             fullWidth
             label="Email"
@@ -168,6 +183,7 @@ const CombinedSignInPage: React.FC<CombinedSignInPageProps> = ({
             onChange={(e) => setEmail(e.target.value)}
             margin="normal"
             required
+            autoFocus
           />
 
           <TextField
@@ -193,19 +209,21 @@ const CombinedSignInPage: React.FC<CombinedSignInPageProps> = ({
           />
 
           {error && (
-            <Typography color="error" mt={1}>
+            <Alert severity="error" sx={{ mt: 2, width: '100%' }}>
               {error}
-            </Typography>
+            </Alert>
           )}
 
           <Button
             type="submit"
             variant="contained"
             fullWidth
-            sx={{ mt: 3, py: 1.5, fontWeight: "bold", borderRadius: 2 }}
+            disabled={loading}
+            sx={{ mt: 3, mb: 2, py: 1.5, fontWeight: "bold", borderRadius: 2, bgcolor:"#062249" }}
           >
-             {loading ? "Signing In..." : "Sign In"}
+            {loading ? <CircularProgress size={24} color="inherit" /> : "Sign In"}
           </Button>
+        </Box>
         </Box>
       </DialogContent>
     </Dialog>

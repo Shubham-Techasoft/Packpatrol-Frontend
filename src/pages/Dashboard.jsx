@@ -197,7 +197,7 @@ export default function Dashboard() {
   //For Future use of starting machine with selected variant and stack parameters
   const [variants, setVariants] = useState([]);
   const [selectedVariant, setSelectedVariant] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState("stopped");
   const [minStackSize, setMinStackSize] = useState("");
   const [maxStackSize, setMaxStackSize] = useState("");
   const [minStackLength, setMinStackLength] = useState("");
@@ -283,7 +283,8 @@ export default function Dashboard() {
 
 
   // SSE connection management for Dashboard
-  React.useEffect(() => {
+  // SSE connection management for Dashboard - UPDATED VERSION
+React.useEffect(() => {
     if (!selectedMachineId || selectedMachineId === "all") {
       if (sseConnection) {
         sseConnection.close();
@@ -293,39 +294,89 @@ export default function Dashboard() {
       }
       return;
     }
-
+  
     const sseUrl = `${base_URL}/api/machines/${selectedMachineId}/sse/`;
     console.log("📡 Connecting SSE for dashboard:", sseUrl);
-
-    let eventSource = new EventSource(sseUrl);
-    setSseConnection(eventSource);
-
-    eventSource.onopen = () => {
-      console.log("✅ SSE connection opened successfully for dashboard");
-      setIsSseConnected(true);
-      setSseError(null);
-    };
-
-    eventSource.onmessage = (event) => {
+  
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 3;
+    const reconnectDelay = 5000;
+    let eventSource = null;
+  
+    const connectSSE = () => {
       try {
-        const data = JSON.parse(event.data);
-        setRealtimeData(data);
-        if (data.image_path) {
-          const cleanImagePath = data.image_path.replace(/\\/g, "/");
-          setDisplaySrc(cleanImagePath);
+        // Close existing connection if any
+        if (eventSource) {
+          eventSource.close();
         }
-      } catch (parseError) {
-        console.error("❌ Error parsing SSE data on dashboard:", parseError);
+  
+        eventSource = new EventSource(sseUrl);
+        setSseConnection(eventSource);
+        setSseError(null);
+  
+        eventSource.onopen = () => {
+          console.log("✅ SSE connection opened successfully for dashboard");
+          setIsSseConnected(true);
+          setSseError(null);
+          reconnectAttempts = 0;
+        };
+  
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            setRealtimeData(data);
+            
+            // Check if machine should be stopped automatically
+            if (data?.machine_running === false) {
+              // Only trigger auto-stop if the component thought the machine was running.
+              if (status !== 'running') {
+                console.log("⏭️ SSE reported machine stopped, but UI already shows it as stopped. Skipping auto-stop.");
+                return;
+              }
+              console.log("🛑 SSE reported machine_running: false. Triggering auto-stop from dashboard!");
+              handleStopMachineAutomatically();
+              return; // Don't process further if machine is stopped
+            }
+  
+            if (data.image_path) {
+              const cleanImagePath = data.image_path.replace(/\\/g, "/");
+              setDisplaySrc(cleanImagePath);
+            }
+          } catch (parseError) {
+            console.error("❌ Error parsing SSE data on dashboard:", parseError);
+          }
+        };
+  
+        eventSource.onerror = (error) => {
+          console.error("❌ SSE connection error on dashboard:", error);
+          setIsSseConnected(false);
+          setSseError(error);
+  
+          if (eventSource?.readyState === EventSource.CLOSED) {
+            console.warn("🔌 SSE connection closed by server.");
+          } else if (eventSource?.readyState === EventSource.CONNECTING) {
+            console.warn("🔄 SSE reconnecting...");
+          }
+  
+          // Attempt reconnect
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            console.log(`🔄 Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts}) in ${reconnectDelay}ms...`);
+            setTimeout(connectSSE, reconnectDelay);
+          } else {
+            console.error("❌ Max reconnection attempts reached");
+          }
+        };
+  
+      } catch (error) {
+        console.error("❌ Failed to create SSE connection:", error);
+        setSseError(error);
+        setIsSseConnected(false);
       }
     };
-
-    eventSource.onerror = (error) => {
-      console.error("❌ SSE connection error on dashboard:", error);
-      setIsSseConnected(false);
-      setSseError(error);
-      eventSource.close();
-    };
-
+  
+    connectSSE();
+  
     return () => {
       console.log("🛑 Cleaning up SSE connection on dashboard");
       if (eventSource) {
@@ -337,7 +388,60 @@ export default function Dashboard() {
       setSseError(null);
     };
   }, [selectedMachineId]);
-
+  
+  // Add this function to handle automatic machine stopping
+  const handleStopMachineAutomatically = async () => {
+    console.log("🛑 Auto-stopping machine from dashboard...");
+    
+    try {
+      if (!selectedMachineId || selectedMachineId === "all") {
+        console.warn("⚠️ No specific machine selected for auto-stop");
+        return;
+      }
+  
+      const response = await fetch(
+        `${base_URL}/api/machines/${selectedMachineId}/stop_run/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            // Include any required parameters for your stop endpoint
+            machine_id: selectedMachineId,
+            is_running: false,
+          }),
+        }
+      );
+  
+      if (response.ok) {
+        console.log("✅ Machine auto-stopped successfully from dashboard");
+        
+        // Update local state to reflect stopped status
+        setStatus("stopped");
+        setDisplaySrc(null);
+        
+        // Refresh machine status
+        await fetchMachinesWithRunLogInfo();
+        
+        // Show success message
+        setStatusMessage({
+          text: "✅ Machine stopped automatically",
+          type: "success",
+        });
+        
+        setTimeout(() => {
+          setStatusMessage({ text: "", type: "" });
+        }, 4000);
+      } else {
+        console.warn("❌ Failed to auto-stop machine from dashboard");
+      }
+    } catch (err) {
+      console.error("❌ Error auto-stopping machine from dashboard:", err);
+    }
+  };
+  
+  // Update the getSseConnectionStatus function to handle auto-stop scenario
   const getSseConnectionStatus = () => {
     if (status !== "running" || !selectedMachineId || selectedMachineId === "all") return "disconnected";
     if (sseError) return "error";
@@ -345,7 +449,6 @@ export default function Dashboard() {
     if (isSseConnected) return "connected";
     return "connecting";
   };
-
 
   // production-time graph
   React.useEffect(() => {
@@ -524,7 +627,7 @@ export default function Dashboard() {
         } else {
           setSelectedVariant(""); // none active, force user selection
         }
-
+  
         setStatus(data.is_running ? "running" : "stopped");
 
         // Clear stack values when switching machines
