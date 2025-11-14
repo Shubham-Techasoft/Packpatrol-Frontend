@@ -81,6 +81,7 @@ const AddMachineStepper = ({
   const [editingVariantId, setEditingVariantId] = useState("");
   const [machineVariants, setMachineVariants] = useState([]);
   const [selectedModelId, setSelectedModelId] = useState(null);
+  const [originalModels, setOriginalModels] = useState([]); // <-- ADD THIS STATE
   const isManagerUser = isManager();
 
   const loadVariantForEdit = async (variantId) => {
@@ -112,6 +113,7 @@ const AddMachineStepper = ({
           models: modelsData,
           activeModelIndex: activeIndex >= 0 ? activeIndex : 0,
         });
+        setOriginalModels(JSON.parse(JSON.stringify(modelsData))); // <-- STORE ORIGINAL MODELS
 
         // Set the selected model ID
         if (variantData.active_ml_model?.id) {
@@ -664,7 +666,7 @@ const AddMachineStepper = ({
     return { modelsChanged, updatedModels };
   };
 
-  // handleEditSubmit function
+  // handleEditSubmit function - Updated ML Model File Update Section
   const handleEditSubmit = async () => {
     console.log("🚀 handleEditSubmit triggered");
 
@@ -678,7 +680,10 @@ const AddMachineStepper = ({
       !useExistingVariant && variant.models?.length > 0
         ? variant.models[variant.activeModelIndex]
         : editData?.mlModel || {};
+        
+    const currentActiveMlModelInState = variant.models[variant.activeModelIndex];
 
+    console.log("🔹 Current active ML model in state:", currentActiveMlModelInState);
     // const variants = !useExistingVariant && variant.name ? [variant] : [];
     const variants =
       useExistingVariant && editData?.selectedVariantId
@@ -740,7 +745,7 @@ const AddMachineStepper = ({
             throw new Error(errorData.detail || `Failed to set active model (HTTP ${response.status})`);
           }
 
-          console.log("✅ Active model set successfully! for varient:", variantId,"! with response:", response);
+          console.log("✅ Active model set successfully! for variant:", variantId,"! with response:", response);
           return true;
           
         } catch (error) {
@@ -813,115 +818,147 @@ const AddMachineStepper = ({
         console.log("Machine update response:", machineRes.status);
       }
 
-      // 3️⃣ Update/Create ML Model
-      const mlModelChanged =
-        editData?.mlModel &&
-        ((mlModel.name && mlModel.name !== editData.mlModel.name) ||
-          (mlModel.version && mlModel.version !== editData.mlModel.version) ||
-          (mlModel.description &&
-            mlModel.description !== editData.mlModel.description) ||
-          (mlModel.recommended_threshold !== undefined &&
-            mlModel.recommended_threshold !==
-              editData.mlModel.recommended_threshold) ||
-          mlModel.model_file instanceof File);
+      // 3️⃣ UPDATED: Handle ML Model Updates with File Replacement
+      let currentModels = variant.models;
       
-      const currentActiveMlModelInState = variant.models[variant.activeModelIndex];
+ // In your handleEditSubmit function, before the model update loops:
+      const activeModelIndex = variant.activeModelIndex;
+      const activeModel = variant.models[activeModelIndex];
 
-      console.log("🔹 mlModelChanged?", mlModelChanged);
-      console.log("🔹 Current active ML model in state:", currentActiveMlModelInState);
+      const modelsWithNewFiles = currentModels.filter(model => 
+        model.model_file instanceof File && 
+        model.id && 
+        model.id === activeModel.id  // Only active model
+      );
 
-      // ✅ CHECK 1: Only update ML model if fields actually changed
-      if (mlModelChanged && currentActiveMlModelInState?.id && !useExistingVariant) {
-        const originalModel = editData?.mlModel;
-        const currentModel = currentActiveMlModelInState;
+      console.log("🔹 Models with new files to update:", modelsWithNewFiles);
+
+      // Update models with new files using PUT request
+      for (const model of modelsWithNewFiles) {
+        console.log(`🔄 Updating ML Model ${model.id} with new file:`, model.model_file.name);
         
-        // Check if any field actually changed
-        const modelFieldsChanged = 
-          originalModel?.name !== currentModel?.name ||
-          originalModel?.version !== currentModel?.version ||
-          originalModel?.description !== currentModel?.description ||
-          originalModel?.recommended_threshold !== currentModel?.recommended_threshold;
+        const formData = new FormData();
         
-        console.log("🔹 Model fields actually changed?", modelFieldsChanged);
+        // Include ALL required fields for PUT
+        formData.append('name', model.name);
+        formData.append('version', model.version);
+        formData.append('description', model.description || '');
+        formData.append('recommended_threshold', model.recommended_threshold || 0.5);
+        formData.append('is_active', true);
+        formData.append('model_file', model.model_file); // The new .pt file
+        
+        console.log("🔹 PUT request form data:", {
+          name: model.name,
+          version: model.version,
+          description: model.description,
+          recommended_threshold: model.recommended_threshold,
+          model_file: model.model_file.name
+        });
 
-        if (modelFieldsChanged) {
-          // Check if the new name+version combination already exists
-          const checkResponse = await fetch(`${base_URL}/api/mlmodels/?name=${encodeURIComponent(currentModel.name)}&version=${encodeURIComponent(currentModel.version)}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const existingModels = await checkResponse.json();
+        const mlModelUpdateResponse = await fetch(`${base_URL}/api/mlmodels/${model.id}/`, {
+          method: "PUT", // Use PUT to replace entire model
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            // Don't set Content-Type for FormData - browser will set it with boundary
+          },
+          body: formData,
+        });
+
+        if (!mlModelUpdateResponse.ok) {
+          const errorText = await mlModelUpdateResponse.text();
+          console.error("❌ ML Model file update failed:", errorText);
           
-          // Filter out the current model from existing models
-          const conflictingModels = existingModels.filter(model => 
-            model.id !== currentModel.id && 
-            model.name === currentModel.name && 
-            model.version === currentModel.version
-          );
-
-          if (conflictingModels.length > 0) {
-            console.log("❌ ML Model name+version already exists:", conflictingModels);
-            alert(`Cannot update ML Model: A model with name "${currentModel.name}" and version "${currentModel.version}" already exists. Please use a different name or version.`);
-            return;
+          // Try to parse error for better message
+          try {
+            const errorData = JSON.parse(errorText);
+            alert(`❌ Failed to update model file: ${JSON.stringify(errorData, null, 2)}`);
+          } catch {
+            alert(`❌ Failed to update model file: ${errorText}`);
           }
+          return; // Stop execution if file update fails
+        }
 
-          // Proceed with PATCH if no conflicts
-          console.log("🔹 PATCH ML Model JSON payload:", {
-            name: currentModel.name,
-            version: currentModel.version,
-            description: currentModel.description,
-            recommended_threshold: currentModel.recommended_threshold
-          });
-
-          const mlModelUpdateResponse = await fetch(`${base_URL}/api/mlmodels/${currentModel.id}/`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              name: currentModel.name,
-              version: currentModel.version,
-              description: currentModel.description,
-              recommended_threshold: currentModel.recommended_threshold
-            }),
-          });
-
-          if (!mlModelUpdateResponse.ok) {
-            const errorData = await mlModelUpdateResponse.json();
-            console.log("🔹 PATCH ML Model response status:", mlModelUpdateResponse.status);
-            console.log("🔹 PATCH ML Model response body:", errorData);
-            throw new Error(`ML Model update failed: ${JSON.stringify(errorData)}`);
-          }
-
-          console.log("✅ ML Model updated successfully");
-        } else {
-          console.log("🔹 No changes to ML Model fields, skipping update");
+        const updatedModel = await mlModelUpdateResponse.json();
+        console.log("✅ ML Model file updated successfully:", updatedModel);
+        
+        // Update the model in our state with the response data
+        const modelIndex = currentModels.findIndex(m => m.id === model.id);
+        if (modelIndex !== -1) {
+          currentModels[modelIndex] = { 
+            ...currentModels[modelIndex], 
+            ...updatedModel,
+            model_file: updatedModel.model_file // Use the file info from response
+          };
         }
       }
 
-      // ✅ NEW: Handle creating new ML models in edit mode - DO THIS FIRST
-      let currentModels = variant.models;
+      // For field changes, you might want to allow all models
+      const modelsWithFieldChanges = currentModels.filter(model => {
+        if (!model.id) return false; // Skip new models (handled separately)
+        
+        const originalModel = originalModels.find(om => om.id === model.id);
+        return originalModel && (
+          model.name !== originalModel.name ||
+          model.version !== originalModel.version ||
+          model.description !== originalModel.description ||
+          // Use String comparison for threshold to avoid type issues (e.g., "0.5" vs 0.5)
+          String(model.recommended_threshold) !== String(originalModel.recommended_threshold)
+
+        );
+      });
+
+      console.log("🔹 Models with field changes:", modelsWithFieldChanges);
+
+      for (const model of modelsWithFieldChanges) {
+        // Skip if this model was already updated with a file
+        if (modelsWithNewFiles.some(m => m.id === model.id)) {
+          continue;
+        }
+
+        console.log(`🔹 Updating ML Model ${model.id} fields only`);
+        
+        const mlModelUpdateResponse = await fetch(`${base_URL}/api/mlmodels/${model.id}/`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: model.name,
+            version: model.version,
+            description: model.description,
+            recommended_threshold: model.recommended_threshold
+          }),
+        });
+
+        if (!mlModelUpdateResponse.ok) {
+          const errorData = await mlModelUpdateResponse.json();
+          console.error("❌ ML Model field update failed:", errorData);
+          alert(`❌ Failed to update model fields: ${JSON.stringify(errorData, null, 2)}`);
+          return;
+        }
+
+        console.log("✅ ML Model fields updated successfully");
+      }
+
+      // ✅ Handle creating new ML models
       if (!useExistingVariant && variant.models && variant.models.length > 0) {
         const { modelsChanged, updatedModels } = await createNewMLModels(variantId, token);
         if (modelsChanged) {
-          // CRITICAL: Update state and use the new models array for subsequent logic
-          setVariant(prev => ({ ...prev, models: updatedModels }));
           currentModels = updatedModels;
         }
       }
 
-      // ✅ NOW set active model - it will have the new ID if one was created
+      // ✅ Set active model
       if (useExistingVariant && selectedVariantId && selectedModelId) {
         await setActiveModelSafely(selectedVariantId, selectedModelId, token);
       } else if (variantId && currentModels[variant.activeModelIndex]?.id) {
-        // Use the potentially updated `currentModels` array here
         await setActiveModelSafely(
           variantId, 
           currentModels[variant.activeModelIndex].id, 
           token
         );
       }
-
 
       // 4️⃣ Update existing variants or create new ones
       for (const variant of variants) {
@@ -1291,7 +1328,8 @@ const renderStepOne = () => (
         </Box>
 
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          {variant.models.length} model(s) configured. Each model represents a different version or configuration.
+          {variant.models.length} model(s) configured. Each model represents a different version or configuration.<br/>
+          <span style={{ color: 'green' }}>To update the "Model file", the ML Model must be Set as ACTIVE first.</span>
         </Typography>
 
         {variant.models.map((model, idx) => (

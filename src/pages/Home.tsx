@@ -688,26 +688,28 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
               }
 
               // NOTE: OLD
-              // if (updateTimeoutRef.current) {
-              //   clearTimeout(updateTimeoutRef.current);
-              // }
+              if (updateTimeoutRef.current) {
+                clearTimeout(updateTimeoutRef.current);
+              }
 
-              // updateTimeoutRef.current = setTimeout(() => {
-              //   setRealtimeData({ ...latestDataRef.current });
-              //   updateTimeoutRef.current = null;
-              // }, 250);
+              updateTimeoutRef.current = setTimeout(() => {
+                setRealtimeData({ ...latestDataRef.current });
+                updateTimeoutRef.current = null;
+              }, 250);
 
 
               // NOTE: NEW
               // Only set a timeout if one is not already pending.
               // This prevents fast-arriving messages from continuously resetting the timer
               // and ensures the UI updates at a regular interval.
-              if (!updateTimeoutRef.current) {
-                updateTimeoutRef.current = setTimeout(() => {
-                  setRealtimeData({ ...latestDataRef.current });
-                  updateTimeoutRef.current = null; // Allow a new timeout to be set after this one runs
-                }, 250); // UI update interval
-              }
+
+              // if (!updateTimeoutRef.current) {
+              //   updateTimeoutRef.current = setTimeout(() => {
+              //     setRealtimeData({ ...latestDataRef.current });
+              //     updateTimeoutRef.current = null; // Allow a new timeout to be set after this one runs
+              //   }, 250); // UI update interval
+              // }
+              
             }
           } catch (err) {
             console.error("🚫 SSE JSON parse error:", err);
