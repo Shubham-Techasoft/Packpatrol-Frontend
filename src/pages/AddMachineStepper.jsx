@@ -314,10 +314,10 @@ const AddMachineStepper = ({
   // machine creation function
   const handleCreate = async () => {
     let cameraId = null;
-    if (useExistingVariant && selectedVariantId && !selectedModelId) {
-      alert("Please select an active model for the variant.");
-      return;
-    }
+    // if (useExistingVariant && selectedVariantId && !selectedModelId) {
+    //   alert("Please select an active model for the variant.");
+    //   return;
+    // }
     try {
       console.log("🚀 Starting machine creation...");
       console.log("Machine data: ", machine);
