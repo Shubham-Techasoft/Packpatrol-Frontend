@@ -141,15 +141,19 @@ const VariantGallaryView = () => {
       const data = await response.json();
       console.log("Gallery API response status:", data);
 
-      const imageObjects = data.results.map((img) => ({
-        id: img.id,
-        url: img.image_url,
-        label: img.image_url.split("/").pop() || "Image",
-        timestamp: img.timestamp,
-        is_rejected: img.is_rejected,
-        stack_length: img.stack_length,
-        stack_count: img.stack_count,
-      }));
+      const imageObjects = data.results.map((img) => {
+        const url = img.image_url || "";
+        const label = (url && url.split("/").pop()) || "Image not available";
+        return {
+          id: img.id,
+          url,
+          label,
+          timestamp: img.timestamp,
+          is_rejected: img.is_rejected,
+          stack_length: img.stack_length,
+          stack_count: img.stack_count,
+        };
+      });
 
       setImagesList(imageObjects);
       setPage(data.page || 1);
@@ -387,8 +391,9 @@ const VariantGallaryView = () => {
                     border: img.is_rejected ? '2px solid #d32f2f' : 'none',
                     bgcolor: img.is_rejected ? '#ffdfe4ff' : 'background.paper',
                   }}
-                  onClick={() => handleOpen(index)}
+                  onClick={() => img.url && handleOpen(index)}
                 >
+                {img.url ? (
                   <CardMedia
                     component="img"
                     height={isSmallScreen ? "150" : "220"}
@@ -396,6 +401,19 @@ const VariantGallaryView = () => {
                     alt={img.label}
                     sx={{ borderTopLeftRadius: 4, borderTopRightRadius: 4 }}
                   />
+                ) : (
+                  <Box
+                    height={isSmallScreen ? "150px" : "220px"}
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    sx={{ borderTopLeftRadius: 4, borderTopRightRadius: 4, bgcolor: "#f5f5f5" }}
+                  >
+                    <Typography variant="body2" color="textSecondary">
+                      Image not available
+                    </Typography>
+                  </Box>
+                )}
                   <CardContent
                     sx={{ p: 2, textAlign: 'left' }}
                   >
@@ -461,15 +479,21 @@ const VariantGallaryView = () => {
               <IconButton onClick={handlePrevImage} sx={{ position: 'absolute', left: 16, color: 'white', bgcolor: 'rgba(0,0,0,0.5)', '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' } }}>
                 <ArrowBackIosIcon />
               </IconButton>
-            <img
-              src={currentImage.url}
-              alt={currentImage.label}
-              style={{
-                maxWidth: "100%",
-                maxHeight: "calc(100vh - 128px)", // Adjust for title and actions height
-                objectFit: "contain",
-              }}
-            />
+            {currentImage.url ? (
+              <img
+                src={currentImage.url}
+                alt={currentImage.label}
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "calc(100vh - 128px)", // Adjust for title and actions height
+                  objectFit: "contain",
+                }}
+              />
+            ) : (
+              <Typography sx={{ color: "white" }}>
+                Image not available
+              </Typography>
+            )}
               <IconButton onClick={handleNextImage} sx={{ position: 'absolute', right: 16, color: 'white', bgcolor: 'rgba(0,0,0,0.5)', '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' } }}>
                 <ArrowForwardIosIcon />
               </IconButton>
