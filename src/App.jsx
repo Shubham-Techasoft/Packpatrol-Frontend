@@ -25,6 +25,7 @@ import FolderTree from "./components/FolderTree";
 import ProfilePage from "./components/Profile";
 import GettingStarted from "./pages/GettingStarted";
 import UsersPage from "./pages/UsersPage";
+import EmailUI from "./pages/EmailUI";
 
 import { isAuthenticated, isPrivilegedUser } from "./utils/auth";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -33,7 +34,7 @@ import { MachineSelectionProvider } from "./MachineSelectionContext";
 import VariantGallary from "./pages/VariantGallary";
 import VariantGallaryView from "./pages/VariantGallaryView";
 
-import {base_URL} from "./utils/api";
+import { base_URL } from "./utils/api";
 import { useKeyboardSafeView } from './hooks/useKeyboardSafeView';
 
 function TokenWatcherWrapper() {
@@ -53,83 +54,92 @@ function App() {
   const [appliedLog, setAppliedLog] = useState(null);
 
   const onApplyLog = (log) => {
-    console.log("🟢 App received applied log:", log);  
-     if (window.location.pathname !== "/") {
-      navigate("/");     
-     } 
-      setAppliedLog(log); 
+    console.log("🟢 App received applied log:", log);
+    if (window.location.pathname !== "/") {
+      navigate("/");
+    }
+    setAppliedLog(log);
   };
   const clearAppliedLog = () => setAppliedLog(null);
 
   return (
     <div className="app">
       <>
-      <TokenWatcherWrapper />
-      <AppSuccessAlert />
-      <ResponsiveAppBar />
-      <MachineSelectionProvider>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <Home
-                recentDialogOpen={recentDialogOpen}
-                closeRecentDialog={closeRecentDialog}
-                appliedLog={appliedLog}
-                clearAppliedLog={clearAppliedLog}
-              />
-            }
-          />
+        <TokenWatcherWrapper />
+        <AppSuccessAlert />
+        <ResponsiveAppBar />
+        <MachineSelectionProvider>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <Home
+                  recentDialogOpen={recentDialogOpen}
+                  closeRecentDialog={closeRecentDialog}
+                  appliedLog={appliedLog}
+                  clearAppliedLog={clearAppliedLog}
+                />
+              }
+            />
 
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/gallery" element={<GalleryPage />} />
-          <Route path="/machine/:id" element={<MachineDetailsPage />} />
-          <Route path="/machine/:machineName" element={<MachineGallery />} />
-          <Route path="/machine/:machineName/:machineId/variant/:variantName/:variantId" element={<VariantGallary />} />
-          {/* <Route path="/machine/:machineId/variant/:variantId" element={<VariantGallaryView />} /> */}
-          <Route path="/folder-structure" element={<FolderTree />} />
-          <Route path="/getting-started" element={<GettingStarted />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/gallery" element={<GalleryPage />} />
+            <Route path="/machine/:id" element={<MachineDetailsPage />} />
+            <Route path="/machine/:machineName" element={<MachineGallery />} />
+            <Route path="/machine/:machineName/:machineId/variant/:variantName/:variantId" element={<VariantGallary />} />
+            {/* <Route path="/machine/:machineId/variant/:variantId" element={<VariantGallaryView />} /> */}
+            <Route path="/folder-structure" element={<FolderTree />} />
+            <Route path="/getting-started" element={<GettingStarted />} />
 
-          {/* dev settings page */}
-          <Route
-            path="/dev-settings"
-            element={
-              <ProtectedRoute>
-                <DeveloperSettingsPage />
-              </ProtectedRoute>
-            }
-          />
+            {/* dev settings page */}
+            <Route
+              path="/dev-settings"
+              element={
+                <ProtectedRoute>
+                  <DeveloperSettingsPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <ProfilePage />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/users"
-            element={
-              <ProtectedRoute requireSuperAdmin>
-                <UsersPage />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </MachineSelectionProvider>
-      {/* <BasicSpeedDial /> */}
+            <Route
+              path="/users"
+              element={
+                <ProtectedRoute requireSuperAdmin>
+                  <UsersPage />
+                </ProtectedRoute>
+              }
+            />
 
-      <RecentActivitiesDialog
-        open={recentDialogOpen}
-        handleClose={closeRecentDialog}
-        onApplyLog={onApplyLog}
-      />
+            <Route
+              path="/email"
+              element={
+                <ProtectedRoute>
+                  <EmailUI />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </MachineSelectionProvider>
+        {/* <BasicSpeedDial /> */}
 
-      <Footer onRecentOpen={openRecentDialog} onApplyLog={onApplyLog} />
-    </>
+        <RecentActivitiesDialog
+          open={recentDialogOpen}
+          handleClose={closeRecentDialog}
+          onApplyLog={onApplyLog}
+        />
+
+        <Footer onRecentOpen={openRecentDialog} onApplyLog={onApplyLog} />
+      </>
     </div>
   );
 }
