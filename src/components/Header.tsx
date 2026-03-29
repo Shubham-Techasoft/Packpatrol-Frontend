@@ -82,7 +82,7 @@ function ResponsiveAppBar() {
     { name: "Dashboard", path: "/dashboard", icon: <DashboardIcon sx={{ mr: 0.25, fontSize: "20px" }} /> },
     ...(auth && isPrivilegedUser() ? [{ name: "Dev Settings", path: "/dev-settings", icon: <SettingsIcon sx={{ mr: 0.25, fontSize: "20px" }} /> }] : []),
     ...(auth && isSuperAdmin() ? [{ name: "Users", path: "/users", icon: <GroupIcon sx={{ mr: 0.25, fontSize: "20px" }} /> }] : []),
-    ...(auth ? [{ name: "Email", path: "/email", icon: <EmailIcon sx={{ mr: 0.25, fontSize: "20px" }} /> }] : []),
+    ...(auth && isPrivilegedUser() ? [{ name: "Email", path: "/email", icon: <EmailIcon sx={{ mr: 0.25, fontSize: "20px" }} /> }] : []),
     { name: "About", path: "/about", icon: <InfoIcon sx={{ mr: 0.25, fontSize: "20px" }} /> },
     { name: "Help", path: "/getting-started", icon: <MenuBookIcon sx={{ mr: 0.25, fontSize: "20px" }} /> },
   ];
