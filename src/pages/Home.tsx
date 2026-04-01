@@ -39,21 +39,19 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
 
 // live updates messages
 const logMessages = [
-  "Batch #101 started: Stack size set to 45mm, targeting 200 stacks.",
-  "Machine 2: 187 stacks successfully produced, 13 rejected due to uneven texture.",
-  "Quality Control: 5 biscuits rejected from Stack #56 due to overbaking.",
-  "Machine 1 completed batch: 95% pass rate achieved.",
-  "Auto-inspection passed: Stack #89 — 20 biscuits, 0 defects.",
-  "Stack size updated to 50mm for chocolate machine.",
-  "Machine 3 paused — low dough pressure detected.",
-  "Final check: 1,250 biscuits passed, 30 rejected in current batch.",
-  "Packaging unit: 190 stacks sealed, 2 flagged for inspection.",
-  "Stack Count: 205 stacks built in last cycle (97.5% efficiency).",
-  "Warning: Stack #32 contained irregular biscuit height — rejected.",
-  "Line 2 resumed — lubricant level optimized.",
-  "Stack #77 manually inspected — 100% conformity confirmed.",
-  "Min Stack Size set to 40mm, Max Stack Size adjusted to 55mm.",
-  "machine change to 'Oats Delight' — expected yield: 1,500 biscuits.",
+  "Always check the current Variant before starting the rejection system!",
+  "Ensure stack size and stack length are within allowed range!",
+  "Do not forget to keep sensors and camera lenses clean for a better quality!",
+  "Ignoring warnings is costly. Small alerts today can become major losses by shift end!",
+  "Stop the production/Rejection System immediately when you notice unusual spikes or inconsistencies!",
+  "Work smart, not reactive—log unusual defects early to prevent repeat issues across batches!",
+  "Before starting the day, check camera and sensor positions, also turn on rejection on PLCs!",
+  "Never handle components on running production!",
+  "Bypassing safety checks saves seconds but risks downtime, damage, and serious operational issues later!",
+  "You can save on maintainence but cannot prevent ageing!",
+  "We can easily add new Variants or new lines in our system!",
+  "Any unresolved issue on the system? Contact us 📞 immediatly, we will be on action!",
+  "Even Google and NASA can't guarantee 100% success rate!",
 ];
 
 type Machine = {
@@ -1243,7 +1241,7 @@ export default function Home({ recentDialogOpen, closeRecentDialog, appliedLog, 
           <StyledPaper sx={{ flex: 7, overflowY: "auto", bgcolor: "#ffffff", boxShadow: "0 0 20px -5px rgba(106, 107, 107, 1)", borderRadius: 2}}>
             <Box sx={{ mb: -1 }}>
               <Typography variant="h6" component="h4" gutterBottom>
-                Live Updates
+                QUICK CHECKS AND TIPS ✅
               </Typography>
             </Box>
             <Box>
