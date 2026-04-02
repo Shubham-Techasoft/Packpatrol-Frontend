@@ -295,7 +295,7 @@ export default function EmailUI() {
                             Send Report Now
                         </Typography>
                         <Typography variant="body2" color="text.secondary" mb={2}>
-                            Manually trigger the 12-hour rejection report to all active recipients immediately.
+                            Click here to get the report now.
                         </Typography>
                         <Button
                             fullWidth
